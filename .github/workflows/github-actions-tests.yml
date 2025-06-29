@@ -8,7 +8,7 @@ jobs:
       - name: Checkut
         uses: actions/checkout@v4.2.2
       - name: Install deps
-        run: pip install -r requirements.txt
+        run: pip install -r requirements
       - name: Tests
         run: pytest backend/tests/auth_tests.py
   revert-change:
