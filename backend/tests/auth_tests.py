@@ -1,5 +1,5 @@
 import pytest
-from password_manager import hash_password, check_password
+from authorization.password_manager import hash_password, check_password
 
 
 @pytest.fixture
