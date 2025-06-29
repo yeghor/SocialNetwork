@@ -1,0 +1,27 @@
+name: tests
+on: push
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkut
+        uses: actions/checkout@v4.2.2
+      - name: Install deps
+        run: pip install -r requirements
+      - name: Tests
+        run: pytest backend/tests/auth_tests.py
+  revert-change:
+    runs-on: ubuntu-latest
+    needs: [ tests ]
+    if: ${{ failure() }}
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - name: Revert the commit that triggered this run, then push ot to main
+        shell: bash
+        run: |
+          echo "Reverting ${{ github.sha }}"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git revert --no-edit ${{ github.sha }}
+          git push origin main
