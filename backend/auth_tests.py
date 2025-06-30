@@ -1,8 +1,8 @@
 import pytest
 import asyncio
 
-from password_manager import hash_password, check_password
-from jwt_manager import generate_save_token
+from authorization.password_manager import hash_password, check_password
+from authorization.jwt_manager import generate_save_token
 from redis_manager import RedisService
 
 """Soluthion:

@@ -15,4 +15,4 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
       - name: Tests
-        run: pytest backend/authorization/auth_tests.py
+        run: pytest backend/auth_tests.py
