@@ -15,7 +15,7 @@ def redis_error_handler(func):
             raise HTTPException(status_code=500, detail=f"Action with redis failed: {e}")
     return wrapper
 
-
+# Needs to be refactored
 class RedisService:
     def __init__(self):
         try:
@@ -31,9 +31,9 @@ class RedisService:
     @redis_error_handler
     async def save_jwt(self, jwt_token: str, user_id: str) -> None:
         await self.__client.setex(
-            name=f"user:{str(user_id)}",
+            name=f"jwt-token:{str(jwt_token)}",
             time=int(getenv("JWT_EXPIRY_SECONDS")),
-            value=str(jwt_token)
+            value=str(user_id)
         )
     
     @redis_error_handler

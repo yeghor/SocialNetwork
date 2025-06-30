@@ -25,8 +25,9 @@ def jwt_error_handler(func):
                 raise HTTPException(status_code=500, detail=f"Uknown error occured (jwt_manager): {e}")
     return wrapper
 
+
 @jwt_error_handler
-async def generate_save_token(user_id: str) -> str:
+def generate_token(user_id: str) -> str:
     encoded_jwt = jwt.encode(
         payload={
             "user_id": user_id,
@@ -36,9 +37,13 @@ async def generate_save_token(user_id: str) -> str:
         algorithm=getenv("JWT_ALGORITHM")
     )
     redis = RedisService()
-
-    await redis.save_jwt(jwt_token=encoded_jwt, user_id=user_id)
     return encoded_jwt
+
+# Doesn't require error handle
+async def generate_save_token(user_id: str) -> None:
+    redis = RedisService()
+    encoded_jwt = generate_token(user_id)
+    await redis.save_jwt(jwt_token=encoded_jwt, user_id=user_id)
 
 @jwt_error_handler
 def extract_jwt_payload(jwt_token: str) -> PayloadJWT:
