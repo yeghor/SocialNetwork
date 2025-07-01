@@ -13,9 +13,9 @@ load_dotenv()
 
 def jwt_error_handler(func):
     @wraps(func)
-    async def wrapper(*args, **kwargs):
+    def wrapper(*args, **kwargs):
         try:
-            return await func(*args, **kwargs)
+            return func(*args, **kwargs)
         except Exception as e:
             if isinstance(e, jwt_exceptions.DecodeError):
                 raise HTTPException(status_code=500, detail="JWT Token decoding failed")
@@ -31,19 +31,19 @@ def generate_token(user_id: str) -> str:
     encoded_jwt = jwt.encode(
         payload={
             "user_id": user_id,
-            "issued_at": int(datetime.timestamp())
+            "issued_at": int(datetime.now().timestamp())
         },
         key=getenv("SECRET_KEY"),
         algorithm=getenv("JWT_ALGORITHM")
     )
-    redis = RedisService()
     return encoded_jwt
 
 # Doesn't require error handle
-async def generate_save_token(user_id: str) -> None:
-    redis = RedisService()
+async def generate_save_token(user_id: str, redis: RedisService) -> None:
     encoded_jwt = generate_token(user_id)
     await redis.save_jwt(jwt_token=encoded_jwt, user_id=user_id)
+
+    return encoded_jwt
 
 @jwt_error_handler
 def extract_jwt_payload(jwt_token: str) -> PayloadJWT:
