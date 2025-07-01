@@ -2,6 +2,7 @@ import pytest
 from authorization.password_manager import hash_password, check_password
 from authorization.jwt_manager import generate_save_token, extract_jwt_payload
 from redis_manager import RedisService
+import os
 
 # """Soluthion:
 # https://stackoverflow.com/questions/70015634/how-to-test-async-function-using-pytest
@@ -22,6 +23,8 @@ async def test_jwt_and_redis_jwt_saving():
     """Test JWT handling with jwt and redis async library"""
 
     user_id = "TEST_ID_12345"
+
+
     redis = RedisService(db_pool="test")
 
     jwt_token = await generate_save_token(user_id, redis) # Tests redis save_jwt() method

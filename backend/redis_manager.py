@@ -27,11 +27,18 @@ class RedisService:
         else:
             raise ValueError("Invalid pool name was chosed")
 
-    def __init__(self, db_pool: str = "prod"):
-        """To switch to the test pool - assign db_pool to "test" """
+    @staticmethod
+    def _define_host(host: str) -> str:
+        if not host: return "lolalhost"
+
+    def __init__(self, db_pool: str = "prod", host: str = "localhost"):
+        """
+        To switch to the test pool - assign db_pool to "test" \n
+        If host equal to None - host will be "localhost"
+        """
         try:
             self.__client = redis.Redis(
-                host='localhost',
+                host=self._define_host(host),
                 port=6379,
                 db=self._chose_pool(db_pool),
                 decode_responses=True
