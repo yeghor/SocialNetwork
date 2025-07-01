@@ -30,6 +30,7 @@ class RedisService:
     @staticmethod
     def _define_host(host: str) -> str:
         if not host: return "lolalhost"
+        print(host)
         return host
 
     def __init__(self, db_pool: str = "prod", host: str = "localhost"):
