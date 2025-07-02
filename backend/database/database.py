@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from dotenv import load_dotenv
-from os import getenv
+from os import getenv    
 
 load_dotenv()
 
@@ -12,5 +12,4 @@ engine = create_async_engine(
     echo=True # To see database logs
 )
 
-session: AsyncSession = async_sessionmaker()
-
+session = async_sessionmaker(bind=engine, autoflush=False, autocommit=False)

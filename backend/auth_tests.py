@@ -24,10 +24,7 @@ async def test_jwt_and_redis_jwt_saving():
 
     user_id = "TEST_ID_12345"
 
-    # CHANGE TO "localhost" if running manualy. Github CI requires host be as "redis"
-    redis_host = "localhost"
-
-    redis = RedisService(db_pool="test", host=redis_host)
+    redis = RedisService(db_pool="test")
 
     jwt_token = await generate_save_token(user_id, redis) # Tests redis save_jwt() method
     assert await redis.check_jwt_existense(jwt_token)
