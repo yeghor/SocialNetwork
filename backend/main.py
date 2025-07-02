@@ -2,8 +2,11 @@ from fastapi import FastAPI
 import asyncio
 from authorization.auth_router import auth
 from database.models import *
-from database.database import engine
+from database.database import create_engine, create_sessionmaker
 from contextlib import asynccontextmanager
+
+engine = create_engine(mode="prod")
+SessionLocal = create_sessionmaker(engine)
 
 
 async def initialize_models():
