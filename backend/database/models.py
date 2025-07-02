@@ -1,6 +1,8 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy import ForeignKey 
 from uuid import UUID
+from datetime import datetime
+from typing import List
 
 class Base(DeclarativeBase):
     pass
@@ -17,16 +19,23 @@ class User(Base):
     user_id: Mapped[UUID] = mapped_column(primary_key=True)
     username: Mapped[str]
     password_hash: Mapped[str]
+    joined: Mapped[datetime]
 
-    followed: Mapped[list["User"]] = relationship(
+    posts: Mapped[List["Post"]] = relationship(
+        "Post",
+        back_populates="owner",
+        lazy="selectin"
+    )
+
+    followed: Mapped[List["User"]] = relationship(
         "User",
-        secondary="friendship",
+        secondary="friendship", 
         primaryjoin="User.user_id == Friendship.follower_id",
         secondaryjoin="User.user_id == Friendship.followed_id",
         back_populates="followers",
         lazy="selectin"
     )
-    followers: Mapped[list["User"]] = relationship(
+    followers: Mapped[List["User"]] = relationship(
         "User",
         secondary="friendship",
         primaryjoin="User.user_id == Friendship.followed_id",
@@ -39,11 +48,29 @@ class User(Base):
         return f"Username: {self.username}"
 
 class Post(Base):
-    __tablename__ = "post"
+    __tablename__ = "posts"
 
-    post_id: Mapped[UUID] = mapped_column(primary_key=True)
+    post_id: Mapped[str] = mapped_column(primary_key=True)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"))
 
+    # Add constraits to fields
+    title: Mapped[str] = mapped_column()
+    description: Mapped[str] = mapped_column()
+    text: Mapped[str]
+    image_path: Mapped[str] = mapped_column(nullable=True)
+    likes: Mapped[int] = mapped_column(default=0)
+
+
+    # Add relationship
+    comments: Mapped[List[]]
+    owner: Mapped["User"] = relationship("User", back_populates="posts")
+
+
+# Think about inheriting posts ?????
+class Comment(Post):
+    __tablename__ = "comments"
+ 
 class Reply(Base):
-    __tablename__ = "reply"
+    __tablename__ = "replies"
 
     reply_id: Mapped[UUID] = mapped_column(primary_key=True)
