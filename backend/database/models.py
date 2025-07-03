@@ -1,11 +1,13 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import ForeignKey 
+from sqlalchemy import ForeignKey, text
 from uuid import UUID
 from datetime import datetime
 from typing import List
 
+
 class Base(DeclarativeBase):
     pass
+
 
 class Friendship(Base):
     __tablename__ = "friendship"
@@ -13,16 +15,29 @@ class Friendship(Base):
     follower_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id"), primary_key=True)
     followed_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id"), primary_key=True)
 
+
 class User(Base):
     __tablename__ = "users"
 
     user_id: Mapped[UUID] = mapped_column(primary_key=True)
     username: Mapped[str]
     password_hash: Mapped[str]
-    joined: Mapped[datetime]
+    joined: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
 
     posts: Mapped[List["Post"]] = relationship(
         "Post",
+        back_populates="owner",
+        lazy="selectin"
+    )
+
+    comments: Mapped[List["Comment"]] = relationship(
+        "Comment",
+        back_populates="owner",
+        lazy="selectin"
+    )
+
+    reposts: Mapped[List["Repost"]] = relationship(
+        "Repost",
         back_populates="owner",
         lazy="selectin"
     )
@@ -47,11 +62,12 @@ class User(Base):
     def __repr__(self):
         return f"Username: {self.username}"
 
+
 class Post(Base):
     __tablename__ = "posts"
 
-    post_id: Mapped[str] = mapped_column(primary_key=True)
-    owner_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"))
+    post_id: Mapped[UUID] = mapped_column(primary_key=True)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
 
     # Add constraits to fields
     title: Mapped[str] = mapped_column()
@@ -59,18 +75,43 @@ class Post(Base):
     text: Mapped[str]
     image_path: Mapped[str] = mapped_column(nullable=True)
     likes: Mapped[int] = mapped_column(default=0)
+    published: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
+    last_updated: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"), onupdate=text("TIMEZONE('utc', now())"))
+
+    comments: Mapped[List["Comment"]] = relationship("Comment", back_populates="parent_post", lazy="selectin")
+    owner: Mapped["User"] = relationship("User", back_populates="posts", lazy="selectin")
+    reposts: Mapped[List["Repost"]] = relationship("Repost", back_populates="parent_post", lazy="selectin")
 
 
-    # Add relationship
-    comments: Mapped[List[]]
-    owner: Mapped["User"] = relationship("User", back_populates="posts")
+class Repost(Base):
+    __tablename__ = "reposts"
+
+    repost_id: Mapped[UUID] = mapped_column(primary_key=True)
+    parent_id: Mapped[UUID] = mapped_column(ForeignKey("posts.post_id", ondelete="SET NULL"), nullable=True)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
+
+    # Add constraits to fields
+    text: Mapped[str]
+    likes: Mapped[int] = mapped_column(default=0)
+    published: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
+    last_updated: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"), onupdate=text("TIMEZONE('utc', now())"))
+
+    parent_post: Mapped["Post"] = relationship("Post", back_populates="reposts", lazy="selectin")
+    owner: Mapped[User] = relationship("User", back_populates="reposts", lazy="selectin")
 
 
-# Think about inheriting posts ?????
-class Comment(Post):
+class Comment(Base):
     __tablename__ = "comments"
- 
-class Reply(Base):
-    __tablename__ = "replies"
 
-    reply_id: Mapped[UUID] = mapped_column(primary_key=True)
+    comment_id: Mapped[UUID] = mapped_column(primary_key=True)
+    post_id: Mapped[UUID] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), nullable=False)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    parent_comment_id: Mapped[UUID] = mapped_column(ForeignKey("comments.comment_id", ondelete="CASCADE"), nullable=True)
+
+    text: Mapped[str]
+    published: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
+
+    parent_comment: Mapped["Comment"] = relationship("Comment", back_populates="replies", remote_side=[comment_id], lazy="selectin")
+    replies: Mapped["Comment"] = relationship("Comment", back_populates="parent_comment", lazy="selectin")
+    parent_post: Mapped["Post"] = relationship("Post", back_populates="comments", lazy="selectin")
+    owner: Mapped["User"] = relationship("User", back_populates="comments", lazy="selectin")
