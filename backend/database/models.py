@@ -105,7 +105,7 @@ class Comment(Base):
 
     comment_id: Mapped[UUID] = mapped_column(primary_key=True)
     post_id: Mapped[UUID] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), nullable=False)
-    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
     parent_comment_id: Mapped[UUID] = mapped_column(ForeignKey("comments.comment_id", ondelete="CASCADE"), nullable=True)
 
     text: Mapped[str]

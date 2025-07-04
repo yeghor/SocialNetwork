@@ -9,15 +9,15 @@ engine = create_engine(mode="prod")
 SessionLocal = create_sessionmaker(engine)
 
 
-async def initialize_models():
+async def initialize_models(engine):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
-# On app startup.https://fastapi.tiangolo.com/advanced/events/#lifespan
+# On app startup. https://fastapi.tiangolo.com/advanced/events/#lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await initialize_models()
+    await initialize_models(engine=engine)
     yield
 
 app = FastAPI(lifespan=lifespan)

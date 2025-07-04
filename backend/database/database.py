@@ -17,11 +17,11 @@ def define_database_url(mode: str) -> str:
     elif mode == "test": return f"postgresql+asyncpg://{getenv("DB_USERNAME_TEST")}:{getenv("DB_PASSWORD_TEST")}@{getenv("DB_HOST_TEST")}:{getenv("DB_PORT_TEST")}/{getenv("DB_NAME_TEST")}"
 
 
-def create_engine(mode: str = "prod") -> AsyncEngine:
+def create_engine(mode: str = "prod", echo=False) -> AsyncEngine:
     DATABASE_URL = define_database_url(mode)
     return create_async_engine(
         url=DATABASE_URL,
-        echo=True
+        echo=echo
     )
 
 def create_sessionmaker(engine: AsyncEngine) -> sessionmaker[AsyncSession]:
