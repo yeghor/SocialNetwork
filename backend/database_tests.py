@@ -16,6 +16,7 @@ async def conn():
     async with session() as connection:
         yield connection
 
+
 @pytest.mark.asyncio
 async def test_models(conn):
     # Draft
