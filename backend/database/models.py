@@ -69,9 +69,9 @@ class Post(Base):
     post_id: Mapped[UUID] = mapped_column(primary_key=True)
     owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
 
-    # Add constraits to fields
-    title: Mapped[str] = mapped_column()
-    description: Mapped[str] = mapped_column()
+    # Add constraits!!!
+    title: Mapped[str]
+    description: Mapped[str]
     text: Mapped[str]
     image_path: Mapped[str] = mapped_column(nullable=True)
     likes: Mapped[int] = mapped_column(default=0)
@@ -97,7 +97,7 @@ class Repost(Base):
     last_updated: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"), onupdate=text("TIMEZONE('utc', now())"))
 
     parent_post: Mapped["Post"] = relationship("Post", back_populates="reposts", lazy="selectin")
-    owner: Mapped[User] = relationship("User", back_populates="reposts", lazy="selectin")
+    owner: Mapped["User"] = relationship("User", back_populates="reposts", lazy="selectin")
 
 
 class Comment(Base):
@@ -112,6 +112,6 @@ class Comment(Base):
     published: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
 
     parent_comment: Mapped["Comment"] = relationship("Comment", back_populates="replies", remote_side=[comment_id], lazy="selectin")
-    replies: Mapped["Comment"] = relationship("Comment", back_populates="parent_comment", lazy="selectin")
+    replies: Mapped[List["Comment"]] = relationship("Comment", back_populates="parent_comment", lazy="selectin")
     parent_post: Mapped["Post"] = relationship("Post", back_populates="comments", lazy="selectin")
     owner: Mapped["User"] = relationship("User", back_populates="comments", lazy="selectin")
