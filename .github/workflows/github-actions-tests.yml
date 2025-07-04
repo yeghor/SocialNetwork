@@ -29,7 +29,8 @@ jobs:
 
       - name: Install deps
         run: pip install -r requirements.txt
-        run: cd backebd
+
+      - run: cd backebd
 
       - name: Test Authorization
         run: pytest auth_tests.py
