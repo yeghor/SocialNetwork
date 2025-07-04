@@ -4,7 +4,9 @@ on: push
 jobs:
   tests:
     runs-on: ubuntu-latest
-
+    defaults:
+      run:
+        working_directory: backend
     services:
       redis:
         image: redis
@@ -29,8 +31,6 @@ jobs:
 
       - name: Install deps
         run: pip install -r requirements.txt
-
-      - run: cd backend
 
       - name: Test Authorization
         run: pytest auth_tests.py
