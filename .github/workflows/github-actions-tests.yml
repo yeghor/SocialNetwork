@@ -30,7 +30,7 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
 
-      - run: cd backebd
+      - run: cd backend
 
       - name: Test Authorization
         run: pytest auth_tests.py
