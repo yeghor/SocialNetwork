@@ -14,7 +14,7 @@ jobs:
         image: postgres
         ports:
           - 5433:5432
-        enviroment:
+        env:
           - POSTGRES_USER: test
           - POSTGRES_PASSWORD: password
           - POSTGRES_DB: test
