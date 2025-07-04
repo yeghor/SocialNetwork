@@ -6,7 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working_directory: backend
+        working-directory: backend
     services:
       redis:
         image: redis
