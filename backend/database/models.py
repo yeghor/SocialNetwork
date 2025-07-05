@@ -20,7 +20,8 @@ class User(Base):
     __tablename__ = "users"
 
     user_id: Mapped[UUID] = mapped_column(primary_key=True)
-    username: Mapped[str]
+    username: Mapped[str] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(primary_key=True)
     password_hash: Mapped[str]
     joined: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
 
@@ -106,6 +107,7 @@ class Comment(Base):
     comment_id: Mapped[UUID] = mapped_column(primary_key=True)
     post_id: Mapped[UUID] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), nullable=False)
     owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
+    owner_username: Mapped[str] = mapped_column(ForeignKey("users.username", ondelete="SET NULL"), nullable=True)
     parent_comment_id: Mapped[UUID] = mapped_column(ForeignKey("comments.comment_id", ondelete="CASCADE"), nullable=True)
 
     text: Mapped[str]
