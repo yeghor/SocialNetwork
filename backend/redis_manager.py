@@ -41,7 +41,7 @@ class RedisService:
         try:
             self.__client = redis.Redis(
                 host=self._define_host(host),
-                port=6379,
+                port=int(getenv("CHROMADB_PORT")),
                 db=self._chose_pool(db_pool),
                 decode_responses=True
             )

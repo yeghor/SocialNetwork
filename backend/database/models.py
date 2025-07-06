@@ -1,6 +1,6 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, validates, mapped_column, relationship
 from sqlalchemy import ForeignKey, text
-from uuid import UUID
+from uuid import UUID, uuid4
 from datetime import datetime
 from typing import List
 from dotenv import load_dotenv
@@ -25,7 +25,7 @@ class Friendship(Base):
 class User(Base):
     __tablename__ = "users"
 
-    user_id: Mapped[UUID] = mapped_column(primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     username: Mapped[str] = mapped_column(unique=True)
     email: Mapped[str] = mapped_column(unique=True)
     password_hash: Mapped[str]
@@ -57,7 +57,7 @@ class User(Base):
 
     @validates("username")
     def validate_username(self, key, username: str):
-        if not getenv("USERNAME_MIN_L") <= len(username) <= getenv("USERNAME_MAX_L"):
+        if not int(getenv("USERNAME_MIN_L")) <= len(username) <= int(getenv("USERNAME_MAX_L")):
             raise ValueError("Username length is out of range")
         return username
 
@@ -68,7 +68,7 @@ class User(Base):
 class Post(Base):
     __tablename__ = "posts"
 
-    post_id: Mapped[UUID] = mapped_column(primary_key=True)
+    post_id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
     parent_post_id: Mapped[UUID| None] = mapped_column(ForeignKey("posts.post_id", ondelete="SET NULL"), nullable=True)
 
@@ -77,7 +77,7 @@ class Post(Base):
     # Add constraits!!!
     title: Mapped[str] = mapped_column(nullable=True)
     text: Mapped[str]
-    image_path: Mapped[str] = mapped_column(nullable=True)
+    image_path: Mapped[str | None] = mapped_column(nullable=True)
     likes: Mapped[int] = mapped_column(default=0)
     published: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
     last_updated: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"), onupdate=text("TIMEZONE('utc', now())"))
@@ -97,13 +97,13 @@ class Post(Base):
 
     @validates("title")
     def validate_title(self, key, title: str):
-        if not getenv("POST_TITLE_MIN_L") <= len(title) <= getenv("POST_TITLE_MAX_L"):
+        if not int(getenv("POST_TITLE_MIN_L")) <= len(title) <= int(getenv("POST_TITLE_MAX_L")):
             raise ValueError("Post title length is out of range")
         return title
 
     @validates("text")
     def validate_text(self, key, text: str):
-        if not getenv("POST_TEXT_MIN_L") <= len(text) <= getenv("POST_TEXT_MAX_L"):
+        if not int(getenv("POST_TEXT_MIN_L")) <= len(text) <= int(getenv("POST_TEXT_MAX_L")):
             raise ValueError("Post text length is out of range")
         return text
 

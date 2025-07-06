@@ -3,27 +3,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from functools import wraps
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import HTTPException
-from models import Base, User, Post, Comment
+from database.models import Base, User, Post
 from sqlalchemy import select, or_
 from typing import List
 from uuid import UUID
 
-def validate_n(func):
+def validate_n_postitive(func):
     async def wrapper(n: int, *args, **kwargs):
         if n <= 0:
             raise ValueError("Invalid number of entries")
-        await func(n, *args, **kwargs)
+        return await func(n, *args, **kwargs)
     return wrapper
 
 async def get_session_depends():
+    """Automatically close session"""
     async with SessionLocal() as conn:
-        try:
-            yield conn
-        finally:
-            await conn.close()
+        yield conn
 
-def database_error_handler(action: str = "Uknown action with the database"):
-    async def decorator(func):
+def database_error_handler(action: str = "Unknown action with the database"):
+    def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
             try:
@@ -49,14 +47,14 @@ async def insert_model_and_flush(session: AsyncSession, *models) -> None:
     await session.flush()
 
 @database_error_handler(action="Get user by id")
-async def get_user_by_id(session: AsyncSession, user_id: UUID, email: UUID) -> User | None:
+async def get_user_by_id(session: AsyncSession, user_id: UUID, email: str) -> User | None:
     result = await session.execute(
         select(User)
         .where(or_(User.user_id == user_id, User.email == email))
     )
     return result.scalar()
 
-@validate_n
+@validate_n_postitive
 @database_error_handler(action="Get n most popular posts")
 async def get_n_popular_posts(session: AsyncSession, n: int) -> List[Post]:
     result = await session.execute(
@@ -66,7 +64,7 @@ async def get_n_popular_posts(session: AsyncSession, n: int) -> List[Post]:
     )
     return result.scalars().all()
 
-@validate_n
+@validate_n_postitive
 @database_error_handler(action="Get n most fresh posts")
 async def get_fresh_posts(session: AsyncSession, n: int) -> List[Post]:
     result = await session.execute(
@@ -76,18 +74,17 @@ async def get_fresh_posts(session: AsyncSession, n: int) -> List[Post]:
     )
     return result.scalars().all()
 
-@validate_n
+@validate_n_postitive
 @database_error_handler(action="Get subcribers posts")
-async def get_subs_posts(session: AsyncSession, n: int, user_ids: List[str] | None, user_models: List[User] | None, most_popular: bool = False):
+async def get_subs_posts(session: AsyncSession, n: int, user_ids: List[str] | None, user_models: List[User] | None, most_popular: bool = False) -> List[None] | List[Post]:
     """
-    Getting posts of subcribers, whose ids mentioned in user_ids or user_models lists. If user_models not empty - getting ids from models.
-    Most popular sorts posts by descending amount of likes field
+    Getting posts of users, whose ids mentioned in user_ids or user_models lists. If user_models not empty - getting ids from models.
+    Most popular sorts posts by descending amount of likes field. Can be used by your followers or who you follow
     """
-    if not user_ids:
-        return []
-
     if user_models:
         user_ids = [user.user_id for user in user_models]
+    if not user_ids:
+        return []
 
     result = await session.execute(
         select(Post)
@@ -102,3 +99,17 @@ async def get_subs_posts(session: AsyncSession, n: int, user_ids: List[str] | No
 
     return posts
 
+"""For testcases"""
+@database_error_handler(action="Get all users")
+async def get_all_users(session: AsyncSession) -> List[User]:
+    result = await session.execute(
+        select(User)
+    )
+    return result.scalars().all()
+
+@database_error_handler(action="Get all posts")
+async def get_all_posts(session: AsyncSession) -> List[Post]:
+    result = await session.execute(
+        select(Post)
+    )
+    return result.scalars().all()
