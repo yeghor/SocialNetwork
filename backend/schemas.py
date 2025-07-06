@@ -1,7 +1,11 @@
-from pydantic import BaseModel, field_validator, ValidationInfo
+from pydantic import BaseModel, field_validator, ValidationInfo, Field
 from datetime import datetime
 from typing import Any, List
 from uuid import UUID
+from dotenv import load_dotenv
+from os import getenv
+
+load_dotenv()
 
 class PayloadJWT(BaseModel):
     user_id: str
@@ -21,24 +25,23 @@ Using short schemas to prevent recursive convertation with SQLalchemy relationsh
 # Add constraits!!!
 class ShortUserProfileSchema(BaseModel):
     user_id: UUID
-    username: str
+    username: str = Field(min_length=int(getenv("USERNAME_MIN_L")), max_length=int(getenv("USERNAME_MAX_L")))
     joined: datetime
 
-    posts: List["ShortPostSchema"]
-    comments: List["ShortCommentSchema"]
-    reposts: List["ShortRepostSchema"]
-
 class UserProfileSchema(ShortUserProfileSchema):
+    posts: List["PostSchema"]
     followed: List["ShortUserProfileSchema"]
     followers: List["ShortUserProfileSchema"]
 
 class ShortPostSchema(BaseModel):
     post_id: UUID
     owner_id: UUID
+    parent_post_id: UUID | None
 
-    title: str
-    description: str
-    text: str
+    is_reply: bool
+
+    title: str = Field(min_length=int(getenv("POST_TITLE_MIN_L")), max_length=int(getenv("POST_TITLE_MAX_L")))
+    text: str = Field(min_length=int(getenv("POST_TEXT_MIN_L")), max_length=int(getenv("POST_TEXT_MAX_L")))
     image_path: str | None
     likes: int
     published: datetime
@@ -46,37 +49,6 @@ class ShortPostSchema(BaseModel):
 
 
 class PostSchema(ShortPostSchema):
-    comments: List["ShortCommentSchema"]
     owner: "ShortUserProfileSchema"
-    reposts: "ShortRepostSchema"
-
-
-class ShortCommentSchema(BaseModel):
-    comment_id: UUID
-    post_id: UUID
-    owner_id: UUID
-    parent_comment_id: UUID | None
-
-    text: str
-    published: datetime
-
-class CommentSchema(ShortCommentSchema):
-    parent_comment: "ShortCommentSchema"
-    replies: List["ShortCommentSchema"]
-    parent_post: ShortPostSchema
-    owner: ShortUserProfileSchema
-
-
-class ShortRepostSchema(BaseModel):
-    repost_id: UUID
-    parent_id: UUID
-    owner_id: UUID
-
-    text: str
-    likes: int
-    published: datetime
-    last_updated: datetime
-
-class RepostSchema(ShortRepostSchema):
     parent_post: "ShortPostSchema"
-    owner: "ShortUserProfileSchema"
+    replies: List["ShortPostSchema"]

@@ -75,7 +75,7 @@ class Post(Base):
     is_reply: Mapped[bool] = mapped_column(default=False)
 
     # Add constraits!!!
-    title: Mapped[str] = mapped_column(nullable=True)
+    title: Mapped[str] = mapped_column()
     text: Mapped[str]
     image_path: Mapped[str | None] = mapped_column(nullable=True)
     likes: Mapped[int] = mapped_column(default=0)

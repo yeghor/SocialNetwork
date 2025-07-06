@@ -21,9 +21,13 @@ jobs:
           POSTGRES_PASSWORD: password
           POSTGRES_DB: test
 
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4.2.2
+
+      - name: Run chromaDB from docker
+        run: docker run -v ./chroma-data:/data -p 8080:8000 chromadb/chroma
 
       - uses: actions/setup-python@v5
         with:
