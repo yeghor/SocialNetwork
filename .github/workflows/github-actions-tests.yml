@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v4.2.2
 
       - name: Run chromaDB from docker
-        run: docker run -v ./chroma-data:/data -p 8080:8000 chromadb/chroma
+        run: docker run -v -d ./chroma-data:/data -p 8080:8000 chromadb/chroma
 
       - uses: actions/setup-python@v5
         with:
