@@ -105,7 +105,6 @@ class Post(Base):
         back_populates="parent_post",
     )
 
-    # NOT FINISHED. DRAFT
     viewers: Mapped[List["History"]] = relationship(
         "History",
         back_populates="post",
