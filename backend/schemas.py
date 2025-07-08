@@ -51,3 +51,8 @@ class PostSchema(ShortPostSchema):
     owner: "ShortUserProfileSchema"
     parent_post: "ShortPostSchema"
     replies: List["ShortPostSchema"]
+    viewers: List["HistorySchema"]
+
+class HistorySchema(BaseModel):
+    owner: "ShortUserProfileSchema"
+    post: "ShortPostSchema"
