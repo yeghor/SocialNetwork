@@ -37,6 +37,12 @@ class User(Base):
         lazy="selectin"
     )
 
+    views_history: Mapped[List["History"]] = relationship(
+        "History",
+        back_populates="owner",
+        lazy="selectin"
+    )
+
     # Self referable many-2-many https://stackoverflow.com/questions/9116924/how-can-i-achieve-a-self-referencing-many-to-many-relationship-on-the-sqlalchemy
     followed: Mapped[List["User"]] = relationship(
         "User",
@@ -82,7 +88,11 @@ class Post(Base):
     published: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
     last_updated: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"), onupdate=text("TIMEZONE('utc', now())"))
 
-    owner: Mapped["User"] = relationship("User", back_populates="posts", lazy="selectin")
+    owner: Mapped["User"] = relationship(
+        "User",
+        back_populates="posts",
+        lazy="selectin"
+    )
 
     # Self referable one-2-many relationship https://docs.sqlalchemy.org/en/20/orm/self_referential.html
     parent_post: Mapped["Post"] = relationship(
@@ -93,6 +103,13 @@ class Post(Base):
     replies: Mapped[List["Post"]] = relationship(
         "Post",
         back_populates="parent_post",
+    )
+
+    # NOT FINISHED. DRAFT
+    viewers: Mapped[List["History"]] = relationship(
+        "History",
+        back_populates="post",
+        lazy="selectin"
     )
 
     @validates("title")
@@ -109,3 +126,23 @@ class Post(Base):
 
     def __repr__(self):
         return f"Post name: {self.title}"
+
+
+class History(Base):
+    __tablename__ = "history"
+
+    view_id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"))
+    post_id: Mapped[UUID] = mapped_column(ForeignKey("posts.post_id", ondelete="SET NULL"))
+
+    owner: Mapped["User"] = relationship(
+        "User",
+        back_populates="views_history",
+        lazy="selectin"
+    )
+
+    post: Mapped["Post"] = relationship(
+        "Post",
+        back_populates="viewers",
+        lazy="selectin"
+    )
