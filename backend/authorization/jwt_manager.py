@@ -53,4 +53,3 @@ def extract_jwt_payload(jwt_token: str) -> PayloadJWT:
         algorithms=getenv("JWT_ALGORITHM")
     )
     return PayloadJWT.model_validate(payload)
-

@@ -21,7 +21,6 @@ class PayloadJWT(BaseModel):
 """
 Using short schemas to prevent recursive convertation with SQLalchemy relationship.
 """
-
 # Add constraits!!!
 class ShortUserProfileSchema(BaseModel):
     user_id: UUID
