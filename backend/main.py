@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 import asyncio
 from sqlalchemy.ext.asyncio import AsyncEngine
-from backend.routes.auth_router import auth
+from routes.auth_router import auth
 from database.models import *
 from database.database import create_engine, create_sessionmaker
 from contextlib import asynccontextmanager
