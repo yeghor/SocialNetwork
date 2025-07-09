@@ -20,8 +20,8 @@ async def initialize_models(engine: AsyncEngine, Base: Base) -> None:
 # On app startup. https://fastapi.tiangolo.com/advanced/events/#lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await initialize_models(engine=engine)
-    await drop_all(engine=engine)
+    await initialize_models(engine=engine, Base=Base)
+    await drop_all(engine=engine, Base=Base)
     yield
 
 app = FastAPI(lifespan=lifespan)
