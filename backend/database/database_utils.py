@@ -9,10 +9,30 @@ from typing import List
 from uuid import UUID
 
 def validate_n_postitive(func):
+    @wraps(func)
     async def wrapper(n: int, *args, **kwargs):
+        if not isinstance(n, int):
+            raise ValueError("Invalid number type")
         if n <= 0:
             raise ValueError("Invalid number of entries")
         return await func(n, *args, **kwargs)
+    return wrapper
+
+def validate_ids_type_to_UUID(func):
+    @wraps(func)
+    async def wrapper(ids: List[UUID | str],  *args, **kwargs):
+        if not ids: 
+            raise ValueError(f"Empty ids list")
+        ids_validated = []
+        for id in ids:
+            if isinstance(id, str):
+                id = UUID(id)
+            elif isinstance(id, UUID):
+                pass
+            else:
+                raise ValueError(f"Invalid id type: {type(id)}")
+            ids_validated.append(id)
+        return await func(ids_validated, *args, **kwargs)
     return wrapper
 
 async def get_session_depends():
@@ -111,5 +131,14 @@ async def get_all_users(session: AsyncSession) -> List[User]:
 async def get_all_posts(session: AsyncSession) -> List[Post]:
     result = await session.execute(
         select(Post)
+    )
+    return result.scalars().all()
+
+@validate_ids_type_to_UUID
+@database_error_handler(action="Get posts by ids")
+async def get_posts_by_ids(session: AsyncSession, ids: List[UUID | str]):
+    result = await session.execute(
+        select(Post)
+        .where(Post.post_id.in_(ids))
     )
     return result.scalars().all()
