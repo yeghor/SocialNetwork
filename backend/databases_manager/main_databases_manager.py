@@ -11,7 +11,7 @@ from fastapi import HTTPException
 
 class MainService:
     """
-    To create obj - use async method **create** *Reason - chromaDB async client requires await. But __init__ can't be async* \n
+    To create obj - use async method **initialize** *Reason - chromaDB async client requires await. But __init__ can't be async* \n
     Requires created SQLalchemy AsyncSession \n
     Select mode - "prod" | "test \n
     After you finish your work with service - AlWAYS call async method finish to commit and close all connections \n
@@ -39,9 +39,7 @@ class MainService:
         await self.__RedisService.finish()
         if commit_postgres: await self.__PostgresService.commit_changes()
     
-    async def authorize_request_depends(self, token: str, return_user: bool = True) -> User | None:
-        """Can be used in fastAPI Depends()"""
-
+    async def authorize_request(self, token: str, return_user: bool = True) -> User | None:
         valid_token = self.__JWT.prepare_token(jwt_token=token)
 
         if not await self.__RedisService.check_jwt_existence(jwt_token=valid_token):
