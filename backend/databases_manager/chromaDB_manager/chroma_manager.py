@@ -24,14 +24,14 @@ def chromaDB_error_handler(func):
 class ChromaService:
     def __init__(self, postgres_session: AsyncSession, client: AsyncHttpClient, collection):
         """To create class object. Use **async** method connect!"""
-        self._postgres_session = postgres_session
-        self._client: AsyncHttpClient = client
-        self._collection: Collection = collection
+        self.__client: AsyncHttpClient = client
+        self.__collection: Collection = collection
         self._datetime_format = getenv('DATETIME_BASE_FORMAT')
+
 
     @classmethod
     @chromaDB_error_handler
-    async def connect(cls, postgres_session: AsyncSession, mode: str = "prod"):
+    async def connect(cls, postgres_session: AsyncSession, mode: str = "prod") -> None:
         if not mode in ("prod", "test"):
             raise ValueError("Invalid chromaDB database mode")
         
@@ -55,7 +55,7 @@ class ChromaService:
 
         posts = [post_history_obj.post for post_history_obj in user.views_history[:number_of_last_viewed_posts] if not post_history_obj.post.is_reply ]
 
-        related_posts = await self._collection.query(
+        related_posts = await self.__collection.query(
             query_texts=[f"{post.title} {post.text} {post.published.strftime(self._datetime_format)}" for post in posts],
             n_results=n
         )
@@ -69,7 +69,7 @@ class ChromaService:
         filtered_posts = [post for post in posts if not post.is_reply]
 
         # Adding only field that CAN'T be nullable to prevent crash
-        await self._collection.upsert(
+        await self.__collection.upsert(
             ids=[str(post.post_id) for post in filtered_posts],
             documents=[f"{post.title} {post.text} {post.published.strftime(self._datetime_format)}" for post in filtered_posts],
             metadatas=[{"post_id": str(post.post_id)} for post in filtered_posts]

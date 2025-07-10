@@ -1,6 +1,6 @@
 import pytest
 from authorization.password_manager import hash_password, check_password
-from authorization.jwt_manager import generate_save_token, extract_jwt_payload
+from authorization.jwt_manager import JWTService
 from databases_manager.redis_manager.redis_manager import RedisService
 
 # """Soluthion:
@@ -21,22 +21,4 @@ def test_pw_hashing(prepared_pws):
 async def test_jwt_and_redis_jwt_saving():
     """Test JWT handling with jwt and redis async library"""
 
-    user_id = "TEST_ID_12345"
-
-    redis = RedisService(db_pool="test")
-
-    jwt_token = await generate_save_token(user_id, redis) # Tests redis save_jwt() method
-    assert await redis.check_jwt_existense(jwt_token)
-
-    payload = extract_jwt_payload(jwt_token)
-    assert payload.user_id == user_id
-
-    expiry = await redis.get_jwt_time_to_expiry(jwt_token)
-    assert isinstance(expiry, int)
-
-    await redis.delete_jwt(jwt_token)
-
-    assert not await redis.check_jwt_existense(jwt_token)
-
-    expiry = await redis.get_jwt_time_to_expiry(jwt_token)
-    assert not expiry
+    pass

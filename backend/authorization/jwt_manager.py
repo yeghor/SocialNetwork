@@ -25,31 +25,43 @@ def jwt_error_handler(func):
                 raise HTTPException(status_code=500, detail=f"Uknown error occured (jwt_manager): {e}")
     return wrapper
 
+class JWTService:
+    @classmethod
+    def prepare_token(cls, jwt_token: str) -> str:
+        """
+        This method validates and removes "Bearer" prefix from token
+        """
+        if not jwt_token.startswith("Bearer "):
+            raise HTTPException(status_code=400, detail="Bad token")
+        return jwt_token.removeprefix("Bearer ")
 
-@jwt_error_handler
-def generate_token(user_id: str) -> str:
-    encoded_jwt = jwt.encode(
-        payload={
-            "user_id": user_id,
-            "issued_at": int(datetime.now().timestamp())
-        },
-        key=getenv("SECRET_KEY"),
-        algorithm=getenv("JWT_ALGORITHM")
-    )
-    return encoded_jwt
+    @classmethod
+    @jwt_error_handler
+    def generate_token(cls, user_id: str) -> str:
+        encoded_jwt = jwt.encode(
+            payload={
+                "user_id": user_id,
+                "issued_at": int(datetime.now().timestamp())
+            },
+            key=getenv("SECRET_KEY"),
+            algorithm=getenv("JWT_ALGORITHM")
+        )
+        return encoded_jwt
 
-# Doesn't require error handle
-async def generate_save_token(user_id: str, redis: RedisService) -> None:
-    encoded_jwt = generate_token(user_id)
-    await redis.save_jwt(jwt_token=encoded_jwt, user_id=user_id)
+    # Doesn't require error handle
+    @classmethod
+    async def generate_save_token(cls, user_id: str, redis: RedisService) -> None:
+        encoded_jwt = cls.generate_token(user_id)
+        await redis.save_jwt(jwt_token=encoded_jwt, user_id=user_id)
 
-    return encoded_jwt
+        return encoded_jwt
 
-@jwt_error_handler
-def extract_jwt_payload(jwt_token: str) -> PayloadJWT:
-    payload = jwt.decode(
-        jwt=jwt_token,
-        key=getenv("SECRET_KEY"),
-        algorithms=getenv("JWT_ALGORITHM")
-    )
-    return PayloadJWT.model_validate(payload)
+    @classmethod
+    @jwt_error_handler
+    def extract_jwt_payload(cls, jwt_token: str) -> PayloadJWT:
+        payload = jwt.decode(
+            jwt=jwt_token,
+            key=getenv("SECRET_KEY"),
+            algorithms=getenv("JWT_ALGORITHM")
+        )
+        return PayloadJWT.model_validate(payload)

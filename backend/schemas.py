@@ -11,12 +11,22 @@ class PayloadJWT(BaseModel):
     user_id: str
     issued_at: datetime
 
-    @field_validator("issued_at", mode="after")
+    @field_validator("issued_at", mode="before")
     @classmethod
-    def from_unix_to_datetime(cls, value: Any) -> datetime:
+    def from_unix_to_datetime(cls, value: datetime | int) -> datetime:
         if isinstance(value, int):
             value = datetime.fromtimestamp(value)
         return value
+    
+    @field_validator("user_id", mode="before")
+    @classmethod
+    def user_id_to_uuid(cls, value: str | UUID) -> UUID:
+        if isinstance(value, str):
+            value = UUID(value)
+        return value
+
+class TokenProvided(BaseModel):
+    token: str
 
 """
 Using short schemas to prevent recursive convertation with SQLalchemy relationship.

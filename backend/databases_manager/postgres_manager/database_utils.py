@@ -63,10 +63,17 @@ def database_error_handler(action: str = "Unknown action with the database"):
         return wrapper
     return decorator
 
+async def get_session() -> AsyncSession:
+    async with SessionLocal() as session:
+        return session
+
 class PostgresService:
     def __init__(self, session: AsyncSession):
         # We don't need to close session. Because Depends func will handle it in endpoints.
         self.__session = session
+
+    async def commit_changes(self) -> None:
+        await self.__session.commit()
 
     @database_error_handler(action="Add model and flush")
     async def insert_model_and_flush(self, *models: Base) -> None:
@@ -75,10 +82,10 @@ class PostgresService:
         await self.__session.flush()
 
     @database_error_handler(action="Get user by id")
-    async def get_user_by_id(self, user_id: UUID, email: str) -> User | None:
+    async def get_user_by_id(self, user_id: UUID) -> User | None:
         result = await self.__session.execute(
             select(User)
-            .where(or_(User.user_id == user_id, User.email == email))
+            .where(or_(User.user_id == user_id))
         )
         return result.scalar()
 
