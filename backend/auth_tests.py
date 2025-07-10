@@ -1,7 +1,7 @@
 import pytest
 from authorization.password_manager import hash_password, check_password
 from authorization.jwt_manager import generate_save_token, extract_jwt_payload
-from redis_manager import RedisService
+from backend.databases_manager.redis_manager import RedisService
 
 # """Soluthion:
 # https://stackoverflow.com/questions/70015634/how-to-test-async-function-using-pytest

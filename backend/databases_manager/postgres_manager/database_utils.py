@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from functools import wraps
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import HTTPException
-from database.models import Base, User, Post
+from postgres_manager.models import Base, User, Post
 from sqlalchemy import select, or_
 from typing import List
 from uuid import UUID

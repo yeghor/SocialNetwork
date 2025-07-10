@@ -2,7 +2,7 @@ import jwt
 from dotenv import load_dotenv
 from os import getenv
 from datetime import datetime
-from redis_manager import RedisService
+from backend.databases_manager.redis_manager import RedisService
 from typing import Dict
 from schemas import PayloadJWT
 import jwt.exceptions as jwt_exceptions

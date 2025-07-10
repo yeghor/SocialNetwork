@@ -1,6 +1,6 @@
 import pytest
-from database.database import create_engine, create_sessionmaker
-from database.models import User, Post, Base
+from databases_manager.postgres_manager.database import create_engine, create_sessionmaker
+from databases_manager.postgres_manager.models import User, Post, Base
 from sqlalchemy.orm import close_all_sessions
 from main import initialize_models, drop_all
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +10,7 @@ from uuid import uuid4
 from typing import AsyncGenerator, List
 import logging
 
-from database.database_utils import (
+from databases_manager.postgres_manager.database_utils import (
     get_all_posts,
     get_all_users,
     get_fresh_posts,

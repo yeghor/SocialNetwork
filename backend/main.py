@@ -1,9 +1,8 @@
 from fastapi import FastAPI
-import asyncio
 from sqlalchemy.ext.asyncio import AsyncEngine
 from routes.auth_router import auth
-from database.models import *
-from database.database import create_engine, create_sessionmaker
+from databases_manager.postgres_manager.models import *
+from databases_manager.postgres_manager.database import create_engine, create_sessionmaker
 from contextlib import asynccontextmanager
 
 engine = create_engine(mode="prod")

@@ -1,5 +1,5 @@
 from fastapi import HTTPException, Header
-from redis_manager import RedisService
+from backend.databases_manager.redis_manager import RedisService
 
 async def authorize_depends(jwt_token: str = Header()):
     pass

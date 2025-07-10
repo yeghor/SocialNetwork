@@ -3,8 +3,8 @@ from chromadb.errors import ChromaError
 from dotenv import load_dotenv
 from os import getenv
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.database_utils import validate_n_postitive, get_posts_by_ids
-from database.models import Post, User
+from postgres_manager.database_utils import validate_n_postitive, get_posts_by_ids
+from postgres_manager.models import Post, User
 from typing import List
 from functools import wraps
 
