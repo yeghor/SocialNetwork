@@ -23,7 +23,7 @@ def chromaDB_error_handler(func):
 
 class ChromaService:
     def __init__(self, postgres_session: AsyncSession, client: AsyncHttpClient, collection):
-        """To create class object. Use method connect!"""
+        """To create class object. Use **async** method connect!"""
         self._postgres_session = postgres_session
         self._client: AsyncHttpClient = client
         self._collection: Collection = collection
@@ -51,7 +51,9 @@ class ChromaService:
     @chromaDB_error_handler
     async def get_n_related_posts(self, user: User, n: int) -> List[Post]:
         """Get n posts related to user's history"""
-        posts = [post_history_obj.post for post_history_obj in user.views_history[:n] if not post_history_obj.post.is_reply ]
+        number_of_last_viewed_posts = int(getenv("HISTORY_POSTS_TO_TAKE_INTO_RELATED"))
+
+        posts = [post_history_obj.post for post_history_obj in user.views_history[:number_of_last_viewed_posts] if not post_history_obj.post.is_reply ]
 
         related_posts = await self._collection.query(
             query_texts=[f"{post.title} {post.text} {post.published.strftime(self._datetime_format)}" for post in posts],

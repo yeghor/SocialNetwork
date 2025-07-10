@@ -10,14 +10,7 @@ from uuid import uuid4
 from typing import AsyncGenerator, List
 import logging
 
-from databases_manager.postgres_manager.database_utils import (
-    get_all_posts,
-    get_all_users,
-    get_fresh_posts,
-    get_n_popular_posts,
-    get_subs_posts,
-    get_user_by_id,
-)
+from databases_manager.postgres_manager.database_utils import PostgresService
 
 """Tests postgres and chromaDB"""
 
@@ -86,8 +79,11 @@ async def test_models(conn, users: List[User], posts: List[Post]):
 
     session: AsyncSession = await anext(conn)
     print(type(session))
-    all_users: List[User] = await get_all_users(session=session)
-    all_posts: List[Post] = await get_all_posts(session=session)
+
+    db = PostgresService(session)
+
+    all_users: List[User] = await db.get_all_users()
+    all_posts: List[Post] = await db.get_all_posts()
     assert len(all_users) == len(users)
     assert len(all_posts) == len(posts)
 

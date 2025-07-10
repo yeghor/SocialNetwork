@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from functools import wraps
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import HTTPException
-from postgres_manager.models import Base, User, Post
+from databases_manager.postgres_manager.models import *
 from sqlalchemy import select, or_
 from typing import List
 from uuid import UUID
@@ -36,7 +36,10 @@ def validate_ids_type_to_UUID(func):
     return wrapper
 
 async def get_session_depends():
-    """Automatically close session"""
+    """
+    Automatically closes session.\n
+    Use with fastAPI Depends()!
+    """
     async with SessionLocal() as conn:
         yield conn
 
@@ -60,85 +63,102 @@ def database_error_handler(action: str = "Unknown action with the database"):
         return wrapper
     return decorator
 
-@database_error_handler(action="Add model and flush")
-async def insert_model_and_flush(session: AsyncSession, *models) -> None:
-    """Adding model and making flush"""
-    session.add_all(models)
-    await session.flush()
+class PostgresService:
+    def __init__(self, session: AsyncSession):
+        # We don't need to close session. Because Depends func will handle it in endpoints.
+        self.__session = session
 
-@database_error_handler(action="Get user by id")
-async def get_user_by_id(session: AsyncSession, user_id: UUID, email: str) -> User | None:
-    result = await session.execute(
-        select(User)
-        .where(or_(User.user_id == user_id, User.email == email))
-    )
-    return result.scalar()
+    @database_error_handler(action="Add model and flush")
+    async def insert_model_and_flush(self, *models: Base) -> None:
+        """Adding model and making flush"""
+        self.__session.add_all(models)
+        await self.__session.flush()
 
-@validate_n_postitive
-@database_error_handler(action="Get n most popular posts")
-async def get_n_popular_posts(session: AsyncSession, n: int) -> List[Post]:
-    result = await session.execute(
-        select(Post)
-        .order_by(Post.likes.desc())
-        .limit(n)
-    )
-    return result.scalars().all()
+    @database_error_handler(action="Get user by id")
+    async def get_user_by_id(self, user_id: UUID, email: str) -> User | None:
+        result = await self.__session.execute(
+            select(User)
+            .where(or_(User.user_id == user_id, User.email == email))
+        )
+        return result.scalar()
 
-@validate_n_postitive
-@database_error_handler(action="Get n most fresh posts")
-async def get_fresh_posts(session: AsyncSession, n: int) -> List[Post]:
-    result = await session.execute(
-        select(Post)
-        .order_by(Post.published.desc())
-        .limit(n)
-    )
-    return result.scalars().all()
+    @validate_n_postitive
+    @database_error_handler(action="Get n most popular posts")
+    async def get_n_popular_posts(self, n: int) -> List[Post]:
+        result = await self.__session.execute(
+            select(Post)
+            .order_by(Post.likes.desc())
+            .limit(n)
+        )
+        return result.scalars().all()
 
-@validate_n_postitive
-@database_error_handler(action="Get subcribers posts")
-async def get_subs_posts(session: AsyncSession, n: int, user_ids: List[str] | None, user_models: List[User] | None, most_popular: bool = False) -> List[None] | List[Post]:
-    """
-    Getting posts of users, whose ids mentioned in user_ids or user_models lists. If user_models not empty - getting ids from models.
-    Most popular sorts posts by descending amount of likes field. Can be used by your followers or who you follow
-    """
-    if user_models:
-        user_ids = [user.user_id for user in user_models]
-    if not user_ids:
-        return []
+    @validate_n_postitive
+    @database_error_handler(action="Get n most fresh posts")
+    async def get_fresh_posts(self, n: int) -> List[Post]:
+        result = await self.__session.execute(
+            select(Post)
+            .order_by(Post.published.desc())
+            .limit(n)
+        )
+        return result.scalars().all()
 
-    result = await session.execute(
-        select(Post)
-        .where(Post.owner_id.in_(user_ids))
-        .order_by(Post.published.desc())
-        .limit(n)
-    )
-    posts = result.scalars().all()
+    @validate_n_postitive
+    @database_error_handler(action="Get subcribers posts")
+    async def get_subscribers_posts(self, n: int, user_ids: List[str] | None, user_models: List[User] | None, most_popular: bool = False) -> List[None] | List[Post]:
+        """
+        Getting posts of users, whose ids mentioned in user_ids or user_models lists. If user_models not empty - getting ids from models.
+        Most popular sorts posts by descending amount of likes field. Can be used by your followers or who you follow
+        """
+        if user_models:
+            user_ids = [user.user_id for user in user_models]
+        if not user_ids:
+            return []
+
+        result = await self.__session.execute(
+            select(Post)
+            .where(Post.owner_id.in_(user_ids))
+            .order_by(Post.published.desc())
+            .limit(n)
+        )
+        posts = result.scalars().all()
+        
+        if most_popular:
+            return sorted(posts, key=lambda post : post.likes, reverse=True)
+
+        return posts
+
+    """For testcases"""
+    @database_error_handler(action="Get all users")
+    async def get_all_users(self) -> List[User]:
+        result = await self.__session.execute(
+            select(User)
+        )
+        return result.scalars().all()
+
+    @database_error_handler(action="Get all posts")
+    async def get_all_posts(self) -> List[Post]:
+        result = await self.__session.execute(
+            select(Post)
+        )
+        return result.scalars().all()
+
+    @validate_ids_type_to_UUID
+    @database_error_handler(action="Get posts by ids")
+    async def get_posts_by_ids(self, ids: List[UUID | str]):
+        result = await self.__session.execute(
+            select(Post)
+            .where(Post.post_id.in_(ids))
+        )
+        return result.scalars().all()
     
-    if most_popular:
-        return sorted(posts, key=lambda post : post.likes, reverse=True)
+    @database_error_handler(action="Change field and flush")
+    async def change_field_and_flush(self, Model: Base, **kwargs):
+        for key, value in kwargs.items():
+            setattr(Model, key, value)
+        await self.__session.flush()
 
-    return posts
+    @database_error_handler(action="Delete models")
+    async def delete_models(self, *models):
+        pass
 
-"""For testcases"""
-@database_error_handler(action="Get all users")
-async def get_all_users(session: AsyncSession) -> List[User]:
-    result = await session.execute(
-        select(User)
-    )
-    return result.scalars().all()
-
-@database_error_handler(action="Get all posts")
-async def get_all_posts(session: AsyncSession) -> List[Post]:
-    result = await session.execute(
-        select(Post)
-    )
-    return result.scalars().all()
-
-@validate_ids_type_to_UUID
-@database_error_handler(action="Get posts by ids")
-async def get_posts_by_ids(session: AsyncSession, ids: List[UUID | str]):
-    result = await session.execute(
-        select(Post)
-        .where(Post.post_id.in_(ids))
-    )
-    return result.scalars().all()
+    

@@ -29,7 +29,7 @@ class RedisService:
 
     @staticmethod
     def _define_host(host: str) -> str:
-        if not host: return "lolalhost"
+        if not host: return "localhost"
         print(host)
         return host
 
