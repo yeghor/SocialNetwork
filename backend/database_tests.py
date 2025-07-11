@@ -86,11 +86,11 @@ async def create_session(users, posts):
 
 @pytest.mark.asyncio
 async def test_models(create_session):
-    session = await get_session()
-    service = await MainService.initialize(postgres_session=session, mode="test")
+    engine = create_engine(mode="test", echo=True)
+    session = create_sessionmaker(engine=engine)
+    async with session() as session:
+        service = await MainService.initialize(postgres_session=session, mode="test")
 
-    users = await service.get_all_users()
-    
-    assert isinstance(users, List)
-
-    await session.aclose()
+        users = await service.get_all_users()
+        
+        assert isinstance(users, List)
