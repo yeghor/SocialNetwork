@@ -1,25 +1,29 @@
 import pytest
-from database.database import create_engine, create_sessionmaker
-from database.models import Base, User
+from databases_manager.postgres_manager.database import create_engine, create_sessionmaker
+from databases_manager.postgres_manager.database_utils import get_session
+from databases_manager.postgres_manager.models import User, Post, History, Base
 from sqlalchemy.orm import close_all_sessions
-from main import initialize_models
+from main import initialize_models, drop_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from authorization.password_manager import hash_password
+from uuid import uuid4
+from typing import AsyncGenerator, List
+import logging
 
-@pytest.fixture()
-async def conn():
-    engine = create_engine(mode="test", echo=True)
-    session = create_sessionmaker(engine=engine)
-
-    await initialize_models(engine=engine)
-
-    async with session() as connection:
-        yield connection
+from databases_manager.main_databases_manager import MainService
 
 
 @pytest.mark.asyncio
-async def test_models(conn):
-    # Draft
-    conn = await anext(conn) # Using anext func because it's async generator
-    res = await conn.execute(select(User))
-    assert res.scalars().all() == []
+async def test_models():
+    engine = create_engine(mode="test", echo=True)
+    session = create_sessionmaker(engine=engine)
+
+    await drop_all(engine=engine, Base=Base)
+    await initialize_models(engine=engine, Base=Base)
+
+    async with session() as session:
+        service = await MainService.initialize(postgres_session=session, mode="test")
+        users = await service.get_all_users()
+        
+        assert isinstance(users, List)

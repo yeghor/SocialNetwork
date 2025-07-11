@@ -8,5 +8,3 @@ def hash_password(raw_pass: str) -> str:
 
 def check_password(entered_pass: str, hashed_pass: str) -> bool:
     return bcrypt.checkpw(entered_pass.encode(), hashed_pass.encode())
-
-hashed_pw = hash_password('password')

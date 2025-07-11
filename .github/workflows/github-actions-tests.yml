@@ -20,6 +20,11 @@ jobs:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: password
           POSTGRES_DB: test
+      chromaDB:
+        image: chromadb/chroma
+        ports:
+          - 8080:8000
+
 
     steps:
       - name: Checkout

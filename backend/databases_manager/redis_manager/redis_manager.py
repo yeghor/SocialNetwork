@@ -1,9 +1,9 @@
-import redis.asyncio as redis
+import redis.asyncio as async_redis
 import redis.exceptions as redis_exceptions
 from fastapi.exceptions import HTTPException
 from dotenv import load_dotenv
 from os import getenv
-from typing import Tuple, Optional, Literal
+from typing import Optional, Literal
 from functools import wraps
 
 load_dotenv()
@@ -29,19 +29,19 @@ class RedisService:
 
     @staticmethod
     def _define_host(host: str) -> str:
-        if not host: return "lolalhost"
+        if not host: return "localhost"
         print(host)
         return host
 
     def __init__(self, db_pool: str = "prod", host: str = "localhost"):
         """
         To switch to the test pool - assign db_pool to "test" \n
-        If host equal to None - host will be "localhost"
+        If host equal to None - "localhost"
         """
         try:
-            self.__client = redis.Redis(
+            self.__client = async_redis.Redis(
                 host=self._define_host(host),
-                port=6379,
+                port=int(getenv("REDIS_PORT")),
                 db=self._chose_pool(db_pool),
                 decode_responses=True
             )
@@ -70,6 +70,10 @@ class RedisService:
         await self.__client.delete(f"{self.__jwt_prefix}{jwt_token}")
 
     @redis_error_handler
-    async def check_jwt_existense(self, jwt_token: str) -> bool:
+    async def check_jwt_existence(self, jwt_token: str) -> bool:
         potential_token = await self.__client.get(f"{self.__jwt_prefix}{str(jwt_token)}")
         return bool(potential_token)
+    
+    @redis_error_handler
+    async def finish(self) -> None:
+        await self.__client.aclose()
