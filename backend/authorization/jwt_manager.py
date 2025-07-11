@@ -31,7 +31,7 @@ class JWTService:
         """
         This method validates and removes "Bearer" prefix from token
         """
-        if not jwt_token.startswith("Bearer "):
+        if not jwt_token.startswith("Bearer ") or not jwt_token:
             raise HTTPException(status_code=400, detail="Bad token")
         return jwt_token.removeprefix("Bearer ")
 
