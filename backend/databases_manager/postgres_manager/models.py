@@ -98,11 +98,13 @@ class Post(Base):
     parent_post: Mapped["Post"] = relationship(
         "Post",
         back_populates="replies",
-        remote_side=[post_id]
+        remote_side=[post_id],
+        lazy="selectin"
     )
     replies: Mapped[List["Post"]] = relationship(
         "Post",
         back_populates="parent_post",
+        lazy="selectin"
     )
 
     viewers: Mapped[List["History"]] = relationship(

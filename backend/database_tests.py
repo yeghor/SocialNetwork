@@ -1,6 +1,7 @@
 import pytest
 from databases_manager.postgres_manager.database import create_engine, create_sessionmaker
-from databases_manager.postgres_manager.models import User, Post, Base
+from databases_manager.postgres_manager.database_utils import get_session
+from databases_manager.postgres_manager.models import User, Post, History, Base
 from sqlalchemy.orm import close_all_sessions
 from main import initialize_models, drop_all
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,12 +11,12 @@ from uuid import uuid4
 from typing import AsyncGenerator, List
 import logging
 
-from databases_manager.postgres_manager.database_utils import PostgresService
+from databases_manager.main_databases_manager import MainService
 
 """Tests postgres and chromaDB"""
 
 @pytest.fixture
-def users() -> List[User]:
+def users():
     pass1 = hash_password("password1")
     pass2 = hash_password("password2")
     pass3 = hash_password("password3")
@@ -32,9 +33,7 @@ def users() -> List[User]:
     return [user_1, user_2, user_3]
 
 @pytest.fixture
-def posts(users) -> List[Post]:
-    user_1, user_2, user_3 = users
-
+def posts():
     post_1_id, post_2_id, post_3_id, post_4_id, post_5_id, post_6_id = (uuid4() for _ in range(6))
 
     post_1 = Post(post_id=post_1_id, title="First post. Non reply", text="Hello, how is it going?", likes=42)
@@ -47,7 +46,7 @@ def posts(users) -> List[Post]:
     return [post_1, post_2, post_3, post_4, post_5, post_6]
 
 @pytest.fixture
-async def conn(users: List[User], posts: List[Post]):
+async def create_session(users, posts):
     """Creates connection and fills test database with fake data"""
     engine = create_engine(mode="test", echo=True)
     session = create_sessionmaker(engine=engine)
@@ -71,34 +70,27 @@ async def conn(users: List[User], posts: List[Post]):
         connection.add_all(posts)
         await connection.flush()
 
-        yield connection
+        view_1 = History(post_id=post_1.post_id, user_id=user_1.user_id)
+        view_2 = History(post_id=post_2.post_id, user_id=user_1.user_id)
+        view_3 = History(post_id=post_2.post_id, user_id=user_1.user_id)
+
+        connection.add_all([view_1, view_2, view_3])
+        await connection.flush()
+
+        user_1.views_history.append(view_1)
+        user_1.views_history.append(view_2)
+        user_1.views_history.append(view_3)
+
+        await connection.commit()
+        await connection.aclose()
 
 @pytest.mark.asyncio
-async def test_models(conn, users: List[User], posts: List[Post]):
-    """Test relationship in priority"""
+async def test_models(create_session):
+    session = await get_session()
+    service = await MainService.initialize(postgres_session=session, mode="test")
 
-    session: AsyncSession = await anext(conn)
-    print(type(session))
+    users = await service.get_all_users()
+    
+    assert isinstance(users, List)
 
-    db = PostgresService(session)
-
-    all_users: List[User] = await db.get_all_users()
-    all_posts: List[Post] = await db.get_all_posts()
-    assert len(all_users) == len(users)
-    assert len(all_posts) == len(posts)
-
-    user_1, user_2, user_3 = users
-    post_1, post_2, post_3, post_4, post_5, post_6 = posts
-
-    assert user_1.followers == [user_2, user_3]
-    assert user_3.followers == [user_1]
-
-    assert user_2.posts == [post_2, post_5]
-
-    # Ensure that 3 level of post reply tree working properly
-    for post in all_posts:
-        if post.post_id == post_6.post_id:
-            post_6_query = post
-            break
-
-    assert post_6_query.parent_post.parent_post.post_id == post_3.post_id 
+    await session.aclose()

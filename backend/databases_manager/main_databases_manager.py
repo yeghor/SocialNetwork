@@ -6,8 +6,8 @@ from authorization.jwt_manager import JWTService
 from databases_manager.postgres_manager.models import User, Post
 
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from fastapi import HTTPException
+from typing import List
 
 class MainService:
     """
@@ -28,20 +28,19 @@ class MainService:
     @classmethod
     async def initialize(cls, postgres_session: AsyncSession, mode: str = "prod") -> "MainService":
         Postgres = PostgresService(session=postgres_session)
-        Redis = RedisService(db_pool="prod1")
-        ChromaDB = await ChromaService.connect(postgres_session=postgres_session, mode="prod")
+        Redis = RedisService(db_pool=mode)
+        ChromaDB = await ChromaService.connect(mode=mode)
 
         return cls(Chroma=ChromaDB, Redis=Redis, Postgres=Postgres)
     
     async def finish(self, commit_postgres: bool = True) -> None:
-        # We don't handle postgres close, because provided session 
-        # Similar to chromaDB, I haven't found any info about client closing
+        # If i'm not mistaken, chromaDB doesn't require connection close
         await self.__RedisService.finish()
         if commit_postgres: await self.__PostgresService.commit_changes()
+        await self.__PostgresService.close()
     
-    async def authorize_request_depends(self, token: str, return_user: bool = True) -> User | None:
+    async def authorize_request(self, token: str, return_user: bool = True) -> User | None:
         """Can be used in fastAPI Depends()"""
-
         valid_token = self.__JWT.prepare_token(jwt_token=token)
 
         if not await self.__RedisService.check_jwt_existence(jwt_token=valid_token):
@@ -52,3 +51,6 @@ class MainService:
             return await self.__PostgresService.get_user_by_id(payload.user_id)
         
         return None
+
+    async def get_all_users(self) -> List[User]:
+        return await self.__PostgresService.get_all_users()

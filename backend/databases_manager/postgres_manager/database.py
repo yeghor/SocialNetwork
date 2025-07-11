@@ -1,4 +1,4 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine, async_sessionmaker
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 from os import getenv    
@@ -21,10 +21,12 @@ def create_engine(mode: str = "prod", echo=False) -> AsyncEngine:
         echo=echo
     )
 
-def create_sessionmaker(engine: AsyncEngine) -> sessionmaker[AsyncSession]:
-    return sessionmaker(
+def create_sessionmaker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+    return async_sessionmaker(
         autoflush=False,
         autocommit=False,
         bind=engine,
-        class_=AsyncSession 
     )
+
+engine = create_engine(mode="prod")
+SessionLocal = create_sessionmaker(engine)

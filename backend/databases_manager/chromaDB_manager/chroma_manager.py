@@ -3,10 +3,11 @@ from chromadb.errors import ChromaError
 from dotenv import load_dotenv
 from os import getenv
 from sqlalchemy.ext.asyncio import AsyncSession
-from postgres_manager.database_utils import validate_n_postitive, get_posts_by_ids
-from postgres_manager.models import Post, User
 from typing import List
 from functools import wraps
+from databases_manager.postgres_manager.models import Post, User
+from databases_manager.postgres_manager.database_utils import validate_n_postitive
+from uuid import UUID
 
 load_dotenv()
 
@@ -22,16 +23,15 @@ def chromaDB_error_handler(func):
     return wrapper
 
 class ChromaService:
-    def __init__(self, postgres_session: AsyncSession, client: AsyncHttpClient, collection):
+    def __init__(self, client: AsyncHttpClient, collection):
         """To create class object. Use **async** method connect!"""
-        self.__client: AsyncHttpClient = client
         self.__collection: Collection = collection
         self._datetime_format = getenv('DATETIME_BASE_FORMAT')
 
 
     @classmethod
     @chromaDB_error_handler
-    async def connect(cls, postgres_session: AsyncSession, mode: str = "prod") -> None:
+    async def connect(cls, mode: str = "prod") -> None:
         if not mode in ("prod", "test"):
             raise ValueError("Invalid chromaDB database mode")
         
@@ -42,14 +42,15 @@ class ChromaService:
             # In case if test-collection exists. Dropping it
             try:
                 await client.delete_collection(name="test-collection")
-            except ValueError:
+            except Exception:
                 pass
+            
             collection = await client.get_or_create_collection(name=getenv("CHROMADB_TEST_COLLECTION_NAME"))
-        return cls(postgres_session, client=client, collection=collection)
+        return cls(client=client, collection=collection)
 
     @validate_n_postitive
     @chromaDB_error_handler
-    async def get_n_related_posts(self, user: User, n: int) -> List[Post]:
+    async def get_n_related_posts_ids(self, user: User, n: int) -> List[UUID]:
         """Get n posts related to user's history"""
         number_of_last_viewed_posts = int(getenv("HISTORY_POSTS_TO_TAKE_INTO_RELATED"))
 
@@ -60,8 +61,8 @@ class ChromaService:
             n_results=n
         )
 
-        post_ids = [m["post_id"] for m in related_posts.metadatas[0]]
-        return await get_posts_by_ids(ids=post_ids)
+        return [UUID(m["post_id"]) for m in related_posts.metadatas[0]]
+        
         
     @chromaDB_error_handler
     async def add_posts_data(self, posts: List[Post]) -> None:

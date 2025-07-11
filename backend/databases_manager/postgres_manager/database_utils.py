@@ -1,4 +1,4 @@
-from main import engine, SessionLocal
+from databases_manager.postgres_manager.database import SessionLocal
 from sqlalchemy.ext.asyncio import AsyncSession
 from functools import wraps
 from sqlalchemy.exc import SQLAlchemyError
@@ -47,30 +47,32 @@ def database_error_handler(action: str = "Unknown action with the database"):
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            try:
-                return await func(*args, **kwargs)
-            except Exception as e:
-                if isinstance(e, SQLAlchemyError):
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Error with the database occured: {e} | Action: {action}"
-                    )
+            # try:
+            return await func(*args, **kwargs)
+            # except Exception as e:
+            #     if isinstance(e, SQLAlchemyError):
+            #         raise HTTPException(
+            #             status_code=500,
+            #             detail=f"Error with the database occured: {e} | Action: {action}"
+            #         )
 
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Unkown error with the database occured: {e} | Action: {action}"
-                )
+            #     raise HTTPException(
+            #         status_code=500,
+            #         detail=f"Unkown error with the database occured: {e} | Action: {action}"
+            #     )
         return wrapper
     return decorator
 
 async def get_session() -> AsyncSession:
-    async with SessionLocal() as session:
-        return session
+    return SessionLocal()
 
 class PostgresService:
     def __init__(self, session: AsyncSession):
         # We don't need to close session. Because Depends func will handle it in endpoints.
         self.__session = session
+
+    async def close(self) -> None:
+        await self.__session.aclose()
 
     async def commit_changes(self) -> None:
         await self.__session.commit()
