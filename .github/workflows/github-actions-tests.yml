@@ -39,5 +39,5 @@ jobs:
 
       - name: Test Authorization
         run: pytest auth_tests.py
-      # - name: Test Database
-      #   run: pytest database_tests.py
+      - name: Test Database
+        run: pytest database_tests.py
