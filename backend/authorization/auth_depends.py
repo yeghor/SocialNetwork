@@ -5,10 +5,10 @@ from databases_manager.postgres_manager.models import User
 from fastapi import Header
 from typing import Annotated
 
-async def authrorize_request_depends(authorization: Annotated[str | None, Header(title="Authorization token that starts with Bearer")]):
+async def authrorize_request_depends(token: str = Header(..., title="Authorization token", example="Bearer (token)")):
     """User with fastAPI Depends()"""
     session = get_session()
     service = await MainService.initialize(postgres_session=session)
-    user: User = await service.authorize_request(token=authorization, return_user=True)
+    user: User = await service.authorize_request(token=token, return_user=True)
     await service.finish(commit_postgres=False)
     return user

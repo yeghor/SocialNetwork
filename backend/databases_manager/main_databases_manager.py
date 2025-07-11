@@ -39,7 +39,7 @@ class MainService:
         if commit_postgres: await self.__PostgresService.commit_changes()
         await self.__PostgresService.close()
     
-    async def authorize_request_depends(self, token: str, return_user: bool = True) -> User | None:
+    async def authorize_request(self, token: str, return_user: bool = True) -> User | None:
         """Can be used in fastAPI Depends()"""
         
         valid_token = self.__JWT.prepare_token(jwt_token=token)

@@ -4,6 +4,7 @@ from routes.auth_router import auth
 from databases_manager.postgres_manager.models import *
 from databases_manager.postgres_manager.database import engine
 from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
 
 async def drop_all(engine: AsyncEngine, Base: Base) -> None:
     async with engine.begin() as conn:
@@ -23,4 +24,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+origins = [
+    "http://localhost",
+    "http://localhost:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 app.include_router(auth)
