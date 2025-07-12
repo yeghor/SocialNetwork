@@ -4,7 +4,7 @@ from os import getenv
 from datetime import datetime
 from databases_manager.redis_manager.redis_manager import RedisService
 from typing import Dict
-from schemas import PayloadJWT
+from schemas import PayloadJWT, TokenResponseSchema
 import jwt.exceptions as jwt_exceptions
 from functools import wraps
 from fastapi import HTTPException
@@ -40,7 +40,7 @@ class JWTService:
     def generate_token(cls, user_id: str) -> str:
         encoded_jwt = jwt.encode(
             payload={
-                "user_id": user_id,
+                "user_id": str(user_id),
                 "issued_at": int(datetime.now().timestamp())
             },
             key=getenv("SECRET_KEY"),
@@ -50,11 +50,11 @@ class JWTService:
 
     # Doesn't require error handle
     @classmethod
-    async def generate_save_token(cls, user_id: str, redis: RedisService) -> None:
+    async def generate_save_token(cls, user_id: str, redis: RedisService) -> TokenResponseSchema:
         encoded_jwt = cls.generate_token(user_id)
-        await redis.save_jwt(jwt_token=encoded_jwt, user_id=user_id)
+        expires_at = await redis.save_jwt(jwt_token=encoded_jwt, user_id=user_id)
 
-        return encoded_jwt
+        return TokenResponseSchema.model_validate({"token": encoded_jwt, "expires_at": expires_at})
 
     @classmethod
     @jwt_error_handler

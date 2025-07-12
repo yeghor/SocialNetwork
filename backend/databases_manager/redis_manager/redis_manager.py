@@ -5,8 +5,11 @@ from dotenv import load_dotenv
 from os import getenv
 from typing import Optional, Literal
 from functools import wraps
+from datetime import datetime
 
 load_dotenv()
+JWT_EXPIRY_SECONDS = int(getenv("JWT_EXPIRY_SECONDS"))
+DATETIME_BASE_FORMAT = getenv("DATETIME_BASE_FORMAT")
 
 def redis_error_handler(func):
     @wraps(func)
@@ -50,12 +53,13 @@ class RedisService:
             raise HTTPException(status_code=500, detail="Connection to redis failed.")
     
     @redis_error_handler
-    async def save_jwt(self, jwt_token: str, user_id: str) -> None:
+    async def save_jwt(self, jwt_token: str, user_id: str) -> datetime:
         await self.__client.setex(
             name=f"{self.__jwt_prefix}{str(jwt_token)}",
-            time=int(getenv("JWT_EXPIRY_SECONDS")),
+            time=JWT_EXPIRY_SECONDS,
             value=str(user_id)
-        )
+        ) 
+        return datetime.strftime(datetime.fromtimestamp(datetime.utcnow().timestamp() + JWT_EXPIRY_SECONDS), DATETIME_BASE_FORMAT)
     
     @redis_error_handler
     async def get_jwt_time_to_expiry(self, jwt_token: str) -> Optional[int]:

@@ -74,13 +74,13 @@ class PostgresService:
     async def close(self) -> None:
         await self.__session.aclose()
 
-    async def commit_changes(self) -> None:
+    async def commit_changes_and(self) -> None:
         await self.__session.commit()
 
     @database_error_handler(action="Add model and flush")
     async def insert_model_and_flush(self, *models: Base) -> None:
         """Adding model and making flush"""
-        self.__session.add_all(models)
+        self.__session.add_all(list(models))
         await self.__session.flush()
 
     @database_error_handler(action="Get user by id")

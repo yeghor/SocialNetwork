@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncEngine
-from routes.auth_router import auth
+from routes import auth_router, social_router
 from databases_manager.postgres_manager.models import *
 from databases_manager.postgres_manager.database import engine
 from contextlib import asynccontextmanager
@@ -39,4 +39,5 @@ app.add_middleware(
 )
 
 
-app.include_router(auth)
+app.include_router(auth_router.auth)
+app.include_router(social_router.social)

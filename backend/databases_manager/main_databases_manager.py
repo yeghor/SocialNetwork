@@ -1,9 +1,13 @@
 from databases_manager.chromaDB_manager.chroma_manager import ChromaService
 from databases_manager.postgres_manager.database_utils import PostgresService
 from databases_manager.redis_manager.redis_manager import RedisService
-from authorization.jwt_manager import JWTService
-
+from authorization import password_manager, jwt_manager
 from databases_manager.postgres_manager.models import User, Post
+from schemas import (
+    RegisterSchema,
+    TokenResponseSchema,
+    LoginSchema
+    )
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
@@ -23,7 +27,7 @@ class MainService:
         self.__RedisService = Redis
         self.__ChromaService = Chroma
 
-        self.__JWT = JWTService
+        self.__JWT = jwt_manager.JWTService
 
     @classmethod
     async def initialize(cls, postgres_session: AsyncSession, mode: str = "prod") -> "MainService":
@@ -36,7 +40,7 @@ class MainService:
     async def finish(self, commit_postgres: bool = True) -> None:
         # If i'm not mistaken, chromaDB doesn't require connection close
         await self.__RedisService.finish()
-        if commit_postgres: await self.__PostgresService.commit_changes()
+        if commit_postgres: await self.__PostgresService.commit_changes_and_close()
         await self.__PostgresService.close()
     
     async def authorize_request(self, token: str, return_user: bool = True) -> User | None:
@@ -53,5 +57,22 @@ class MainService:
         
         return None
 
+    async def register(self, credentials: RegisterSchema) -> TokenResponseSchema:
+        password_hash = password_manager.hash_password(credentials.password)
+        print("Creating user model")
+        new_user_obj = User(
+            username=credentials.username, 
+            email=credentials.email,
+            password_hash=password_hash
+        )
+        await self.__PostgresService.insert_model_and_flush(new_user_obj)
+        print("Adding user model")
+
+        return await self.__JWT.generate_save_token(new_user_obj.user_id, self.__RedisService)
+        
+    async def login(self, credentials: LoginSchema):
+        pass
+
     async def get_all_users(self) -> List[User]:
         return await self.__PostgresService.get_all_users()
+    

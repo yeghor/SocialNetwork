@@ -4,8 +4,19 @@ from typing import Any, List
 from uuid import UUID
 from dotenv import load_dotenv
 from os import getenv
+import re
+from fastapi import HTTPException
+from authorization.authorization import validate_password
 
 load_dotenv()
+
+
+DATE_FORMAT = getenv("DATETIME_BASE_FORMAT")
+USERNAME_MIN_L = int(getenv("USERNAME_MIN_L"))
+USERNAME_MAX_L = int(getenv("USERNAME_MAX_L"))
+
+PASSWORD_MIN_L = int(getenv("PASSWORD_MIN_L"))
+PASSWORD_MAX_L = int(getenv("PASSWORD_MAX_L"))
 
 class PayloadJWT(BaseModel):
     user_id: str
@@ -13,9 +24,11 @@ class PayloadJWT(BaseModel):
 
     @field_validator("issued_at", mode="before")
     @classmethod
-    def from_unix_to_datetime(cls, value: datetime | int) -> datetime:
+    def from_unix_to_datetime(cls, value: datetime | int | str) -> datetime:
         if isinstance(value, int):
             value = datetime.fromtimestamp(value)
+        elif isinstance(value, str):
+            value = datetime.strptime(value, DATE_FORMAT)
         return value
     
     @field_validator("user_id", mode="before")
@@ -25,13 +38,50 @@ class PayloadJWT(BaseModel):
             value = UUID(value)
         return value
 
-class TokenProvided(BaseModel):
+
+class TokenResponseSchema(BaseModel):
     token: str
+    expires_at: str
+
+    @field_validator("expires_at", mode="before")
+    @classmethod
+    def normalize_datetime(cls, value: Any) -> str:
+        if not value:
+            raise TypeError("expires_in field is None!")
+
+        if isinstance(value, int):
+            value = datetime.fromtimestamp(value).strftime(DATE_FORMAT)
+        elif isinstance(value, datetime):
+            value = value.strftime(DATE_FORMAT)
+        return value
+
+class LoginSchema(BaseModel):
+    username: str = Field(..., min_length=USERNAME_MIN_L, max_length=USERNAME_MAX_L)
+    password: str = Field(..., min_length=PASSWORD_MIN_L, max_length=PASSWORD_MAX_L)
+
+
+class RegisterSchema(LoginSchema):
+    email: str
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_email(cls, value: Any) -> str:
+        if not re.match((r"^(?!\.)(?!.*\.\.)[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+"r"@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$"), value) or not isinstance(value, str):
+            raise HTTPException(status_code=400, detail="Invalid email")
+        return value
+        
+    @field_validator("password", mode="before")
+    @classmethod
+    def validate_password(cls, value: Any) -> str:
+        if not isinstance(value, str):
+            raise HTTPException(status_code=400, detail="Invalid password data type")
+        validate_password(value)
+        return value
 
 """
 Using short schemas to prevent recursive convertation with SQLalchemy relationship.
 """
-# Add constraits!!!
+
 class ShortUserProfileSchema(BaseModel):
     user_id: UUID
     username: str = Field(min_length=int(getenv("USERNAME_MIN_L")), max_length=int(getenv("USERNAME_MAX_L")))
