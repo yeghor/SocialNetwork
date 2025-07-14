@@ -37,25 +37,40 @@ class PayloadJWT(BaseModel):
             value = UUID(value)
         return value
 
-class LogoutRequest(BaseModel):
+class RefreshTokenSchema(BaseModel):
     refresh_token: str
-    acces_token: str
+    expires_at_refresh: str
 
-class TokenResponseSchema(BaseModel):
-    token: str
-    expires_at: str
-
-    @field_validator("expires_at", mode="before")
+    @field_validator("expires_at_refresh", mode="before")
     @classmethod
     def normalize_datetime(cls, value: Any) -> str:
         if not value:
-            raise TypeError("expires_in field is None!")
+            raise TypeError("expires_at_refresh field is None!")
 
         if isinstance(value, int):
             value = datetime.fromtimestamp(value).strftime(DATE_FORMAT)
         elif isinstance(value, datetime):
             value = value.strftime(DATE_FORMAT)
         return value
+
+class AccesTokenSchema(BaseModel):
+    acces_token: str
+    expires_at_acces: str
+
+    @field_validator("expires_at_acces", mode="before")
+    @classmethod
+    def normalize_datetime(cls, value: Any) -> str:
+        if not value:
+            raise TypeError("expires_at_acces field is None!")
+
+        if isinstance(value, int):
+            value = datetime.fromtimestamp(value).strftime(DATE_FORMAT)
+        elif isinstance(value, datetime):
+            value = value.strftime(DATE_FORMAT)
+        return value
+
+class RefreshAccesTokens(RefreshTokenSchema, AccesTokenSchema):
+    pass
 
 class LoginSchema(BaseModel):
     username: str = Field(..., min_length=USERNAME_MIN_L, max_length=USERNAME_MAX_L)

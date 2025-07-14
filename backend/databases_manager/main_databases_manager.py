@@ -5,9 +5,10 @@ from authorization import password_manager, jwt_manager
 from databases_manager.postgres_manager.models import User, Post
 from pydantic_schemas import (
     RegisterSchema,
-    TokenResponseSchema,
+    RefreshTokenSchema,
+    AccesTokenSchema,
     LoginSchema,
-    LogoutRequest
+    RefreshAccesTokens
     )
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,28 +60,31 @@ class MainService:
         
         return None
 
-    async def register(self, credentials: RegisterSchema) -> TokenResponseSchema:
+    async def register(self, credentials: RegisterSchema) -> RefreshAccesTokens:
         if await self.__PostgresService.get_user_by_username_and_email(username=credentials.username, email=credentials.email):
             raise HTTPException(status_code=409, detail="Registered account with these credetials already exists")
 
         password_hash = password_manager.hash_password(credentials.password)
-        new_user_obj = User(
+        new_user = User(
             username=credentials.username, 
             email=credentials.email,
             password_hash=password_hash
         )
-        await self.__PostgresService.insert_models_and_flush(new_user_obj)
+        await self.__PostgresService.insert_models_and_flush(new_user)
 
-        return await self.__JWT.generate_save_token(new_user_obj.user_id, self.__RedisService)
-        
-    async def login(self, credentials: LoginSchema):
+        return await self.__JWT.generate_refresh_acces_token(user_id=new_user.user_id, redis=self.__RedisService)
+
+            
+    async def login(self, credentials: LoginSchema) -> RefreshAccesTokens:
+        pass
+
+    async def logout(self, credentials: RefreshAccesTokens) -> None:
+        pass
+
+    async def refresh(self, refresh_token: RefreshAccesTokens) -> AccesTokenSchema:
         pass
 
     async def get_all_users(self) -> List[User]:
         return await self.__PostgresService.get_all_users()
     
-    async def login(self, credentials: LoginSchema) -> TokenResponseSchema:
-        pass
 
-    async def logout(self, credentials: LogoutRequest):
-        pass

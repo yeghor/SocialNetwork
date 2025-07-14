@@ -81,6 +81,9 @@ class PostgresService:
     async def commit_changes(self) -> None:
         await self.__session.commit()
 
+    async def rollback(self) -> None:
+        await self.__session.rollback()
+
     @database_error_handler(action="Add model and flush")
     async def insert_models_and_flush(self, *models: Base) -> List[Base] | Base:
         self.__session.add_all(models)

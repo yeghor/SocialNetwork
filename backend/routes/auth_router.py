@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Depends, Body, Header
+from fastapi import APIRouter, Depends, Body, Header, HTTPException
 from databases_manager.postgres_manager.database_utils import get_session_depends
 from databases_manager.main_databases_manager import MainService
 from databases_manager.postgres_manager.models import User
 from authorization.authorization import authrorize_request_depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic_schemas import (
-    TokenResponseSchema,
     LoginSchema,
     RegisterSchema,
-    LogoutRequest
+    RefreshAccesTokens,
+    AccesTokenSchema,
+    UserProfileSchema
 )
 from authorization import password_manager, jwt_manager
 
@@ -18,7 +19,7 @@ auth = APIRouter()
 async def login(
     credentials: LoginSchema = Body(...),
     session: AsyncSession = Depends(get_session_depends)
-    ) -> TokenResponseSchema:
+    ) -> RefreshAccesTokens:
     main_service = await MainService.initialize(postgres_session=session)
     response = await main_service.login(credentials=credentials)
     await main_service.finish(commit_postgres=True)
@@ -28,37 +29,38 @@ async def login(
 async def register(
     credentials: RegisterSchema = Body(...),
     session: AsyncSession = Depends(get_session_depends)
-    ) -> TokenResponseSchema:
+    ) -> RefreshAccesTokens:
     main_service = await MainService.initialize(postgres_session=session)
     response = await main_service.register(credentials=credentials) 
     await main_service.finish(commit_postgres=True)
     return response
 
+
 @auth.post("/logout")
 async def logout(
     session: AsyncSession = Depends(get_session_depends),
-    credentials: LogoutRequest = Body(...)
+    credentials: RefreshAccesTokens = Body(...)
 ) -> None:
     main_service = await MainService.initialize(postgres_session=session)
     await main_service.logout(credentials=credentials)
     await main_service.finish(commit_postgres=False)
 
 @auth.get("/refresh")
-async def refresh_token():
+async def refresh_token() -> AccesTokenSchema:
     pass
 
 @auth.patch("/change_password")
-async def change_password():
+async def change_password() -> UserProfileSchema:
     pass
 
 @auth.patch("/change_username")
-async def change_username():
+async def change_username() -> UserProfileSchema:
     pass
 
 @auth.post("/get_user_profile")
-async def get_user_profile():
+async def get_user_profile() -> UserProfileSchema:
     pass
 
-@auth.delete("/delete_user_profile")
-async def delete_user_profile():
+@auth.delete("/delete_user_account")
+async def delete_user_account() -> None:
     pass
