@@ -5,6 +5,7 @@ from databases_manager.postgres_manager.models import *
 from databases_manager.postgres_manager.database import engine
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 
 async def drop_all(engine: AsyncEngine, Base: Base) -> None:
     async with engine.begin() as conn:
@@ -41,3 +42,7 @@ app.add_middleware(
 
 app.include_router(auth_router.auth)
 app.include_router(social_router.social)
+
+# for debug
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8001)

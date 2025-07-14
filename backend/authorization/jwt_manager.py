@@ -4,7 +4,7 @@ from os import getenv
 from datetime import datetime
 from databases_manager.redis_manager.redis_manager import RedisService
 from typing import Dict
-from schemas import PayloadJWT, TokenResponseSchema
+from pydantic_schemas import PayloadJWT, TokenResponseSchema
 import jwt.exceptions as jwt_exceptions
 from functools import wraps
 from fastapi import HTTPException

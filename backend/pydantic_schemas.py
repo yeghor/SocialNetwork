@@ -10,7 +10,6 @@ from authorization.authorization import validate_password
 
 load_dotenv()
 
-
 DATE_FORMAT = getenv("DATETIME_BASE_FORMAT")
 USERNAME_MIN_L = int(getenv("USERNAME_MIN_L"))
 USERNAME_MAX_L = int(getenv("USERNAME_MAX_L"))
@@ -38,6 +37,9 @@ class PayloadJWT(BaseModel):
             value = UUID(value)
         return value
 
+class LogoutRequest(BaseModel):
+    refresh_token: str
+    acces_token: str
 
 class TokenResponseSchema(BaseModel):
     token: str
@@ -58,7 +60,6 @@ class TokenResponseSchema(BaseModel):
 class LoginSchema(BaseModel):
     username: str = Field(..., min_length=USERNAME_MIN_L, max_length=USERNAME_MAX_L)
     password: str = Field(..., min_length=PASSWORD_MIN_L, max_length=PASSWORD_MAX_L)
-
 
 class RegisterSchema(LoginSchema):
     email: str

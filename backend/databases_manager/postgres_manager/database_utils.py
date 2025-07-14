@@ -1,7 +1,7 @@
 from databases_manager.postgres_manager.database import SessionLocal
 from sqlalchemy.ext.asyncio import AsyncSession
 from functools import wraps
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, MultipleResultsFound
 from fastapi import HTTPException
 from databases_manager.postgres_manager.models import *
 from sqlalchemy import select, or_
@@ -47,19 +47,23 @@ def database_error_handler(action: str = "Unknown action with the database"):
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            # try:
-            return await func(*args, **kwargs)
-            # except Exception as e:
-            #     if isinstance(e, SQLAlchemyError):
-            #         raise HTTPException(
-            #             status_code=500,
-            #             detail=f"Error with the database occured: {e} | Action: {action}"
-            #         )
-
-            #     raise HTTPException(
-            #         status_code=500,
-            #         detail=f"Unkown error with the database occured: {e} | Action: {action}"
-            #     )
+            try:
+                return await func(*args, **kwargs)
+            except Exception as e:
+                if isinstance(e, MultipleResultsFound):
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Unexpectedly, multiply database entries found. Please, contact us and try again later."
+                    )
+                elif isinstance(e, SQLAlchemyError):
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Error with the database occured: {e} | Action: {action}"
+                    )
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Unkown error with the database occured: {e} | Action: {action}"
+                )
         return wrapper
     return decorator
 
@@ -74,13 +78,12 @@ class PostgresService:
     async def close(self) -> None:
         await self.__session.aclose()
 
-    async def commit_changes_and(self) -> None:
+    async def commit_changes(self) -> None:
         await self.__session.commit()
 
     @database_error_handler(action="Add model and flush")
-    async def insert_model_and_flush(self, *models: Base) -> None:
-        """Adding model and making flush"""
-        self.__session.add_all(list(models))
+    async def insert_models_and_flush(self, *models: Base) -> List[Base] | Base:
+        self.__session.add_all(models)
         await self.__session.flush()
 
     @database_error_handler(action="Get user by id")
@@ -170,4 +173,11 @@ class PostgresService:
     async def delete_models(self, *models):
         pass
 
-    
+    @database_error_handler(action="Get user by username and email")
+    async def get_user_by_username_and_email(self, username: str, email: str) -> User:
+        result = await self.__session.execute(
+            select(User)
+            .where(or_(User.username == username, User.email == email))
+        )
+        user = result.one_or_none()
+        return user

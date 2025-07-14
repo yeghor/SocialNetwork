@@ -58,7 +58,7 @@ class RedisService:
             name=f"{self.__jwt_prefix}{str(jwt_token)}",
             time=JWT_EXPIRY_SECONDS,
             value=str(user_id)
-        ) 
+        )
         return datetime.strftime(datetime.fromtimestamp(datetime.utcnow().timestamp() + JWT_EXPIRY_SECONDS), DATETIME_BASE_FORMAT)
     
     @redis_error_handler

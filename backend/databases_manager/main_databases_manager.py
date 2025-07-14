@@ -3,10 +3,11 @@ from databases_manager.postgres_manager.database_utils import PostgresService
 from databases_manager.redis_manager.redis_manager import RedisService
 from authorization import password_manager, jwt_manager
 from databases_manager.postgres_manager.models import User, Post
-from schemas import (
+from pydantic_schemas import (
     RegisterSchema,
     TokenResponseSchema,
-    LoginSchema
+    LoginSchema,
+    LogoutRequest
     )
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +32,7 @@ class MainService:
 
     @classmethod
     async def initialize(cls, postgres_session: AsyncSession, mode: str = "prod") -> "MainService":
+        """Postgres AsyncSession needs to be closed manualy!"""
         Postgres = PostgresService(session=postgres_session)
         Redis = RedisService(db_pool=mode)
         ChromaDB = await ChromaService.connect(mode=mode)
@@ -39,10 +41,10 @@ class MainService:
     
     async def finish(self, commit_postgres: bool = True) -> None:
         # If i'm not mistaken, chromaDB doesn't require connection close
+        # We assume that provided session is handling it's close
         await self.__RedisService.finish()
-        if commit_postgres: await self.__PostgresService.commit_changes_and_close()
-        await self.__PostgresService.close()
-    
+        if commit_postgres: await self.__PostgresService.commit_changes()
+
     async def authorize_request(self, token: str, return_user: bool = True) -> User | None:
         """Can be used in fastAPI Depends()"""
         
@@ -58,15 +60,16 @@ class MainService:
         return None
 
     async def register(self, credentials: RegisterSchema) -> TokenResponseSchema:
+        if await self.__PostgresService.get_user_by_username_and_email(username=credentials.username, email=credentials.email):
+            raise HTTPException(status_code=409, detail="Registered account with these credetials already exists")
+
         password_hash = password_manager.hash_password(credentials.password)
-        print("Creating user model")
         new_user_obj = User(
             username=credentials.username, 
             email=credentials.email,
             password_hash=password_hash
         )
-        await self.__PostgresService.insert_model_and_flush(new_user_obj)
-        print("Adding user model")
+        await self.__PostgresService.insert_models_and_flush(new_user_obj)
 
         return await self.__JWT.generate_save_token(new_user_obj.user_id, self.__RedisService)
         
@@ -76,3 +79,8 @@ class MainService:
     async def get_all_users(self) -> List[User]:
         return await self.__PostgresService.get_all_users()
     
+    async def login(self, credentials: LoginSchema) -> TokenResponseSchema:
+        pass
+
+    async def logout(self, credentials: LogoutRequest):
+        pass
