@@ -38,6 +38,10 @@ class RedisService:
         print(host)
         return host
 
+    @staticmethod
+    def _get_expiry(SPECIFIC_TOKEN_EXPIRY_IN_SECONDS: int) -> str:
+        return datetime.strftime(datetime.fromtimestamp(datetime.utcnow().timestamp() + SPECIFIC_TOKEN_EXPIRY_IN_SECONDS), DATETIME_BASE_FORMAT)
+        
     def __init__(self, db_pool: str = "prod", host: str = "localhost"):
         """
         To switch to the test pool - assign db_pool to "test" \n
@@ -62,7 +66,7 @@ class RedisService:
             time=ACCES_JWT_EXPIRY_SECONDS,
             value=str(user_id)
         )
-        return datetime.strftime(datetime.fromtimestamp(datetime.utcnow().timestamp() + ACCES_JWT_EXPIRY_SECONDS), DATETIME_BASE_FORMAT)
+        return self._get_expiry(ACCES_JWT_EXPIRY_SECONDS)
     
     @redis_error_handler
     async def save_refresh_jwt(self, jwt_token: str, user_id: str | UUID) -> str:
@@ -71,9 +75,16 @@ class RedisService:
             time=REFRESH_JWT_EXPIRY_SECONDS,
             value=str(user_id)
         )
-        print(f"[DEBUG]: {datetime.strftime(datetime.fromtimestamp(datetime.utcnow().timestamp() + REFRESH_JWT_EXPIRY_SECONDS), DATETIME_BASE_FORMAT)}")
-        return datetime.strftime(datetime.fromtimestamp(datetime.utcnow().timestamp() + REFRESH_JWT_EXPIRY_SECONDS), DATETIME_BASE_FORMAT)
+        return self._get_expiry(REFRESH_JWT_EXPIRY_SECONDS)
 
+    @redis_error_handler
+    async def refresh_acces_token(self, old_token, new_token: str, user_id: str | UUID) -> str:
+        await self.__client.delete(f"{self.__jwt_acces_prefix}{old_token}")
+        await self.__client.setex(
+            name=f"{self.__jwt_acces_prefix}{new_token}",
+            time=ACCES_JWT_EXPIRY_SECONDS,
+            value=str(user_id)
+        )
 
     @redis_error_handler
     async def get_jwt_time_to_expiry(self, jwt_token: str) -> Optional[int]:
@@ -92,6 +103,10 @@ class RedisService:
         potential_token = await self.__client.get(f"{self.__jwt_acces_prefix}{str(jwt_token)}")
         return bool(potential_token)
     
+    @redis_error_handler
+    async def clear_all_by_prefix():
+        # https://stackoverflow.com/questions/21975228/redis-python-how-to-delete-all-keys-according-to-a-specific-pattern-in-python
+
     @redis_error_handler
     async def finish(self) -> None:
         await self.__client.aclose()
