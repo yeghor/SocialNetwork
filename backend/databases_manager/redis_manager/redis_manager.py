@@ -106,6 +106,7 @@ class RedisService:
     @redis_error_handler
     async def clear_all_by_prefix():
         # https://stackoverflow.com/questions/21975228/redis-python-how-to-delete-all-keys-according-to-a-specific-pattern-in-python
+        pass
 
     @redis_error_handler
     async def finish(self) -> None:
