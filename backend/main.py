@@ -5,22 +5,39 @@ from databases_manager.postgres_manager.models import *
 from databases_manager.postgres_manager.database import engine
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
+import redis.asyncio as async_redis
 import uvicorn
+from os import getenv
+from dotenv import load_dotenv
+
+load_dotenv()
 
 async def drop_all(engine: AsyncEngine, Base: Base) -> None:
     async with engine.begin() as conn:
+        print("Initialize all postgres models")
         await conn.run_sync(Base.metadata.drop_all)
 
 async def initialize_models(engine: AsyncEngine, Base: Base) -> None:
     async with engine.begin() as conn:
+        print("Drop all postgres models")
         await conn.run_sync(Base.metadata.create_all)
+
+async def drop_redis() -> None:
+    client = async_redis.Redis(
+        host="localhost",
+        port=int(getenv("REDIS_PORT")),
+        db=0
+    )
+    await client.flushall()
+    await client.aclose()
+
 
 # On app startup. https://fastapi.tiangolo.com/advanced/events/#lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("initialing models")
+    await drop_all(engine=engine, Base=Base)    
     await initialize_models(engine=engine, Base=Base)
-    # await drop_all(engine=engine, Base=Base)
+    await drop_redis()
     yield
 
 

@@ -12,6 +12,7 @@ from pydantic_schemas import (PayloadJWT,
 import jwt.exceptions as jwt_exceptions
 from functools import wraps
 from fastapi import HTTPException
+import random
 
 load_dotenv()
 
@@ -47,7 +48,7 @@ class JWTService:
                 "user_id": str(user_id),
                 "issued_at": int(datetime.now().timestamp())
             },
-            key=getenv("SECRET_KEY"),
+            key=getenv("SECRET_KEY")+str(hash(random.randint(1, 9999999))),
             algorithm=getenv("JWT_ALGORITHM")
         )
         return encoded_jwt

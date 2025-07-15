@@ -177,10 +177,13 @@ class PostgresService:
         pass
 
     @database_error_handler(action="Get user by username and email")
-    async def get_user_by_username_and_email(self, username: str, email: str) -> User:
+    async def get_user_by_username_or_email(self, username: str | None, email: str | None) -> User:
+        if not username and not email:
+            raise ValueError("Username and email are None!")
+
         result = await self.__session.execute(
             select(User)
             .where(or_(User.username == username, User.email == email))
         )
-        user = result.one_or_none()
+        user = result.scalar()
         return user

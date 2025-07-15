@@ -19,7 +19,9 @@ def redis_error_handler(func):
         try:
             return await func(*args, **kwargs)
         except redis_exceptions.RedisError as e:
-            raise HTTPException(status_code=500, detail=f"Action with redis failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Action with Redis failed: {e}")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Uknown erro while working with Redis occured: {e}")
     return wrapper
 
 
@@ -35,7 +37,6 @@ class RedisService:
     @staticmethod
     def _define_host(host: str) -> str:
         if not host: return "localhost"
-        print(host)
         return host
 
     @staticmethod
@@ -52,7 +53,7 @@ class RedisService:
                 host=self._define_host(host),
                 port=int(getenv("REDIS_PORT")),
                 db=self._chose_pool(db_pool),
-                decode_responses=True
+                decode_responses=True,
             )
             self.__jwt_acces_prefix = "acces-jwt-token:"
             self.__jwt_refresh_prefix = "refresh-jwt-token:"
@@ -85,6 +86,7 @@ class RedisService:
             time=ACCES_JWT_EXPIRY_SECONDS,
             value=str(user_id)
         )
+        return new_token
 
     @redis_error_handler
     async def get_jwt_time_to_expiry(self, jwt_token: str) -> Optional[int]:
@@ -95,8 +97,13 @@ class RedisService:
         return result
 
     @redis_error_handler
-    async def delete_jwt(self, jwt_token: str) -> None:
-        await self.__client.delete(f"{self.__jwt_acces_prefix}{jwt_token}")
+    async def delete_jwt(self, jwt_token: str, token_type: str) -> None:
+        if not token_type:
+            raise ValueError("Token type is None!")
+        if token_type == "acces": prefix = self.__jwt_acces_prefix
+        elif token_type == "refresh": prefix = self.__jwt_refresh_prefix
+   
+        await self.__client.delete(f"{prefix}{jwt_token}")
 
     @redis_error_handler
     async def check_jwt_existence(self, jwt_token: str) -> bool:
@@ -104,9 +111,25 @@ class RedisService:
         return bool(potential_token)
     
     @redis_error_handler
+    async def get_token_by_user_id(self, user_id: UUID | str, token_type: str) -> str | None:
+        if not user_id or not token_type:
+            raise ValueError("user_id or toket_type is None!")
+
+        if token_type == "acces": prefix = self.__jwt_acces_prefix
+        elif token_type == "refresh": prefix = self.__jwt_refresh_prefix
+        else:
+            raise ValueError("Unsuported token type!")
+
+        async for key in self.__client.scan_iter(match=f"{prefix}*"):
+            value = await self.__client.get(key)
+            if value == str(user_id):
+                return key.removeprefix(prefix)
+
+    @redis_error_handler
     async def clear_all_by_prefix():
         # https://stackoverflow.com/questions/21975228/redis-python-how-to-delete-all-keys-according-to-a-specific-pattern-in-python
         pass
+
 
     @redis_error_handler
     async def finish(self) -> None:

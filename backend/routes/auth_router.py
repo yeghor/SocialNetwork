@@ -42,8 +42,9 @@ async def logout(
     credentials: RefreshAccesTokens = Body(...)
 ) -> None:
     main_service = await MainService.initialize(postgres_session=session)
-    await main_service.logout(credentials=credentials)
+    response = await main_service.logout(credentials=credentials)
     await main_service.finish(commit_postgres=False)
+    return response
 
 @auth.get("/refresh")
 async def refresh_token() -> AccesTokenSchema:
