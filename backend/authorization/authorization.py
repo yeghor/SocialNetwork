@@ -3,13 +3,14 @@ from databases_manager.postgres_manager.models import User
 
 from fastapi import Header, HTTPException
 
+
 from dotenv import load_dotenv
 from os import getenv
 
 PASSWORD_MIN_L = int(getenv("PASSWORD_MIN_L"))
 PASSWORD_MAX_L = int(getenv("PASSWORD_MAX_L"))
 
-async def authrorize_request_depends(token: str = Header(..., title="Authorization token", example="Bearer (token)")):
+async def authrorize_request_depends(token: str = Header(..., title="Authorization acces token", example="Bearer (token)")):
     from databases_manager.main_databases_manager import MainService
     """User with fastAPI Depends()"""
     session = get_session()
