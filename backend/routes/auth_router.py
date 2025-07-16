@@ -8,6 +8,7 @@ from pydantic_schemas import (
     LoginSchema,
     RegisterSchema,
     RefreshAccesTokens,
+    RefreshTokenSchema,
     AccesTokenSchema,
     UserProfileSchema
 )
@@ -37,15 +38,20 @@ async def register(
 @auth.post("/logout")
 async def logout(
     session: AsyncSession = Depends(get_session_depends),
-    credentials: RefreshAccesTokens = Body(...)
+    tokens: RefreshAccesTokens = Body(...)
 ) -> None:
     async with await MainServiceContextManager.create(postgres_session=session) as main_service:
         response = await main_service.logout(credentials=credentials)
         return response
 
 @auth.get("/refresh")
-async def refresh_token() -> AccesTokenSchema:
-    pass
+async def refresh_token(
+    token: RefreshTokenSchema = Body(...),
+    session: AsyncSession = Depends(get_session_depends)
+) -> AccesTokenSchema:
+    async with await MainServiceContextManager.create(postgres_session=session) as main_service:
+        response = await main_service.refresh_token(refresh_token=token)
+        return response
 
 @auth.patch("/change_password")
 async def change_password() -> UserProfileSchema:

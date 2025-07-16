@@ -70,7 +70,7 @@ class MainServiceAuth:
         
         valid_token = self.__JWT.prepare_token(jwt_token=token)
 
-        if not await self.__RedisService.check_jwt_existence(jwt_token=valid_token):
+        if not await self.__RedisService.check_jwt_existence(jwt_token=valid_token, token_type="acces"):
             raise HTTPException(status_code=401, detail="Invalid or expires token")
         
         if return_user:
@@ -104,22 +104,32 @@ class MainServiceAuth:
         
         user_id = potential_user.user_id
         potential_refresh_token = await self.__RedisService.get_token_by_user_id(user_id=user_id, token_type="refresh")
-        potential_acces_token = await self.__RedisService.get_token_by_user_id(user_id=user_id, token_type="acces")
+        potential_acces_token = await self.__Redi_sService.get_token_by_user_id(user_id=user_id, token_type="acces")
 
-        print(potential_refresh_token)
-        print(potential_acces_token)
         if potential_acces_token:
-            await self.__RedisService.delete_jwt(potential_acces_token, token_type="acces")
+            await self.__RedisService.delete_jwt(jwt_token=potential_acces_token, token_type="acces")
         if potential_refresh_token:
-            await self.__RedisService.delete_jwt(potential_refresh_token, token_type="refresh")
+            await self.__RedisService.delete_jwt(jwt_token=potential_refresh_token, token_type="refresh")
         
         return await self.__JWT.generate_refresh_acces_token(user_id=user_id, redis=self.__RedisService)
 
     async def logout(self, credentials: RefreshAccesTokens) -> None:
-        pass
+        await self.__RedisService.delete_jwt(jwt_token=credentials.acces_token, token_type="acces")
+        await self.__RedisService.delete_jwt(jwt_token=credentials.refresh_token, token_type="refresh")
 
-    async def refresh(self, refresh_token: RefreshAccesTokens) -> AccesTokenSchema:
-        pass
+    async def refresh_token(self, refresh_token: RefreshTokenSchema) -> AccesTokenSchema:
+        if not await self.__RedisService.check_jwt_existence(jwt_token=refresh_token.refresh_token):
+            raise HTTPException(status_code=401, detail="Expired or invalid refresh token")
+        
+
+        payload = self.__JWT.extract_jwt_payload(jwt_token=refresh_token.refresh_token)
+        user_id = payload["user_id"]
+
+        old_acces_token = await self.__RedisService.get_token_by_user_id(user_id=user_id, token_type="acces")
+        new_acces_token = await self.__JWT.generate_token(user_id=user_id, redis=self.__RedisService, token_type="acces")
+
+        await self.__RedisService.refresh_acces_token(old_token=old_acces_token, new_token=new_acces_token, user_id=user_id)
+
 
         
     

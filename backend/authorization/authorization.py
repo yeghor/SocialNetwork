@@ -3,6 +3,7 @@ from databases_manager.postgres_manager.models import User
 
 from fastapi import Header, HTTPException
 
+
 from dotenv import load_dotenv
 from os import getenv
 

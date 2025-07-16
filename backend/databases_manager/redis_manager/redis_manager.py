@@ -80,7 +80,7 @@ class RedisService:
 
     @redis_error_handler
     async def refresh_acces_token(self, old_token, new_token: str, user_id: str | UUID) -> str:
-        await self.__client.delete(f"{self.__jwt_acces_prefix}{old_token}")
+        await self.delete_jwt(jwt_token=old_token, token_type="acces")
         await self.__client.setex(
             name=f"{self.__jwt_acces_prefix}{new_token}",
             time=ACCES_JWT_EXPIRY_SECONDS,
@@ -106,8 +106,14 @@ class RedisService:
         await self.__client.delete(f"{prefix}{jwt_token}")
 
     @redis_error_handler
-    async def check_jwt_existence(self, jwt_token: str) -> bool:
-        potential_token = await self.__client.get(f"{self.__jwt_acces_prefix}{str(jwt_token)}")
+    async def check_jwt_existence(self, jwt_token: str, token_type: str) -> bool:
+        if not jwt_token or not token_type:
+            raise ValueError("No jwt_token or token_type provided")
+
+        if token_type == "acces": prefix = self.__jwt_acces_prefix
+        elif token_type == "refresh": prefix = self.__jwt_refresh_prefix
+
+        potential_token = await self.__client.get(f"{prefix}{str(jwt_token)}")
         return bool(potential_token)
     
     @redis_error_handler
