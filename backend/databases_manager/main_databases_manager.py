@@ -15,7 +15,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 from typing import List
 
+class MainServiceContextManager:
+    def __init__(self, main_service):
+        self.main_service: "MainService" = main_service
+
+    @classmethod
+    async def create(cls, postgres_session: AsyncSession, mode: str = "prod"):
+        main_service = await MainService.initialize(postgres_session=postgres_session, mode=mode)
+        return cls(main_service=main_service)
+
+    async def __aenter__(self):
+        return self.main_service
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.main_service.finish(commit_postgres=not exc_type)
+
+        
+
 class MainService:
+    instance = None
     """
     To create obj - use async method **initialize** *Reason - chromaDB async client requires await. But __init__ can't be async* \n
     Requires created SQLalchemy AsyncSession \n
@@ -30,6 +48,7 @@ class MainService:
         self.__ChromaService = Chroma
 
         self.__JWT = jwt_manager.JWTService
+
 
     @classmethod
     async def initialize(cls, postgres_session: AsyncSession, mode: str = "prod") -> "MainService":
@@ -95,8 +114,6 @@ class MainService:
             await self.__RedisService.delete_jwt(potential_refresh_token, token_type="refresh")
         
         return await self.__JWT.generate_refresh_acces_token(user_id=user_id, redis=self.__RedisService)
-
-
 
     async def logout(self, credentials: RefreshAccesTokens) -> None:
         pass

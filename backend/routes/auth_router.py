@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Body, Header, HTTPException
 from databases_manager.postgres_manager.database_utils import get_session_depends
-from databases_manager.main_databases_manager import MainService
+from databases_manager.main_databases_manager import MainService, MainServiceContextManager
 from databases_manager.postgres_manager.models import User
 from authorization.authorization import authrorize_request_depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,20 +20,18 @@ async def login(
     credentials: LoginSchema = Body(...),
     session: AsyncSession = Depends(get_session_depends)
     ) -> RefreshAccesTokens:
-    main_service = await MainService.initialize(postgres_session=session)
-    response = await main_service.login(credentials=credentials)
-    await main_service.finish(commit_postgres=True)
-    return response
+    async with await MainServiceContextManager.create(postgres_session=session) as main_service:
+        response = await main_service.login(credentials=credentials)
+        return response
 
 @auth.post("/register")
 async def register(
     credentials: RegisterSchema = Body(...),
     session: AsyncSession = Depends(get_session_depends)
     ) -> RefreshAccesTokens:
-    main_service = await MainService.initialize(postgres_session=session)
-    response = await main_service.register(credentials=credentials) 
-    await main_service.finish(commit_postgres=True)
-    return response
+    async with await MainServiceContextManager.create(postgres_session=session) as main_service:
+        response = await main_service.register(credentials=credentials)
+        return response
 
 
 @auth.post("/logout")
@@ -41,10 +39,9 @@ async def logout(
     session: AsyncSession = Depends(get_session_depends),
     credentials: RefreshAccesTokens = Body(...)
 ) -> None:
-    main_service = await MainService.initialize(postgres_session=session)
-    response = await main_service.logout(credentials=credentials)
-    await main_service.finish(commit_postgres=False)
-    return response
+    async with await MainServiceContextManager.create(postgres_session=session) as main_service:
+        response = await main_service.logout(credentials=credentials)
+        return response
 
 @auth.get("/refresh")
 async def refresh_token() -> AccesTokenSchema:
