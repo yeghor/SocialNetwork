@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Body, Header, HTTPException
 from databases_manager.postgres_manager.database_utils import get_session_depends
-from databases_manager.main_databases_manager import MainService, MainServiceContextManager
+from databases_manager.main_databases_manager import MainServiceAuth, MainServiceContextManager
 from databases_manager.postgres_manager.models import User
 from authorization.authorization import authrorize_request_depends
 from sqlalchemy.ext.asyncio import AsyncSession

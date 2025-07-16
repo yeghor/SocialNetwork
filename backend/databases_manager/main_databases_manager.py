@@ -17,11 +17,11 @@ from typing import List
 
 class MainServiceContextManager:
     def __init__(self, main_service):
-        self.main_service: "MainService" = main_service
+        self.main_service: "MainServiceAuth" = main_service
 
     @classmethod
     async def create(cls, postgres_session: AsyncSession, mode: str = "prod"):
-        main_service = await MainService.initialize(postgres_session=postgres_session, mode=mode)
+        main_service = await MainServiceAuth.initialize(postgres_session=postgres_session, mode=mode)
         return cls(main_service=main_service)
 
     async def __aenter__(self):
@@ -32,7 +32,7 @@ class MainServiceContextManager:
 
         
 
-class MainService:
+class MainServiceAuth:
     instance = None
     """
     To create obj - use async method **initialize** *Reason - chromaDB async client requires await. But __init__ can't be async* \n
@@ -51,7 +51,7 @@ class MainService:
 
 
     @classmethod
-    async def initialize(cls, postgres_session: AsyncSession, mode: str = "prod") -> "MainService":
+    async def initialize(cls, postgres_session: AsyncSession, mode: str = "prod") -> "MainServiceAuth":
         """Postgres AsyncSession needs to be closed manualy!"""
         Postgres = PostgresService(session=postgres_session)
         Redis = RedisService(db_pool=mode)
@@ -121,7 +121,6 @@ class MainService:
     async def refresh(self, refresh_token: RefreshAccesTokens) -> AccesTokenSchema:
         pass
 
-    async def get_all_users(self) -> List[User]:
-        return await self.__PostgresService.get_all_users()
+        
     
 
