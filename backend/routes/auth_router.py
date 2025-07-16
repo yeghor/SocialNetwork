@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, Body, Header, HTTPException
 from databases_manager.postgres_manager.database_utils import get_session_depends
-from databases_manager.main_databases_manager import MainServiceAuth, MainServiceContextManager
+from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
+from databases_manager.main_managers.auth_manager import MainServiceAuth
 from databases_manager.postgres_manager.models import User
 from authorization.authorization import authrorize_request_depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic_schemas import (
+from pydantic_schemas.pydantic_schemas_auth import (
     LoginSchema,
     RegisterSchema,
     RefreshAccesTokens,
@@ -21,7 +22,7 @@ async def login(
     credentials: LoginSchema = Body(...),
     session: AsyncSession = Depends(get_session_depends)
     ) -> RefreshAccesTokens:
-    async with await MainServiceContextManager.create(postgres_session=session) as main_service:
+    async with await MainServiceContextManager.create(MainService=MainServiceAuth, postgres_session=session) as main_service:
         response = await main_service.login(credentials=credentials)
         return response
 
@@ -30,7 +31,7 @@ async def register(
     credentials: RegisterSchema = Body(...),
     session: AsyncSession = Depends(get_session_depends)
     ) -> RefreshAccesTokens:
-    async with await MainServiceContextManager.create(postgres_session=session) as main_service:
+    async with await MainServiceContextManager.create(MainService=MainServiceAuth, postgres_session=session) as main_service:
         response = await main_service.register(credentials=credentials)
         return response
 
@@ -40,8 +41,8 @@ async def logout(
     session: AsyncSession = Depends(get_session_depends),
     tokens: RefreshAccesTokens = Body(...)
 ) -> None:
-    async with await MainServiceContextManager.create(postgres_session=session) as main_service:
-        response = await main_service.logout(credentials=credentials)
+    async with await MainServiceContextManager.create(MainService=MainServiceAuth, postgres_session=session) as main_service:
+        response = await main_service.logout(tokens=tokens)
         return response
 
 @auth.get("/refresh")
@@ -49,22 +50,7 @@ async def refresh_token(
     token: RefreshTokenSchema = Body(...),
     session: AsyncSession = Depends(get_session_depends)
 ) -> AccesTokenSchema:
-    async with await MainServiceContextManager.create(postgres_session=session) as main_service:
+    async with await MainServiceContextManager.create(MainService=MainServiceAuth, postgres_session=session) as main_service:
         response = await main_service.refresh_token(refresh_token=token)
         return response
 
-@auth.patch("/change_password")
-async def change_password() -> UserProfileSchema:
-    pass
-
-@auth.patch("/change_username")
-async def change_username() -> UserProfileSchema:
-    pass
-
-@auth.post("/get_user_profile")
-async def get_user_profile() -> UserProfileSchema:
-    pass
-
-@auth.delete("/delete_user_account")
-async def delete_user_account() -> None:
-    pass

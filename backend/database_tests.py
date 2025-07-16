@@ -11,7 +11,7 @@ from uuid import uuid4
 from typing import AsyncGenerator, List
 import logging
 
-from databases_manager.main_databases_manager import MainServiceAuth
+from backend.databases_manager.main_managers.auth_manager import MainServiceAuth
 
 
 @pytest.mark.asyncio
@@ -23,7 +23,7 @@ async def test_models():
     await initialize_models(engine=engine, Base=Base)
 
     async with session() as session:
-        service = await MainServiceAuth.initialize(postgres_session=session, mode="test")
+        service = await MainServiceAuth.create(postgres_session=session, mode="test")
         users = await service.get_all_users()
         
         assert isinstance(users, List)

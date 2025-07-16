@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from pydantic_schemas.pydantic_schemas_auth import UserProfileSchema
 
 social = APIRouter()
 
@@ -48,4 +49,20 @@ async def follow():
 
 @social.post("/unfollow")
 async def unfollow():
+    pass
+
+@social.patch("/change_password")
+async def change_password() -> UserProfileSchema:
+    pass
+
+@social.patch("/change_username")
+async def change_username() -> UserProfileSchema:
+    pass
+
+@social.post("/get_user_profile")
+async def get_user_profile() -> UserProfileSchema:
+    pass
+
+@social.delete("/delete_user_account")
+async def delete_user_account() -> None:
     pass

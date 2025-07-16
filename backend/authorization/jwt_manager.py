@@ -4,7 +4,7 @@ from os import getenv
 from datetime import datetime
 from databases_manager.redis_manager.redis_manager import RedisService
 from typing import Literal
-from pydantic_schemas import (PayloadJWT,
+from pydantic_schemas.pydantic_schemas_auth import (PayloadJWT,
     RefreshTokenSchema,
     AccesTokenSchema,
     RefreshAccesTokens
