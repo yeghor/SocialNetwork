@@ -1,4 +1,5 @@
 from chromadb import AsyncHttpClient, Collection
+from chromadb.api.async_api import AsyncClientAPI
 from chromadb.errors import ChromaError
 from dotenv import load_dotenv
 from os import getenv
@@ -10,6 +11,10 @@ from databases_manager.postgres_manager.database_utils import validate_n_postiti
 from uuid import UUID
 
 load_dotenv()
+
+PROD_COLLECTION_NAME = getenv("CHROMADB_PROD_COLLECTION_NAME")
+TEST_COLLECTION_NAME = getenv("CHROMADB_TEST_COLLECTION_NAME")
+PORT = int(getenv("CHROMADB_PORT"))
 
 def chromaDB_error_handler(func):
     @wraps(func)
@@ -23,11 +28,12 @@ def chromaDB_error_handler(func):
     return wrapper
 
 class ChromaService:
-    def __init__(self, client: AsyncHttpClient, collection):
+    def __init__(self, client: AsyncClientAPI, collection: Collection, mode: str):
         """To create class object. Use **async** method connect!"""
         self.__collection: Collection = collection
+        self.__client: AsyncClientAPI = client
         self._datetime_format = getenv('DATETIME_BASE_FORMAT')
-
+        self.__mode = mode
 
     @classmethod
     @chromaDB_error_handler
@@ -35,18 +41,29 @@ class ChromaService:
         if not mode in ("prod", "test"):
             raise ValueError("Invalid chromaDB database mode")
         
-        client = await AsyncHttpClient(port=int(getenv("CHROMADB_PORT")), host="localhost")
+        client = await AsyncHttpClient(port=PORT, host="localhost")
         if mode == "prod":
-            collection = await client.get_or_create_collection(name=getenv("CHROMADB_PROD_COLLECTION_NAME"))
+            collection = await client.get_or_create_collection(name=PROD_COLLECTION_NAME)
         elif mode == "test":
             # In case if test-collection exists. Dropping it
             try:
-                await client.delete_collection(name="test-collection")
+                await client.delete_collection(name=TEST_COLLECTION_NAME)
             except Exception:
                 pass
             
-            collection = await client.get_or_create_collection(name=getenv("CHROMADB_TEST_COLLECTION_NAME"))
-        return cls(client=client, collection=collection)
+            collection = await client.get_or_create_collection(name=TEST_COLLECTION_NAME)
+
+        return cls(client=client, collection=collection, mode=mode)
+
+    @chromaDB_error_handler
+    async def drop_all(self):
+        """Drops all embeddings."""
+
+        if self.__mode == "prod":
+            await self.__client.delete_collection(name=PROD_COLLECTION_NAME)
+        elif self.__mode == "test":
+            await self.__client.delete_collection(name=PROD_COLLECTION_NAME)
+        
 
     @validate_n_postitive
     @chromaDB_error_handler
@@ -66,7 +83,7 @@ class ChromaService:
         
     @chromaDB_error_handler
     async def add_posts_data(self, posts: List[Post]) -> None:
-        """Add new posts or update existing by post ids."""
+        """Add new post embeddings or update existing by post UUID"""
         filtered_posts = [post for post in posts if not post.is_reply]
 
         # Adding only field that CAN'T be nullable to prevent crash

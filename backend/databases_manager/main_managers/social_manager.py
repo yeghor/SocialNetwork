@@ -8,4 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class MainServiceSocial(MainServiceBase):
-    pass
+    async def get_related_posts(self):
+        pass
+    
+    async def sync_data(self) -> None:
+        posts = await self._PostgresService.get_all_posts()
+        await self._ChromaService.add_posts_data(posts=posts)
+    
+    

@@ -22,7 +22,7 @@ async def login(
     credentials: LoginSchema = Body(...),
     session: AsyncSession = Depends(get_session_depends)
     ) -> RefreshAccesTokens:
-    async with await MainServiceContextManager.create(MainService=MainServiceAuth, postgres_session=session) as main_service:
+    async with await MainServiceContextManager.create(MainServiceType=MainServiceAuth, postgres_session=session) as main_service:
         response = await main_service.login(credentials=credentials)
         return response
 
@@ -31,7 +31,7 @@ async def register(
     credentials: RegisterSchema = Body(...),
     session: AsyncSession = Depends(get_session_depends)
     ) -> RefreshAccesTokens:
-    async with await MainServiceContextManager.create(MainService=MainServiceAuth, postgres_session=session) as main_service:
+    async with await MainServiceContextManager.create(MainServiceType=MainServiceAuth, postgres_session=session) as main_service:
         response = await main_service.register(credentials=credentials)
         return response
 
@@ -41,7 +41,7 @@ async def logout(
     session: AsyncSession = Depends(get_session_depends),
     tokens: RefreshAccesTokens = Body(...)
 ) -> None:
-    async with await MainServiceContextManager.create(MainService=MainServiceAuth, postgres_session=session) as main_service:
+    async with await MainServiceContextManager.create(MainServiceType=MainServiceAuth, postgres_session=session) as main_service:
         response = await main_service.logout(tokens=tokens)
         return response
 
@@ -50,7 +50,7 @@ async def refresh_token(
     token: RefreshTokenSchema = Body(...),
     session: AsyncSession = Depends(get_session_depends)
 ) -> AccesTokenSchema:
-    async with await MainServiceContextManager.create(MainService=MainServiceAuth, postgres_session=session) as main_service:
+    async with await MainServiceContextManager.create(MainServiceType=MainServiceAuth, postgres_session=session) as main_service:
         response = await main_service.refresh_token(refresh_token=token)
         return response
 
