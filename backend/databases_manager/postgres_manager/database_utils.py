@@ -1,5 +1,7 @@
 from databases_manager.postgres_manager.database import SessionLocal
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 from functools import wraps
 from sqlalchemy.exc import SQLAlchemyError, MultipleResultsFound
 from fastapi import HTTPException
@@ -7,6 +9,11 @@ from databases_manager.postgres_manager.models import *
 from sqlalchemy import select, or_
 from typing import List
 from uuid import UUID
+
+from dotenv import load_dotenv
+from os import getenv
+
+N_MAX_FOLLOWED_USERS_POSTS_TO_GET = int(getenv("N_MAX_FOLLOWED_USERS_POSTS_TO_GET"))
 
 def validate_n_postitive(func):
     @wraps(func)
@@ -152,6 +159,7 @@ class PostgresService:
 
     @database_error_handler(action="Get all posts")
     async def get_all_posts(self) -> List[Post]:
+        print("get all posts")
         result = await self.__session.execute(
             select(Post)
         )
@@ -159,7 +167,7 @@ class PostgresService:
 
     @validate_ids_type_to_UUID
     @database_error_handler(action="Get posts by ids")
-    async def get_posts_by_ids(self, ids: List[UUID | str]):
+    async def get_posts_by_ids(self, ids: List[UUID | str]) -> List[Post]:
         result = await self.__session.execute(
             select(Post)
             .where(Post.post_id.in_(ids))
@@ -187,3 +195,16 @@ class PostgresService:
         )
         user = result.scalar()
         return user
+    
+    @database_error_handler(action="Get followed users posts")
+    async def get_followed_posts(self, user: User) -> List[List[Post] | None]:
+        followed_ids = [followed.user_id for followed in user.followed]
+        
+        result = await self.__session.execute(
+            select(User)
+            .where(User.user_id.in_(followed_ids))
+            .options(selectinload(User.posts))
+        )
+        proccesed = result.scalars().all()
+
+        return [sorted(user.posts, key= lambda x: x.published, reverse=True)[:N_MAX_FOLLOWED_USERS_POSTS_TO_GET] for user in proccesed]
