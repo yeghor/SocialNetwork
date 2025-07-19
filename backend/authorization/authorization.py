@@ -10,7 +10,7 @@ from os import getenv
 PASSWORD_MIN_L = int(getenv("PASSWORD_MIN_L"))
 PASSWORD_MAX_L = int(getenv("PASSWORD_MAX_L"))
 
-async def authrorize_request_depends(token: str = Header(..., title="Authorization token", example="Bearer (token)")):
+async def authrorize_request_depends(token: str = Header(..., title="Authorization token", examples="Bearer (token)")):
     from backend.databases_manager.main_managers.auth_manager import MainServiceAuth
     """User with fastAPI Depends()"""
     session = get_session()

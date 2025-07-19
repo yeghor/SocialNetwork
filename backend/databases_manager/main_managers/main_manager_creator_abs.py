@@ -1,6 +1,3 @@
-from databases_manager.chromaDB_manager.chroma_manager import ChromaService
-from databases_manager.postgres_manager.database_utils import PostgresService
-from databases_manager.redis_manager.redis_manager import RedisService
 from databases_manager.postgres_manager.models import Post
 from authorization import jwt_manager
 
@@ -10,8 +7,10 @@ from typing import Type
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, TypeVar, Generic
 
-# To follow the open closed principle
-S = TypeVar("S", bound="MainServiceBase")
+# To follow the open closed principle with annotations
+ServiceType = TypeVar("Services", bound="MainServiceBase")
+
+
 
 class MainServiceABC(ABC):
     @classmethod
@@ -52,7 +51,12 @@ async def create():
 
     """
 
+from databases_manager.chromaDB_manager.chroma_manager import ChromaService
+from databases_manager.postgres_manager.database_utils import PostgresService
+from databases_manager.redis_manager.redis_manager import RedisService
+
 class MainServiceBase(MainServiceABC):
+
     """
     To create obj - use async method `initialize()` *Reason - chromaDB async client requires await. But `__init__` can't be async* \n
     Requires created SQLalchemy AsyncSession \n
@@ -84,22 +88,22 @@ class MainServiceBase(MainServiceABC):
         if commit_postgres: await self._PostgresService.commit_changes()
 
     
-class MainServiceContextManager(Generic[S], MainServiceContextManagerABS):
+class MainServiceContextManager(Generic[ServiceType], MainServiceContextManagerABS):
     """
 
     To use this context manager - call async crete function
     Example: `async with await MainServiceContextManager[YourServiceType].create(...) as main_service:`
     """
 
-    def __init__(self, main_service: S):
+    def __init__(self, main_service: ServiceType):
         self.main_service = main_service
 
     @classmethod
-    async def create(cls, MainServiceType: Type[S], postgres_session: AsyncSession, mode: str = "prod") -> "MainServiceContextManager[S]":
+    async def create(cls, MainServiceType: Type[ServiceType], postgres_session: AsyncSession, mode: str = "prod") -> "MainServiceContextManager[ServiceType]":
         main_service = await MainServiceType.create(postgres_session=postgres_session, mode=mode)
         return cls(main_service=main_service)
     
-    async def __aenter__(self) -> S:
+    async def __aenter__(self) -> ServiceType:
         return self.main_service
     
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
