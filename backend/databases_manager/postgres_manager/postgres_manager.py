@@ -1,7 +1,7 @@
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from databases_manager.postgres_manager.models import *
-from databases_manager.postgres_manager.database_utils import database_error_handler, validate_ids_type_to_UUID
+from databases_manager.postgres_manager.database_utils import postgres_error_handler, validate_ids_type_to_UUID
 from databases_manager.postgres_manager.validate_n_postive import validate_n_postitive
 from dotenv import load_dotenv
 from os import getenv
@@ -25,12 +25,12 @@ class PostgresService:
     async def rollback(self) -> None:
         await self.__session.rollback()
 
-    @database_error_handler(action="Add model and flush")
+    @postgres_error_handler(action="Add model and flush")
     async def insert_models_and_flush(self, *models: Base):
         self.__session.add_all(models)
         await self.__session.flush()
 
-    @database_error_handler(action="Get user by id")
+    @postgres_error_handler(action="Get user by id")
     async def get_user_by_id(self, user_id: UUID) -> User | None:
         result = await self.__session.execute(
             select(User)
@@ -39,7 +39,7 @@ class PostgresService:
         return result.scalar()
 
     @validate_n_postitive
-    @database_error_handler(action="Get n most popular posts")
+    @postgres_error_handler(action="Get n most popular posts")
     async def get_n_popular_posts(self, n: int) -> List[Post]:
         result = await self.__session.execute(
             select(Post)
@@ -49,7 +49,7 @@ class PostgresService:
         return result.scalars().all()
 
     @validate_n_postitive
-    @database_error_handler(action="Get n most fresh posts")
+    @postgres_error_handler(action="Get n most fresh posts")
     async def get_fresh_posts(self, n: int) -> List[Post]:
         result = await self.__session.execute(
             select(Post)
@@ -59,7 +59,7 @@ class PostgresService:
         return result.scalars().all()
 
     @validate_n_postitive
-    @database_error_handler(action="Get subcribers posts")
+    @postgres_error_handler(action="Get subcribers posts")
     async def get_subscribers_posts(self, n: int, user_ids: List[str] | None, user_models: List[User] | None, most_popular: bool = False) -> List[None] | List[Post]:
         """
         Getting posts of users, whose ids mentioned in user_ids or user_models lists. If user_models not empty - getting ids from models.
@@ -84,14 +84,14 @@ class PostgresService:
         return posts
 
     """For testcases"""
-    @database_error_handler(action="Get all users")
+    @postgres_error_handler(action="Get all users")
     async def get_all_users(self) -> List[User]:
         result = await self.__session.execute(
             select(User)
         )
         return result.scalars().all()
 
-    @database_error_handler(action="Get all posts")
+    @postgres_error_handler(action="Get all posts")
     async def get_all_from_model(self, ModelType: Type[Models]) -> List[Models]:
         result = await self.__session.execute(
             select(ModelType)
@@ -99,7 +99,7 @@ class PostgresService:
         return result.scalars().all()
 
     @validate_ids_type_to_UUID
-    @database_error_handler(action="Get entries from specific model by ids")
+    @postgres_error_handler(action="Get entries from specific model by ids")
     async def get_entries_by_ids(self, ids: List[UUID | str], ModelType: Type[Models]) -> List[Models]:
         if not ids:
             raise ValueError("Ids is empty")
@@ -122,7 +122,7 @@ class PostgresService:
         return result.scalars().all()
     
     #https://stackoverflow.com/questions/3325467/sqlalchemy-equivalent-to-sql-like-statement
-    @database_error_handler(action="Get users by LIKE statement")
+    @postgres_error_handler(action="Get users by LIKE statement")
     async def get_users_by_username(self, prompt: str) -> List[User | None]:
         if not prompt:
             raise ValueError("Prompt is None!")
@@ -133,17 +133,17 @@ class PostgresService:
         )
         return result.scalars().all()
 
-    @database_error_handler(action="Change field and flush")
+    @postgres_error_handler(action="Change field and flush")
     async def change_field_and_flush(self, Model: Base, **kwargs):
         for key, value in kwargs.items():
             setattr(Model, key, value)
         await self.__session.flush()
 
-    @database_error_handler(action="Delete models")
+    @postgres_error_handler(action="Delete models")
     async def delete_models(self, *models):
         pass
 
-    @database_error_handler(action="Get user by username and email")
+    @postgres_error_handler(action="Get user by username and email")
     async def get_user_by_username_or_email(self, username: str | None, email: str | None) -> User:
         if not username and not email:
             raise ValueError("Username and email are None!")
@@ -155,7 +155,7 @@ class PostgresService:
         user = result.scalar()
         return user
     
-    @database_error_handler(action="Get followed users posts")
+    @postgres_error_handler(action="Get followed users posts")
     async def get_followed_posts(self, user: User) -> List[List[Post] | None]:
         followed_ids = [followed.user_id for followed in user.followed]
         

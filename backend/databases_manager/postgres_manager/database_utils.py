@@ -46,7 +46,7 @@ async def get_session_depends():
     async with SessionLocal() as conn:
         yield conn
 
-def database_error_handler(action: str = "Unknown action with the database"):
+def postgres_error_handler(action: str = "Unknown action with the database"):
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -71,4 +71,12 @@ def database_error_handler(action: str = "Unknown action with the database"):
     return decorator
 
 async def get_session() -> AsyncSession:
-    return SessionLocal()
+    try:
+        session = SessionLocal()
+        return SessionLocal()
+    finally:
+        await session.aclose()
+
+@postgres_error_handler(action="Refresh model")
+async def refresh_model(session: AsyncSession, model_object: Models) -> Models:
+    return await session.refresh(model_object)

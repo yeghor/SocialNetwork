@@ -12,7 +12,7 @@ T = TypeVar("T", bound=Base)
 
 class MainServiceSocial(MainServiceBase):
     async def sync_data(self) -> None:
-        posts = await self._PostgresService.get_all_from_model()
+        posts = await self._PostgresService.get_all_from_model(ModelType=Post)
         await self._ChromaService.add_posts_data(posts=posts)
 
     async def get_all_from_specific_model(self, ModelType: Type[T]) -> List[T | None]:

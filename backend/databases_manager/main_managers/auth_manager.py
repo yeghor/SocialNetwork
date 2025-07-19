@@ -1,6 +1,3 @@
-from databases_manager.chromaDB_manager.chroma_manager import ChromaService
-from databases_manager.postgres_manager.database_utils import PostgresService
-from databases_manager.redis_manager.redis_manager import RedisService
 from databases_manager.main_managers.main_manager_creator_abs import MainServiceBase, MainServiceContextManagerABS
 
 from authorization import password_manager, jwt_manager
@@ -19,7 +16,7 @@ from typing import List
 
 class MainServiceAuth(MainServiceBase):
     async def authorize_request(self, token: str, return_user: bool = True) -> User | None:
-        """Can be used in fastAPI Depends()"""
+        """Can be used in fastAPI Depends() \n Prepares and authorizes token"""
         
         valid_token = self._JWT.prepare_token(jwt_token=token)
 
