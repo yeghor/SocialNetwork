@@ -1,4 +1,4 @@
-from chromadb import AsyncHttpClient, Collection
+from chromadb import AsyncHttpClient, Collection, QueryResult
 from chromadb.api.async_api import AsyncClientAPI
 from chromadb.errors import ChromaError
 from dotenv import load_dotenv
@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from functools import wraps
 from databases_manager.postgres_manager.models import Post, User
-from databases_manager.postgres_manager.database_utils import validate_n_postitive
+from databases_manager.postgres_manager.validate_n_postive import validate_n_postitive
 from uuid import UUID
 
 load_dotenv()
@@ -18,6 +18,7 @@ PORT = int(getenv("CHROMADB_PORT"))
 
 HISTORY_POSTS_TO_TAKE_INTO_RELATED = int(getenv("HISTORY_POSTS_TO_TAKE_INTO_RELATED"))
 N_MAX_RELATED_POSTS_TO_RETURN = int(getenv("N_MAX_RELATED_POSTS_TO_RETURN"))
+MAX_POSTS_SEARCH_RETURN = int(getenv("MAX_POSTS_SEARCH_RETURN"))
 
 class EmptyPostsError(Exception):
     pass    
@@ -36,6 +37,10 @@ def chromaDB_error_handler(func):
     return wrapper
 
 class ChromaService:
+    @staticmethod
+    def extract_ids_from_metadata(result) -> List[UUID]:
+        return [UUID(meta["post_id"]) for meta in result.metadatas[0]]
+
     def __init__(self, client: AsyncClientAPI, collection: Collection, mode: str):
         """To create class object. Use **async** method connect!"""
         self.__collection: Collection = collection
@@ -85,13 +90,13 @@ class ChromaService:
             n_results=n
         )
 
-        return [UUID(meta["post_id"]) for meta in related_posts.metadatas[0]]
+        return self.extract_ids_from_metadata(result=related_posts)
         
         
     @chromaDB_error_handler
     async def add_posts_data(self, posts: List[Post]) -> None:
         """
-        Add new post embeddings or update existing by post UUID
+        Add new post embeddings or update existing by post UUID \n
         If posts empty - raise EmptyPostsError (declared in this file)
         """
         filtered_posts = [post for post in posts if not post.is_reply]
@@ -105,3 +110,15 @@ class ChromaService:
             documents=[f"{post.title} {post.text} {post.published.strftime(self._datetime_format)}" for post in filtered_posts],
             metadatas=[{"post_id": str(post.post_id)} for post in filtered_posts]
         )
+
+    @chromaDB_error_handler
+    async def search_posts_by_prompt(self, prompt: str) -> List[UUID]:
+        if not prompt:
+            raise ValueError("Empty search prompt!")
+        
+        search_result = await self.__collection.query(
+            query_texts=[prompt.strip()],
+            n_results=MAX_POSTS_SEARCH_RETURN
+        )
+
+        return self.extract_ids_from_metadata(result=search_result)

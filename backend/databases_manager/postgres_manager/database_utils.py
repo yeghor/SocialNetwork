@@ -1,29 +1,26 @@
 from databases_manager.postgres_manager.database import SessionLocal
+from databases_manager.postgres_manager.models import *
+from databases_manager.main_managers.social_manager import T
+from databases_manager.postgres_manager.validate_n_postive import validate_n_postitive
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from functools import wraps
 from sqlalchemy.exc import SQLAlchemyError, MultipleResultsFound
 from fastapi import HTTPException
-from databases_manager.postgres_manager.models import *
+
 from sqlalchemy import select, or_
-from typing import List
+from typing import List, Type, TypeVar
 from uuid import UUID
+
 
 from dotenv import load_dotenv
 from os import getenv
+import random
 
-N_MAX_FOLLOWED_USERS_POSTS_TO_GET = int(getenv("N_MAX_FOLLOWED_USERS_POSTS_TO_GET"))
+MAX_FOLLOWED_POSTS_TO_SHOW = int(getenv("MAX_FOLLOWED_POSTS_TO_SHOW"))
 
-def validate_n_postitive(func):
-    @wraps(func)
-    async def wrapper(n: int, *args, **kwargs):
-        if not isinstance(n, int):
-            raise ValueError("Invalid number type")
-        if n <= 0:
-            raise ValueError("Invalid number of entries")
-        return await func(n, *args, **kwargs)
-    return wrapper
+T = TypeVar("T", bound=Base)
 
 def validate_ids_type_to_UUID(func):
     @wraps(func)
@@ -92,7 +89,7 @@ class PostgresService:
         await self.__session.rollback()
 
     @database_error_handler(action="Add model and flush")
-    async def insert_models_and_flush(self, *models: Base) -> List[Base] | Base:
+    async def insert_models_and_flush(self, *models: Base):
         self.__session.add_all(models)
         await self.__session.flush()
 
@@ -158,22 +155,47 @@ class PostgresService:
         return result.scalars().all()
 
     @database_error_handler(action="Get all posts")
-    async def get_all_posts(self) -> List[Post]:
-        print("get all posts")
+    async def get_all_from_model(self, ModelType: Type[T]) -> List[T]:
         result = await self.__session.execute(
-            select(Post)
+            select(ModelType)
         )
         return result.scalars().all()
 
     @validate_ids_type_to_UUID
-    @database_error_handler(action="Get posts by ids")
-    async def get_posts_by_ids(self, ids: List[UUID | str]) -> List[Post]:
-        result = await self.__session.execute(
-            select(Post)
-            .where(Post.post_id.in_(ids))
-        )
+    @database_error_handler(action="Get entries from specific model by ids")
+    async def get_entries_by_ids(self, ids: List[UUID | str], ModelType: Type[T]) -> List[T]:
+        if not ids:
+            raise ValueError("Ids is empty")
+
+        for id_ in ids:
+            UUID(id_)
+
+        if isinstance(ModelType, User):
+            result = await self.__session.execute(
+                select(User)
+                .where(User.user_id.in_(ids))
+            )
+        elif isinstance(ModelType, Post):
+            result = await self.__session.execute(
+                select(Post)
+                .where(Post.post_id.in_(ids))
+            )
+        else:
+            raise TypeError("Unsupported model type!")
         return result.scalars().all()
     
+    #https://stackoverflow.com/questions/3325467/sqlalchemy-equivalent-to-sql-like-statement
+    @database_error_handler(action="Get users by LIKE statement")
+    async def get_users_by_username(self, prompt: str) -> List[User | None]:
+        if not prompt:
+            raise ValueError("Prompt is None!")
+
+        result = await self.__session.execute(
+            select(User)
+            .where(User.username.ilike(f"%{prompt.strip()}%"))
+        )
+        return result.scalars().all()
+
     @database_error_handler(action="Change field and flush")
     async def change_field_and_flush(self, Model: Base, **kwargs):
         for key, value in kwargs.items():
@@ -203,8 +225,13 @@ class PostgresService:
         result = await self.__session.execute(
             select(User)
             .where(User.user_id.in_(followed_ids))
-            .options(selectinload(User.posts))
         )
-        proccesed = result.scalars().all()
+        users = result.scalars().all()
 
-        return [sorted(user.posts, key= lambda x: x.published, reverse=True)[:N_MAX_FOLLOWED_USERS_POSTS_TO_GET] for user in proccesed]
+        sorted_posts = [sorted(user.posts, key= lambda x: x.published, reverse=True)[:MAX_FOLLOWED_POSTS_TO_SHOW] for user in users]
+        proccesed_posts = []
+        for posts in sorted_posts:
+            for post in posts:
+                if not post.is_reply:
+                    proccesed_posts.append(post)
+        return proccesed_posts
