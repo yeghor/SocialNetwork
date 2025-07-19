@@ -52,7 +52,7 @@ async def create():
     """
 
 from databases_manager.chromaDB_manager.chroma_manager import ChromaService
-from databases_manager.postgres_manager.database_utils import PostgresService
+from databases_manager.postgres_manager.postgres_manager import PostgresService
 from databases_manager.redis_manager.redis_manager import RedisService
 
 class MainServiceBase(MainServiceABC):
