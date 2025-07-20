@@ -47,10 +47,11 @@ async def logout(
 
 @auth.get("/refresh")
 async def refresh_token(
-    token: RefreshTokenSchema = Body(...),
+    token = Header(..., examples="Bearer (refresh_token)"),
     session: AsyncSession = Depends(get_session_depends)
 ) -> AccesTokenSchema:
     async with await MainServiceContextManager[MainServiceAuth].create(MainServiceType=MainServiceAuth, postgres_session=session) as main_service:
         response = await main_service.refresh_token(refresh_token=token)
+        print(response)
         return response
 

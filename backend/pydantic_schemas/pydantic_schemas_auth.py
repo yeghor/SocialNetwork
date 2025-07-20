@@ -18,21 +18,25 @@ PASSWORD_MIN_L = int(getenv("PASSWORD_MIN_L"))
 PASSWORD_MAX_L = int(getenv("PASSWORD_MAX_L"))
 
 class PayloadJWT(BaseModel):
-    user_id: str
+    user_id: UUID
     issued_at: datetime
 
     @field_validator("issued_at", mode="before")
     @classmethod
-    def from_unix_to_datetime(cls, value: datetime | int | str) -> datetime:
+    def from_unix_to_datetime(cls, value: any) -> datetime:
         if isinstance(value, int):
             value = datetime.fromtimestamp(value)
         elif isinstance(value, str):
             value = datetime.strptime(value, DATE_FORMAT)
+        elif isinstance(value, datetime):
+            pass
+        else:
+            raise TypeError("Invalid issued_at type. Should be: int | str | datetime")
         return value
     
     @field_validator("user_id", mode="before")
     @classmethod
-    def user_id_to_uuid(cls, value: str | UUID) -> UUID:
+    def user_id_to_uuid(cls, value: any) -> UUID:
         if isinstance(value, str):
             value = UUID(value)
         return value
@@ -60,9 +64,6 @@ class AccesTokenSchema(BaseModel):
     @field_validator("expires_at_acces", mode="before")
     @classmethod
     def normalize_datetime(cls, value: Any) -> str:
-        if not value:
-            raise TypeError("expires_at_acces field is None!")
-
         if isinstance(value, int):
             value = datetime.fromtimestamp(value).strftime(DATE_FORMAT)
         elif isinstance(value, datetime):

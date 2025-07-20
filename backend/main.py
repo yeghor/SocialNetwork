@@ -18,12 +18,10 @@ load_dotenv()
 
 async def drop_all(engine: AsyncEngine, Base: Base) -> None:
     async with engine.begin() as conn:
-        print("Initialize all postgres models")
         await conn.run_sync(Base.metadata.drop_all)
 
 async def initialize_models(engine: AsyncEngine, Base: Base) -> None:
     async with engine.begin() as conn:
-        print("Drop all postgres models")
         await conn.run_sync(Base.metadata.create_all)
 
 async def drop_redis() -> None:
@@ -48,7 +46,7 @@ async def sync_chroma_postgres_data() -> None:
 # On app startup. https://fastapi.tiangolo.com/advanced/events/#lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await drop_all(engine=engine, Base=Base)    
+    # await drop_all(engine=engine, Base=Base)    
     await initialize_models(engine=engine, Base=Base)
     await sync_chroma_postgres_data()
     await drop_redis()

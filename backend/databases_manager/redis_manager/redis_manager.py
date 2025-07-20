@@ -88,7 +88,7 @@ class RedisService:
         )
         return new_token
 
-    @redis_error_handler
+    @redis_error_handler    
     async def get_jwt_time_to_expiry(self, jwt_token: str) -> Optional[int]:
         """Get JWT token time to expiry. If token expired or doesn't exists - return None"""
         result = await self.__client.ttl(f"{self.__jwt_acces_prefix}{jwt_token}")

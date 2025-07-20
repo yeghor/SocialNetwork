@@ -16,7 +16,6 @@ async def get_related_to_history_posts(
     async with await MainServiceContextManager[MainServiceSocial].create(MainServiceType=MainServiceSocial, postgres_session=session) as social:
         return await social.get_related_posts(user=user)
 
-
 @social.get("/get_subscribers_posts")
 async def get_subscribers_posts():
     pass
