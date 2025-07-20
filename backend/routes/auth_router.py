@@ -11,7 +11,8 @@ from pydantic_schemas.pydantic_schemas_auth import (
     RefreshAccesTokens,
     RefreshTokenSchema,
     AccesTokenSchema,
-    UserProfileSchema
+    UserProfileSchema,
+    RefreshAccesTokensProvided
 )
 from authorization import password_manager, jwt_manager
 
@@ -39,7 +40,7 @@ async def register(
 @auth.post("/logout")
 async def logout(
     session: AsyncSession = Depends(get_session_depends),
-    tokens: RefreshAccesTokens = Body(...)
+    tokens:RefreshAccesTokensProvided = Body(...)
 ) -> None:
     async with await MainServiceContextManager[MainServiceAuth].create(MainServiceType=MainServiceAuth, postgres_session=session) as main_service:
         response = await main_service.logout(tokens=tokens)
@@ -54,4 +55,3 @@ async def refresh_token(
         response = await main_service.refresh_token(refresh_token=token)
         print(response)
         return response
-

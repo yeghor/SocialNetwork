@@ -17,6 +17,9 @@ USERNAME_MAX_L = int(getenv("USERNAME_MAX_L"))
 PASSWORD_MIN_L = int(getenv("PASSWORD_MIN_L"))
 PASSWORD_MAX_L = int(getenv("PASSWORD_MAX_L"))
 
+
+# PRIVATE - App only usage
+# ==========================
 class PayloadJWT(BaseModel):
     user_id: UUID
     issued_at: datetime
@@ -40,6 +43,41 @@ class PayloadJWT(BaseModel):
         if isinstance(value, str):
             value = UUID(value)
         return value
+
+
+
+# Login Register
+# ==============
+class LoginSchema(BaseModel):
+    username: str = Field(..., min_length=USERNAME_MIN_L, max_length=USERNAME_MAX_L)
+    password: str = Field(..., min_length=PASSWORD_MIN_L, max_length=PASSWORD_MAX_L)
+
+class RegisterSchema(LoginSchema):
+    email: str
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_email(cls, value: Any) -> str:
+        if not re.match((r"^(?!\.)(?!.*\.\.)[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+"r"@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$"), value) or not isinstance(value, str):
+            raise HTTPException(status_code=400, detail="Invalid email")
+        return value
+        
+    @field_validator("password", mode="before")
+    @classmethod
+    def validate_password(cls, value: Any) -> str:
+        if not isinstance(value, str):
+            raise HTTPException(status_code=400, detail="Invalid password data type")
+        validate_password(value)
+        return value
+# =============
+
+
+# JWT Token models
+# ================
+
+class RefreshAccesTokensProvided(BaseModel):
+    refresh_token: str
+    acces_token: str
 
 class RefreshTokenSchema(BaseModel):
     refresh_token: str
@@ -70,30 +108,11 @@ class AccesTokenSchema(BaseModel):
             value = value.strftime(DATE_FORMAT)
         return value
 
+
 class RefreshAccesTokens(RefreshTokenSchema, AccesTokenSchema):
     pass
+# ================
 
-class LoginSchema(BaseModel):
-    username: str = Field(..., min_length=USERNAME_MIN_L, max_length=USERNAME_MAX_L)
-    password: str = Field(..., min_length=PASSWORD_MIN_L, max_length=PASSWORD_MAX_L)
-
-class RegisterSchema(LoginSchema):
-    email: str
-
-    @field_validator("email", mode="before")
-    @classmethod
-    def validate_email(cls, value: Any) -> str:
-        if not re.match((r"^(?!\.)(?!.*\.\.)[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+"r"@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$"), value) or not isinstance(value, str):
-            raise HTTPException(status_code=400, detail="Invalid email")
-        return value
-        
-    @field_validator("password", mode="before")
-    @classmethod
-    def validate_password(cls, value: Any) -> str:
-        if not isinstance(value, str):
-            raise HTTPException(status_code=400, detail="Invalid password data type")
-        validate_password(value)
-        return value
 
 """
 Using short schemas to prevent recursive convertation with SQLalchemy relationship.
