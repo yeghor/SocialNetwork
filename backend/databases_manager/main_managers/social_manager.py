@@ -38,6 +38,7 @@ class MainServiceSocial(MainServiceBase):
     async def search_users(self, prompt: str) -> List[User | None]:
         return await self._PostgresService.get_users_by_username(prompt=prompt)
     
+    # Add pydantic models!
     async def construct_and_flush_post(
             self,
             owner_id: UUID,
@@ -63,6 +64,7 @@ class MainServiceSocial(MainServiceBase):
         )
         await self._PostgresService.insert_models_and_flush(post)
 
+    # Add pydantic models!
     async def construct_and_flush_user(self,
         username: str,
         email: str,
@@ -76,6 +78,7 @@ class MainServiceSocial(MainServiceBase):
         )
         await self._PostgresService.insert_models_and_flush(user)
 
+    # Add pydantic models!
     async def construct_and_flush_view(post: Post, user: User) -> None:
         """Calling this method when user click on post \n Data must be validated!"""
         raise Exception("Is not implemented yet!")
