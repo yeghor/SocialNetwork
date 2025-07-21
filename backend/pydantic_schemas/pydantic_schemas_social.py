@@ -6,7 +6,7 @@ from typing import List, Any
 class PostIDValidate(BaseModel):
     post_id: str
 
-    @field_validator(field="post_id", mode="before")
+    @field_validator("post_id", mode="before")
     @classmethod
     def validate_id(cls, value: Any):
         if type(value) not in (str, UUID):
@@ -17,7 +17,7 @@ class PostIDValidate(BaseModel):
 class UserIDValidate(BaseModel):
     user_id: str
 
-    @field_validator(field="post_id", mode="before")
+    @field_validator("user_id", mode="before")
     @classmethod
     def validate_id(cls, value: Any):
         if type(value) not in (str, UUID):

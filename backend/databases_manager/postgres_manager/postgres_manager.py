@@ -156,7 +156,7 @@ class PostgresService:
         await self.__session.flush()
 
     @postgres_error_handler(action="Delete posts by id")
-    async def delete_posts_by_id(self, post_ids: List[UUID, str]) -> None:
+    async def delete_posts_by_id(self, post_ids: List[UUID | str]) -> None:
         if not post_ids:
             raise ValueError("Post ids list is empty")
         post_ids = [str(post_id) for post_id in post_ids]
