@@ -5,32 +5,55 @@ from databases_manager.main_managers.main_manager_creator_abs import MainService
 from databases_manager.main_managers.social_manager import MainServiceSocial
 from authorization.authorization import authrorize_request_depends
 
+from typing import Annotated
+
 social = APIRouter()
 
-@social.get("/get_related_to_history_posts")
+@social.get("/get_related_to_history_posts/")
 async def get_related_to_history_posts(
     user_ = Depends(authrorize_request_depends),
     session = Depends(get_session_depends)
-):
+    ):
     user = await refresh_model(session=session, model_object=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(MainServiceType=MainServiceSocial, postgres_session=session) as social:
         return await social.get_related_posts(user=user)
 
-@social.get("/get_subscribers_posts")
-async def get_subscribers_posts():
-    pass
+@social.get("/get_followed_posts/")
+async def get_followed_posts(
+    user_ = Depends(authrorize_request_depends),
+    session = Depends(get_session_depends)
+    ):
+    user = await refresh_model(session=session, model_object=user_)
+    async with await MainServiceContextManager[MainServiceSocial].create(MainServiceType=MainServiceSocial, postgres_session=session) as social:
+        return await social.get_followed_posts(user=user)
 
-@social.get("/search_posts")
-async def search_posts():
-    pass
+@social.get("/search_posts/")
+async def search_posts(
+    user_ = Depends(authrorize_request_depends),
+    prompt = Annotated[str, Query(..., max_length=4000)],
+    session = Depends(get_session_depends)
+    ):
+    async with await MainServiceContextManager[MainServiceSocial].create(MainServiceType=MainServiceSocial, postgres_session=session) as social:
+        return await social.search_posts(prompt=prompt)
 
-@social.get("/search_users")
-async def search_users():
-    pass
+@social.get("/search_users/")
+async def search_users(
+    user_ = Depends(authrorize_request_depends),
+    prompt = Annotated[str, Query(...,)],
+    session = Depends(get_session_depends)
+    ):
+    async with await MainServiceContextManager[MainServiceSocial].create(MainServiceType=MainServiceSocial, postgres_session=session) as social:
+        return await social.search_users(prompt=prompt)
 
-@social.post("/make_post")
-async def make_post():
-    pass
+
+@social.post("/make_post/")
+async def make_post(
+    user_ = Depends(authrorize_request_depends),
+    session = Depends(get_session_depends)
+    ) -> None:
+    async with await MainServiceContextManager[MainServiceSocial].create(MainServiceType=MainServiceSocial, postgres_session=session) as social:
+        await social.construct_and_flush_post()
+
 
 @social.patch("/change_post")
 async def change_post():
