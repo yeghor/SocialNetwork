@@ -75,7 +75,7 @@ class MainServiceSocial(MainServiceBase):
         """Calling this method when user click on post \n Data must be validated!"""
         raise Exception("Is not implemented yet!")
     
-    async def delete_post(self, post_id, user: User, show_replies: bool) -> None:
+    async def delete_post(self, post_id: str | UUID, user: User, show_replies: bool) -> None:
         post = await self._PostgresService.get_entry_by_id(id_=list(post_id), ModelType=Post)
 
         if post.owner_id != user.user_id:
@@ -83,7 +83,7 @@ class MainServiceSocial(MainServiceBase):
         
         await self._PostgresService.delete_posts_by_id()
 
-    async def like_post(self, post_id: str, user: User) -> None:
+    async def like_post(self, post_id: str | UUID, user: User) -> None:
         post = await self._PostgresService.get_entry_by_id(id_=list(post_id), ModelType=Post)
 
         if user in post.liked_by:
@@ -91,7 +91,7 @@ class MainServiceSocial(MainServiceBase):
 
         post.liked_by.append(user)
 
-    async def remove_post_like(self, post_id: str, user: User) -> None:
+    async def remove_post_like(self, post_id: str | UUID, user: User) -> None:
         post = await self._PostgresService.get_entry_by_id(id_=list(post_id), ModelType=Post)
 
         if not user in post.liked_by:
