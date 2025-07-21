@@ -9,7 +9,7 @@ from os import getenv
 PASSWORD_MIN_L = int(getenv("PASSWORD_MIN_L"))
 PASSWORD_MAX_L = int(getenv("PASSWORD_MAX_L"))
 
-async def authrorize_request_depends(token: str = Header(..., title="Authorization acces token", examples="Bearer (token)")):
+async def authrorize_request_depends(token: str = Header(..., title="Authorization acces token", examples="Bearer (token)")) -> User | None:
     """User with fastAPI Depends()"""
 
     # To prevent circular import

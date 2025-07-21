@@ -19,7 +19,7 @@ import random
 
 MAX_FOLLOWED_POSTS_TO_SHOW = int(getenv("MAX_FOLLOWED_POSTS_TO_SHOW"))
 
-Models = TypeVar("Models", bound=Base)
+ModelT = TypeVar("Models", bound=Base)
 
 def validate_ids_type_to_UUID(func):
     @wraps(func)
@@ -78,5 +78,5 @@ async def get_session() -> AsyncSession:
         await session.aclose()
 
 @postgres_error_handler(action="Refresh model")
-async def refresh_model(session: AsyncSession, model_object: Models) -> Models:
+async def refresh_model(session: AsyncSession, model_object: ModelT) -> ModelT:
     return await session.refresh(model_object)

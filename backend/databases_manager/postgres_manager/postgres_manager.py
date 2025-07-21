@@ -1,4 +1,4 @@
-from sqlalchemy import select, or_
+from sqlalchemy import select, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from databases_manager.postgres_manager.models import *
 from databases_manager.postgres_manager.database_utils import postgres_error_handler, validate_ids_type_to_UUID
@@ -100,7 +100,7 @@ class PostgresService:
 
     @validate_ids_type_to_UUID
     @postgres_error_handler(action="Get entries from specific model by ids")
-    async def get_entries_by_ids(self, ids: List[UUID | str], ModelType: Type[Models]) -> List[Models]:
+    async def get_entries_by_ids(self, ids: List[UUID | str], ModelType: Type[Models], show_replies: bool = True) -> List[Models]:
         if not ids:
             raise ValueError("Ids is empty")
 
@@ -121,11 +121,27 @@ class PostgresService:
             raise TypeError("Unsupported model type!")
         return result.scalars().all()
     
+    @postgres_error_handler(action="Get entry from id")
+    async def get_entry_by_id(self, id_: UUID | str, ModelType: Type[Models]) -> Models:
+        if isinstance(ModelType, User):
+            result = await self.__session.execute(
+                select(User)
+                .where(User.user_id == id_)
+            )
+        elif isinstance(ModelType, Post):
+            result = await self.__session.execute(
+                select(Post)
+                .where(Post.post_id == id_)
+            )
+        else:
+            raise TypeError("Unsupported model type!")
+        return result.scalar()
+
     #https://stackoverflow.com/questions/3325467/sqlalchemy-equivalent-to-sql-like-statement
     @postgres_error_handler(action="Get users by LIKE statement")
     async def get_users_by_username(self, prompt: str) -> List[User | None]:
         if not prompt:
-            raise ValueError("Prompt is None!")
+            raise ValueError("Prompt is None")
 
         result = await self.__session.execute(
             select(User)
@@ -139,9 +155,15 @@ class PostgresService:
             setattr(Model, key, value)
         await self.__session.flush()
 
-    @postgres_error_handler(action="Delete models")
-    async def delete_models(self, *models):
-        pass
+    @postgres_error_handler(action="Delete posts by id")
+    async def delete_posts_by_id(self, post_ids: List[UUID, str]) -> None:
+        if not post_ids:
+            raise ValueError("Post ids list is empty")
+        post_ids = [str(post_id) for post_id in post_ids]
+        await self.__session.execute(
+            delete(Post)
+            .where(Post.post_id.in_(post_ids))
+        )
 
     @postgres_error_handler(action="Get user by username and email")
     async def get_user_by_username_or_email(self, username: str | None, email: str | None) -> User:

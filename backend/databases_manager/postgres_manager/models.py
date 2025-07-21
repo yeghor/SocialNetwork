@@ -37,6 +37,13 @@ class User(Base):
         lazy="selectin"
     )
 
+    liked: Mapped[List["Post"]] = relationship(
+        "Post",
+        secondary="likesrelationship",
+        back_populates="liked_by",
+        lazy="selectin"
+    )
+
     views_history: Mapped[List["History"]] = relationship(
         "History",
         back_populates="owner",
@@ -84,13 +91,19 @@ class Post(Base):
     title: Mapped[str] = mapped_column()
     text: Mapped[str]
     image_path: Mapped[str | None] = mapped_column(nullable=True)
-    likes: Mapped[int] = mapped_column(default=0)
     published: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
     last_updated: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"), onupdate=text("TIMEZONE('utc', now())"))
 
     owner: Mapped["User"] = relationship(
         "User",
         back_populates="posts",
+        lazy="selectin"
+    )
+
+    liked_by: Mapped[List["User"]] = relationship(
+        "User",
+        secondary="likesrelationship",
+        back_populates="liked",
         lazy="selectin"
     )
 
@@ -147,3 +160,9 @@ class History(Base):
         back_populates="viewers",
         lazy="selectin"
     )
+
+class LikeRelationship(Base):
+    __tablename__ = "likesrelationship"
+
+    post_id: Mapped[UUID] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)

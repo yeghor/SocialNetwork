@@ -1,3 +1,5 @@
+from fastapi import HTTPException
+
 from databases_manager.main_managers.main_manager_creator_abs import MainServiceBase
 from databases_manager.postgres_manager.models import User, Post, Base
 
@@ -5,6 +7,8 @@ from dotenv import load_dotenv
 from os import getenv
 from typing import List, TypeVar, Type
 from uuid import UUID
+
+from pydantic_schemas.pydantic_schemas_social import PostDataSchema, UserDataSchema, PostSchema
 
 load_dotenv()
 
@@ -38,30 +42,21 @@ class MainServiceSocial(MainServiceBase):
     async def search_users(self, prompt: str) -> List[User | None]:
         return await self._PostgresService.get_users_by_username(prompt=prompt)
     
-    async def construct_and_flush_post(
-            self,
-            owner_id: UUID,
-            parent_post_id: UUID | str | None,
-            title: str,
-            text: str,
-            likes: int = 0,
-            image_path: str | None = None,
-            is_reply: bool = False
-        ) -> None:
-        """Data must be validated!"""
-        if is_reply and not parent_post_id or parent_post_id and not is_reply:
-            raise ValueError("If post is reply - it must contain parent_post_id, and is_reply setted to true!")
+    async def construct_and_flush_post(self, data: UserDataSchema, user: User) -> PostSchema:
+        if data.is_reply and not data.parent_post_id or data.parent_post_id and not data.is_reply:
+            raise HTTPException(status_code=400, detail="Invalid post relationship")
 
         post = Post(
-            owner_id=owner_id,
-            parent_post_id=parent_post_id if parent_post_id else None,
-            title=title,
-            text=text,
-            likes=likes,
-            image_path=image_path,
-            is_reply=is_reply
+            owner_id=user.user_id,
+            parent_post_id=data.parent_post_id,
+            title=data.title,
+            text=data.text,
+            likes=data.likes,
+            image_path=None, # TODO: implement imag uploads
+            is_reply=data.is_reply
         )
         await self._PostgresService.insert_models_and_flush(post)
+        return PostSchema.model_validate(Post, from_attributes=True)
 
     async def construct_and_flush_user(self,
         username: str,
@@ -76,6 +71,30 @@ class MainServiceSocial(MainServiceBase):
         )
         await self._PostgresService.insert_models_and_flush(user)
 
-    async def construct_and_flush_view(post: Post, user: User) -> None:
+    async def construct_and_flush_view(self, post: Post, user: User) -> None:
         """Calling this method when user click on post \n Data must be validated!"""
         raise Exception("Is not implemented yet!")
+    
+    async def delete_post(self, post_id, user: User, show_replies: bool) -> None:
+        post = await self._PostgresService.get_entry_by_id(id_=list(post_id), ModelType=Post)
+
+        if post.owner_id != user.user_id:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        
+        await self._PostgresService.delete_posts_by_id()
+
+    async def like_post(self, post_id: str, user: User) -> None:
+        post = await self._PostgresService.get_entry_by_id(id_=list(post_id), ModelType=Post)
+
+        if user in post.liked_by:
+            raise HTTPException(status_code=400, detail="You are already liekd this post")
+
+        post.liked_by.append(user)
+
+    async def remove_post_like(self, post_id: str, user: User) -> None:
+        post = await self._PostgresService.get_entry_by_id(id_=list(post_id), ModelType=Post)
+
+        if not user in post.liked_by:
+            raise HTTPException(status_code=400, detail="You are not liked this post yet")
+
+        post.liked_by.remove(user)
