@@ -58,7 +58,7 @@ class RedisService:
             self.__jwt_acces_prefix = "acces-jwt-token:"
             self.__jwt_refresh_prefix = "refresh-jwt-token:"
         except redis_exceptions.RedisError:
-            raise HTTPException(status_code=500, detail="Connection to redis failed.")
+            raise HTTPException(status_code=500, detail="Connection to redis failed")
     
     @redis_error_handler
     async def save_acces_jwt(self, jwt_token: str, user_id: str | UUID) -> str:

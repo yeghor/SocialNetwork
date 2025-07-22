@@ -1,14 +1,19 @@
 from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from databases_manager.main_managers.main_manager_creator_abs import MainServiceBase
-from databases_manager.postgres_manager.models import User, Post, Base
+from databases_manager.main_managers.main_manager_creator_abs import (
+    MainServiceBase,
+    MainServiceContextManager,
+    ServiceType
+)
+from databases_manager.postgres_manager.models import *
+from databases_manager.postgres_manager.database_utils import refresh_model
 
 from dotenv import load_dotenv
 from os import getenv
-from typing import List, TypeVar, Type
+from typing import List, TypeVar, Type, Tuple
 from uuid import UUID
 from pydantic_schemas.pydantic_schemas_social import (
-    PostDataSchema,
     UserDataSchema,
     PostSchema,
     PostDataSchemaID,
@@ -17,6 +22,17 @@ from pydantic_schemas.pydantic_schemas_social import (
 load_dotenv()
 
 T = TypeVar("T", bound=Base)
+
+async def create_main_service_refresh_user(MainService: Type[ServiceType], postgres_session: AsyncSession, user: User | None) -> Tuple[ServiceType, User | None]:
+    service = await MainServiceContextManager[MainService].create(
+        MainServiceType=MainService,
+        postgres_session=postgres_session)
+    
+    if user:
+        user = await refresh_model(model_object=user)
+        
+    return service, user
+
 
 class MainServiceSocial(MainServiceBase):
     @staticmethod

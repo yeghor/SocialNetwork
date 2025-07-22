@@ -1,11 +1,11 @@
-from databases_manager.postgres_manager.models import Post
+from databases_manager.postgres_manager.models import *
 from authorization import jwt_manager
 
 from abc import ABC, abstractmethod
 from typing import Type
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, TypeVar, Generic
+from typing import TypeVar, Generic
 
 # To follow the open closed principle with annotations
 ServiceType = TypeVar("Services", bound="MainServiceBase")

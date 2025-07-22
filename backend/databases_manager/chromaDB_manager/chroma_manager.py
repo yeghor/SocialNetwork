@@ -9,6 +9,7 @@ from functools import wraps
 from databases_manager.postgres_manager.models import Post, User
 from databases_manager.postgres_manager.validate_n_postive import validate_n_postitive
 from uuid import UUID
+from fastapi import HTTPException
 
 load_dotenv()
 
@@ -54,7 +55,11 @@ class ChromaService:
         if not mode in ("prod", "test"):
             raise ValueError("Invalid chromaDB database mode")
         
-        client = await AsyncHttpClient(port=PORT, host="localhost")
+        try:
+            client = await AsyncHttpClient(port=PORT, host="localhost")
+        except ChromaError:
+            raise HTTPException(status_code=500, detail="Connection to chromaDB failed")
+
         if mode == "prod":
             collection = await client.get_or_create_collection(name=PROD_COLLECTION_NAME)
         elif mode == "test":
