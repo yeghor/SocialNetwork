@@ -1,4 +1,4 @@
-from sqlalchemy import select, delete, or_
+from sqlalchemy import select, delete, update, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from databases_manager.postgres_manager.models import *
 from databases_manager.postgres_manager.database_utils import postgres_error_handler, validate_ids_type_to_UUID
@@ -6,6 +6,7 @@ from databases_manager.postgres_manager.validate_n_postive import validate_n_pos
 from dotenv import load_dotenv
 from os import getenv
 from typing import Type, TypeVar
+from pydantic_schemas.pydantic_schemas_social import PostDataSchemaID
 
 Models = TypeVar("Models", bound=Base)
 
@@ -194,3 +195,21 @@ class PostgresService:
                 if not post.is_reply:
                     proccesed_posts.append(post)
         return proccesed_posts
+
+    @postgres_error_handler(action="Update post values nad return post is needed")
+    async def update_post_fields(self, post_data: PostDataSchemaID, return_updated_post: bool = False) -> Post | None:
+        post_data_dict = post_data.model_dump(exclude_defaults=True, exclude_none=True, exclude={"post_id"})
+        if not post_data_dict:
+            return
+        
+        await self.__session.execute(
+            update(Post)
+            .where(Post.post_id == post_data.post_id)
+            .values(**post_data_dict)
+        )
+        if return_updated_post:
+            result = await self.__session.execute(
+                select(Post)
+                .where(Post.post_id == post_data.post_id)
+            )
+            return result.scalar()

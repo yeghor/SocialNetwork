@@ -79,14 +79,16 @@ class UserSchema(UserLiteSchema):
 
 # =================
 # Body data structure
-
-class PostDataSchema(BaseModel):
-    parent_post_id: str | None
-
-    is_reply: bool
-
+class PostDataSchemaBase(BaseModel):
     title: str
     text: str
     
+class MakePostDataSchema(PostDataSchemaBase):
+    parent_post_id: str | None
+    is_reply: bool
+
+class PostDataSchemaID(PostDataSchemaBase):
+    post_id: str
+
 class UserDataSchema(BaseModel):
     pass

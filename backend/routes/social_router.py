@@ -9,7 +9,8 @@ from pydantic_schemas.pydantic_schemas_social import (
     PostSchema,
     UserSchema,
     UserLiteSchema,
-    PostDataSchema
+    PostDataSchemaID,
+    MakePostDataSchema
 )
 from databases_manager.postgres_manager.models import User
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,7 +60,7 @@ async def search_users(
 async def make_post(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends),
-    post_data: PostDataSchema = Body(...)
+    post_data: MakePostDataSchema = Body(...)
     ) -> PostSchema:
     user = await refresh_model(session=session, model_object=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(MainServiceType=MainServiceSocial, postgres_session=session) as social:
@@ -67,8 +68,14 @@ async def make_post(
 
 
 @social.patch("/posts/{post_id}")
-async def change_post():
-    pass
+async def change_post(
+    user_: User = Depends(authorize_request_depends),
+    session: AsyncSession = Depends(get_session_depends),
+    post_data: PostDataSchemaID = Body(...)
+) -> PostSchema:
+    user = await refresh_model(model_object=user_)
+    async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
+        await social.change_post(post_data=post_data, user=user)
 
 @social.delete("/posts/{post_id}")
 async def delete_post(
@@ -100,17 +107,25 @@ async def unlike_post(
     async with await MainServiceContextManager[MainServiceSocial].create(MainServiceType=MainServiceSocial, postgres_session=session) as social:
         await social.unlike_post(post_id=post_id, user=user)
 
-@social.post("/posts/{post_id}/reply")
-async def make_reply():
-    pass
-
-@social.post("/users/{user_id}/follow")
-async def follow():
-    pass
+@social.post("/users/{pfollow_to_id}/follow")
+async def follow(
+    follow_to_id: str,
+    user_: User = Depends(authorize_request_depends),
+    session: AsyncSession = Depends(get_session_depends),
+) -> None:
+    user = await refresh_model(model_object=user_)
+    async with await MainServiceContextManager[MainServiceSocial].create(MainServiceType=MainServiceSocial, postgres_session=session) as social:
+        await social.friendship_action(user=user, other_user_id=follow_to_id, follow=True)
 
 @social.delete("/users/{user_id}/follow")
-async def unfollow():
-    pass
+async def unfollow(
+    follow_to_id: str,
+    user_: User = Depends(authorize_request_depends),
+    session: AsyncSession = Depends(get_session_depends),
+) -> None:
+    user = await refresh_model(model_object=user_)
+    async with await MainServiceContextManager[MainServiceSocial].create(MainServiceType=MainServiceSocial, postgres_session=session) as social:
+        await social.friendship_action(user=user, other_user_id=follow_to_id, follow=False)
 
 @social.patch("/users/my-profile/password")
 async def change_password() -> UserProfileSchema:

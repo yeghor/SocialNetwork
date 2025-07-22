@@ -7,14 +7,24 @@ from dotenv import load_dotenv
 from os import getenv
 from typing import List, TypeVar, Type
 from uuid import UUID
-
-from pydantic_schemas.pydantic_schemas_social import PostDataSchema, UserDataSchema, PostSchema
+from pydantic_schemas.pydantic_schemas_social import (
+    PostDataSchema,
+    UserDataSchema,
+    PostSchema,
+    PostDataSchemaID,
+)
 
 load_dotenv()
 
 T = TypeVar("T", bound=Base)
 
 class MainServiceSocial(MainServiceBase):
+    @staticmethod
+    def check_post_user_id(post: Post, user: User) -> None:
+        """If ids don't match - raises HTTPException 401"""
+        if post.owner_id != user.user_id:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
     async def sync_data(self) -> None:
         posts = await self._PostgresService.get_all_from_model(ModelType=Post)
         await self._ChromaService.add_posts_data(posts=posts)
@@ -52,7 +62,7 @@ class MainServiceSocial(MainServiceBase):
             title=data.title,
             text=data.text,
             likes=data.likes,
-            image_path=None, # TODO: implement imag uploads
+            image_path=None, # TODO: implement image uploads
             is_reply=data.is_reply
         )
         await self._PostgresService.insert_models_and_flush(post)
@@ -78,8 +88,7 @@ class MainServiceSocial(MainServiceBase):
     async def delete_post(self, post_id: str | UUID, user: User, show_replies: bool) -> None:
         post = await self._PostgresService.get_entry_by_id(id_=list(post_id), ModelType=Post)
 
-        if post.owner_id != user.user_id:
-            raise HTTPException(status_code=401, detail="Unauthorized")
+        self.check_post_user_id(post=post, user=user)
         
         await self._PostgresService.delete_posts_by_id()
 
@@ -98,3 +107,26 @@ class MainServiceSocial(MainServiceBase):
             raise HTTPException(status_code=400, detail="You are not liked this post yet")
 
         post.liked_by.remove(user)
+
+    async def change_post(self, post_data: PostDataSchemaID, user: User) -> None:
+        post = await self._PostgresService.get_entry_by_id(id_=post_data.post_id, ModelType=Post)
+
+        self.check_post_user_id(post=post, user=user)
+        
+        await self._PostgresService.update_post_fields(post_data=post_data, return_updated_post = False)
+
+    async def friendship_action(self, user: User, other_user_id: str | UUID, follow: bool):
+        if not isinstance(follow, bool):
+            raise TypeError("Uknown follow action")
+        """To follow user - set follow to True. To unfollow - False"""
+        other_user = await self._PostgresService.get_entry_by_id(id_=other_user_id, ModelType=User)
+
+        if follow:
+            if other_user in user.followed:
+                raise HTTPException(status_code=400, detail="You are already following this user")
+            user.followed.append(other_user)
+        elif not follow:
+            if other_user not in user.followed:
+                raise HTTPException(status_code=400, detail="You are not following this user")
+            user.followed.remove(other_user)
+                    
