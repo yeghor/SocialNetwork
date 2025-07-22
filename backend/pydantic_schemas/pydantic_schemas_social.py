@@ -1,7 +1,17 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 from uuid import UUID
 from datetime import datetime
-from typing import List, Any
+from typing import List, Any, Annotated
+from dotenv import load_dotenv
+from os import getenv
+
+load_dotenv()
+
+POST_TITLE_MAX_L = int(getenv("POST_TITLE_MAX_L", 100))
+POST_TITLE_MIN_L = int(getenv("POST_TITLE_MIN_L", 1))
+
+POST_TEXT_MAX_L = int(getenv("POST_TEXT_MAX_L", 1000))
+POST_TEXT_MIN_L = int(getenv("POST_TEXT_MIN_L", 1))
 
 class PostIDValidate(BaseModel):
     post_id: str
@@ -27,7 +37,7 @@ class UserIDValidate(BaseModel):
 
 class PostLiteShortSchema(PostIDValidate):
     owner_username: str
-    title: str
+    title: Annotated[str, Field(min_length=POST_TITLE_MIN_L, max_length=POST_TITLE_MAX_L)]
     likes: int
     is_reply: bool    
 
@@ -44,8 +54,7 @@ class PostLiteSchema(PostLiteShortSchema):
 
 
 class PostSchema(PostLiteSchema):
-    text: str
-
+    text: Annotated[str, Field(min_length=POST_TEXT_MIN_L, max_length=POST_TEXT_MAX_L)]
     replies: List[PostLiteSchema]
 
 # =====================
