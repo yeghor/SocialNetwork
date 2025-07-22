@@ -3,7 +3,7 @@ from databases_manager.postgres_manager.database_utils import get_session_depend
 from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
 from databases_manager.main_managers.auth_manager import MainServiceAuth
 from databases_manager.postgres_manager.models import User
-from authorization.authorization import authrorize_request_depends
+from authorization.authorization import authorize_request_depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic_schemas.pydantic_schemas_auth import (
     LoginSchema,
