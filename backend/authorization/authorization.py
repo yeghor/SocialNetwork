@@ -5,9 +5,11 @@ from fastapi import Header, HTTPException
 
 from dotenv import load_dotenv
 from os import getenv
+from typing import Callable
 
 PASSWORD_MIN_L = int(getenv("PASSWORD_MIN_L"))
 PASSWORD_MAX_L = int(getenv("PASSWORD_MAX_L"))
+
 
 async def authorize_request_depends(token: str = Header(..., title="Authorization acces token", examples="Bearer (token)")) -> User | None:
     """User with fastAPI Depends()"""

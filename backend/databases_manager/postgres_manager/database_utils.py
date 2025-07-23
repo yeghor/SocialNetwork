@@ -77,7 +77,6 @@ async def get_session() -> AsyncSession:
     finally:
         await session.aclose()
 
-@postgres_error_handler(action="Refresh model")
-async def refresh_model(session: AsyncSession, model_object: ModelT) -> ModelT:
-    await session.refresh(model_object)
-    return model_object
+async def merge_model(postgres_session: AsyncSession, model_obj: ModelT) -> ModelT:
+    """Caution! When merging old model. It can clear all loaded relationsghips!"""
+    return await postgres_session.merge(model_obj)

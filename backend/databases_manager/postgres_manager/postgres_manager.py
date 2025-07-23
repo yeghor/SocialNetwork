@@ -1,4 +1,5 @@
-from sqlalchemy import select, delete, update, or_
+from sqlalchemy import select, delete, update, or_, inspect
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from databases_manager.postgres_manager.models import *
 from databases_manager.postgres_manager.database_utils import postgres_error_handler, validate_ids_type_to_UUID
@@ -35,6 +36,7 @@ class PostgresService:
     async def get_user_by_id(self, user_id: UUID) -> User | None:
         result = await self.__session.execute(
             select(User)
+            .options(selectinload(User.followed), selectinload(User.followers)) # Manually passing selection load. Because of self ref. m2m2
             .where(or_(User.user_id == user_id))
         )
         return result.scalar()
@@ -99,11 +101,10 @@ class PostgresService:
         )
         return result.scalars().all()
 
-    @validate_ids_type_to_UUID
     @postgres_error_handler(action="Get entries from specific model by ids")
-    async def get_entries_by_ids(self, ids: List[UUID | str], ModelType: Type[Models], show_replies: bool = True) -> List[Models]:
+    async def get_entries_by_ids(self, ids: List[UUID | str | None], ModelType: Type[Models], show_replies: bool = True) -> List[Models]:
         if not ids:
-            raise ValueError("Ids is empty")
+            return []
 
         for id_ in ids:
             UUID(id_)
@@ -124,12 +125,13 @@ class PostgresService:
     
     @postgres_error_handler(action="Get entry from id")
     async def get_entry_by_id(self, id_: UUID | str, ModelType: Type[Models]) -> Models:
-        if isinstance(ModelType, User):
+        print(type(ModelType))
+        if ModelType == User:
             result = await self.__session.execute(
                 select(User)
                 .where(User.user_id == id_)
             )
-        elif isinstance(ModelType, Post):
+        elif ModelType == Post:
             result = await self.__session.execute(
                 select(Post)
                 .where(Post.post_id == id_)
@@ -180,6 +182,9 @@ class PostgresService:
     
     @postgres_error_handler(action="Get followed users posts")
     async def get_followed_posts(self, user: User) -> List[List[Post] | None]:
+        # Getting new user, because merged instances may not include loaded relationships
+        user = await self.get_user_by_id(user_id=user.user_id)
+
         followed_ids = [followed.user_id for followed in user.followed]
         
         result = await self.__session.execute(

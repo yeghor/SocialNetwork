@@ -78,7 +78,6 @@ class MainServiceBase(MainServiceABC):
         Postgres = PostgresService(session=postgres_session)
         Redis = RedisService(db_pool=mode)
         ChromaDB = await ChromaService.connect(mode=mode)
-
         return cls(Chroma=ChromaDB, Redis=Redis, Postgres=Postgres)
     
     async def finish(self, commit_postgres: bool = True) -> None:

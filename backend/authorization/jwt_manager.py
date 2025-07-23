@@ -88,7 +88,6 @@ class JWTService:
 
     @classmethod
     def extract_jwt_payload(cls, jwt_token: str) -> PayloadJWT:
-        print(jwt_token)
         payload = jwt.decode(
             jwt=jwt_token,
             key=getenv("SECRET_KEY"),

@@ -18,7 +18,7 @@ TEST_COLLECTION_NAME = getenv("CHROMADB_TEST_COLLECTION_NAME")
 PORT = int(getenv("CHROMADB_PORT"))
 
 HISTORY_POSTS_TO_TAKE_INTO_RELATED = int(getenv("HISTORY_POSTS_TO_TAKE_INTO_RELATED"))
-N_MAX_RELATED_POSTS_TO_RETURN = int(getenv("N_MAX_RELATED_POSTS_TO_RETURN"))
+N_MAX_FEED_POSTS_SHOW = int(getenv("N_MAX_FEED_POSTS_SHOW"))
 MAX_POSTS_SEARCH_RETURN = int(getenv("MAX_POSTS_SEARCH_RETURN"))
 
 class EmptyPostsError(Exception):
@@ -40,7 +40,7 @@ def chromaDB_error_handler(func):
 class ChromaService:
     @staticmethod
     def extract_ids_from_metadata(result) -> List[UUID]:
-        return [UUID(meta["post_id"]) for meta in result.metadatas[0]]
+        return [UUID(meta["post_id"]) for meta in result["metadatas"][0]]
 
     def __init__(self, client: AsyncClientAPI, collection: Collection, mode: str):
         """To create class object. Use **async** method connect!"""
@@ -84,13 +84,13 @@ class ChromaService:
         
 
     @chromaDB_error_handler
-    async def get_n_related_posts_ids(self, user: User, n: int = N_MAX_RELATED_POSTS_TO_RETURN) -> List[UUID]:
+    async def get_n_related_posts_ids(self, user: User, n: int = N_MAX_FEED_POSTS_SHOW) -> List[UUID]:
         """Get n posts related to user's history"""
 
         posts = [post_history_obj.post for post_history_obj in user.views_history[:HISTORY_POSTS_TO_TAKE_INTO_RELATED] if not post_history_obj.post.is_reply ]
 
         if not posts:
-            return None
+            return []
 
         related_posts = await self.__collection.query(
             query_texts=[f"{post.title} {post.text} {post.published.strftime(self._datetime_format)}" for post in posts],

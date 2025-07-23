@@ -1,13 +1,9 @@
 from fastapi import HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from databases_manager.main_managers.main_manager_creator_abs import (
     MainServiceBase,
-    MainServiceContextManager,
-    ServiceType
 )
 from databases_manager.postgres_manager.models import *
-from databases_manager.postgres_manager.database_utils import refresh_model
 
 from dotenv import load_dotenv
 from os import getenv
@@ -22,16 +18,6 @@ from pydantic_schemas.pydantic_schemas_social import (
 load_dotenv()
 
 T = TypeVar("T", bound=Base)
-
-async def create_main_service_refresh_user(MainService: Type[ServiceType], postgres_session: AsyncSession, user: User | None) -> Tuple[ServiceType, User | None]:
-    service = await MainServiceContextManager[MainService].create(
-        MainServiceType=MainService,
-        postgres_session=postgres_session)
-    
-    if user:
-        user = await postgres_session.merge(user)
-        
-    return service, user
 
 
 class MainServiceSocial(MainServiceBase):
@@ -53,8 +39,17 @@ class MainServiceSocial(MainServiceBase):
         Returns related posts to provided User table object view history
         """
         post_UUIDS = await self._ChromaService.get_n_related_posts_ids(user=user)
+        print(post_UUIDS)
+        
+        if not post_UUIDS:
+            # return await self.get_fresh_feed()
+            return []
+
         return await self._PostgresService.get_entries_by_ids(ids=post_UUIDS, ModelType=Post)
-            
+        
+    async def get_fresh_feen():
+        pass
+
     async def get_followed_posts(self, user: User) -> List[Post]:
         return await self._PostgresService.get_followed_posts(user=user)
     
