@@ -14,14 +14,6 @@ def validate_field_range():
 class Base(DeclarativeBase):
     pass
 
-
-class Friendship(Base):
-    __tablename__ = "friendship"
-
-    follower_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id"), primary_key=True)
-    followed_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id"), primary_key=True)
-
-
 class User(Base):
     __tablename__ = "users"
 
@@ -44,9 +36,10 @@ class User(Base):
         lazy="selectin"
     )
 
-    views_history: Mapped[List["History"]] = relationship(
-        "History",
-        back_populates="owner",
+    views_history: Mapped[List["Post"]] = relationship(
+        "Post",
+        secondary="viewsrelationship",
+        back_populates="viewed_by",
         lazy="selectin"
     )
 
@@ -107,6 +100,13 @@ class Post(Base):
         lazy="selectin"
     )
 
+    viewed_by: Mapped[List["User"]] = relationship(
+        "User",
+        secondary="viewsrelationship",
+        back_populates="views_history",
+        lazy="selectin"
+    )
+
     # Self referable one-2-many relationship https://docs.sqlalchemy.org/en/20/orm/self_referential.html
     parent_post: Mapped["Post"] = relationship(
         "Post",
@@ -120,11 +120,6 @@ class Post(Base):
         lazy="selectin"
     )
 
-    viewers: Mapped[List["History"]] = relationship(
-        "History",
-        back_populates="post",
-        lazy="selectin"
-    )
 
     @validates("title")
     def validate_title(self, key, title: str):
@@ -141,28 +136,24 @@ class Post(Base):
     def __repr__(self):
         return f"Post name: {self.title}"
 
+# For m2m
 
-class History(Base):
-    __tablename__ = "history"
+class ViewsRelationship(Base):
+    __tablename__ = "viewsrelationship"
 
-    view_id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"))
-    post_id: Mapped[UUID] = mapped_column(ForeignKey("posts.post_id", ondelete="SET NULL"))
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+    post_id: Mapped[UUID] = mapped_column(ForeignKey("posts.pos_id", ondelete="CASCADE"), primary_key=True)
 
-    owner: Mapped["User"] = relationship(
-        "User",
-        back_populates="views_history",
-        lazy="selectin"
-    )
-
-    post: Mapped["Post"] = relationship(
-        "Post",
-        back_populates="viewers",
-        lazy="selectin"
-    )
-
+    
 class LikeRelationship(Base):
     __tablename__ = "likesrelationship"
 
     post_id: Mapped[UUID] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+
+# Self referential m2m
+class Friendship(Base):
+    __tablename__ = "friendship"
+
+    follower_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id"), primary_key=True)
+    followed_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id"), primary_key=True)

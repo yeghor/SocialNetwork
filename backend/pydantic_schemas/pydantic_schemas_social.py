@@ -35,48 +35,41 @@ class UserIDValidate(BaseModel):
         
         return str(value)
 
-class ViewSchema(BaseModel, UserIDValidate, PostIDValidate):
+class PostBase(PostIDValidate):
+    title: str
+    image_path: None | str
+    published: datetime
+
     owner: "UserLiteSchema"
 
-
-class PostBase(PostIDValidate):
-    title:str
-    published: str
-    image_path: str | None
-    is_reply: bool
-
-    owner: "UserLiteSchema"  
-
-
 class PostLiteShortSchema(PostBase):
+    # Assign manualy, example: len(post.liked_by)
+    likes: int
+    views: int
+
     parent_post: PostBase | None
 
-class PostSchema(PostLiteShortSchema):
+class PostSchema(PostBase):
     text: str
 
-    last_updated: str
-    replies: List[PostBase | None]
-
     liked_by: List["UserLiteSchema" | None]
-    viewers: List["UserLiteSchema" | None]
+    viewed_by: List["UserLiteSchema" | None]
+    replies: List["PostBase"]
+
+    parent_post: PostBase | None
 
 
 # =====================
 
 class UserLiteSchema(UserIDValidate):
     username: str
-    
-    # User with len(User.followers/followed)
-    followers_count: int
-    followed_count: int
 
 
 class UserSchema(UserLiteSchema):
     followers: List[UserLiteSchema]
     followed: List[UserLiteSchema]
 
-    # Use with datetime.strftime()
-    joined: str
+    joined: datetime
 
     posts: List[PostLiteShortSchema]
     replies: List[PostLiteShortSchema]
