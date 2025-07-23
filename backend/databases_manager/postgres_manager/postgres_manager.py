@@ -27,6 +27,9 @@ class PostgresService:
     async def rollback(self) -> None:
         await self.__session.rollback()
 
+    async def refresh_model(self, model_obj: Base) -> None:
+        await self.__session.refresh(model_obj)
+
     @postgres_error_handler(action="Add model and flush")
     async def insert_models_and_flush(self, *models: Base):
         self.__session.add_all(models)
@@ -61,21 +64,23 @@ class PostgresService:
         )
         return result.scalars().all()
 
+    @validate_ids_type_to_UUID
     @validate_n_postitive
     @postgres_error_handler(action="Get subcribers posts")
-    async def get_subscribers_posts(self, n: int, user_ids: List[str] | None, user_models: List[User] | None, most_popular: bool = False) -> List[None] | List[Post]:
+    async def get_subscribers_posts(self, n: int, ids: List[str] | None, user_models: List[User] | None, most_popular: bool = False) -> List[None] | List[Post]:
         """
         Getting posts of users, whose ids mentioned in user_ids or user_models lists. If user_models not empty - getting ids from models.
         Most popular sorts posts by descending amount of likes field. Can be used by your followers or who you follow
         """
-        if user_models:
-            user_ids = [user.user_id for user in user_models]
-        if not user_ids:
+        if not ids and not user_models:
             return []
+
+        if user_models:
+            ids = [user.user_id for user in user_models]
 
         result = await self.__session.execute(
             select(Post)
-            .where(Post.owner_id.in_(user_ids))
+            .where(Post.owner_id.in_(ids))
             .order_by(Post.published.desc())
             .limit(n)
         )

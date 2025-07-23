@@ -35,27 +35,31 @@ class UserIDValidate(BaseModel):
         
         return str(value)
 
-class PostLiteShortSchema(PostIDValidate):
-    owner_username: str
-    title: Annotated[str, Field(min_length=POST_TITLE_MIN_L, max_length=POST_TITLE_MAX_L)]
-    likes: int
-    is_reply: bool    
+class ViewSchema(BaseModel, UserIDValidate, PostIDValidate):
+    owner: "UserLiteSchema"
 
-    # datetime is not JSON seralizable
+
+class PostBase(PostIDValidate):
+    title:str
     published: str
+    image_path: str | None
+    is_reply: bool
 
-    # use len(Post.viewers)
-    views: int
-
-class PostLiteSchema(PostLiteShortSchema):
-
-    # post relationship
-    parent_post: PostLiteShortSchema | None
+    owner: "UserLiteSchema"  
 
 
-class PostSchema(PostLiteSchema):
-    text: Annotated[str, Field(min_length=POST_TEXT_MIN_L, max_length=POST_TEXT_MAX_L)]
-    replies: List[PostLiteSchema]
+class PostLiteShortSchema(PostBase):
+    parent_post: PostBase | None
+
+class PostSchema(PostLiteShortSchema):
+    text: str
+
+    last_updated: str
+    replies: List[PostBase | None]
+
+    liked_by: List["UserLiteSchema" | None]
+    viewers: List["UserLiteSchema" | None]
+
 
 # =====================
 

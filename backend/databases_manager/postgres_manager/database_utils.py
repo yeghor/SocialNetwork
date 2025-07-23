@@ -25,7 +25,7 @@ def validate_ids_type_to_UUID(func):
     @wraps(func)
     async def wrapper(ids: List[UUID | str],  *args, **kwargs):
         if not ids: 
-            raise ValueError(f"Empty ids list")
+            return []
         ids_validated = []
         for id in ids:
             if isinstance(id, str):

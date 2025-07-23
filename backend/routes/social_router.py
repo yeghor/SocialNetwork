@@ -5,12 +5,11 @@ from databases_manager.main_managers.main_manager_creator_abs import MainService
 from databases_manager.main_managers.social_manager import MainServiceSocial
 from authorization.authorization import authorize_request_depends
 from pydantic_schemas.pydantic_schemas_social import (
-    PostLiteSchema,
-    PostSchema,
-    UserSchema,
+    PostLiteShortSchema,
+    MakePostDataSchema,
     UserLiteSchema,
-    PostDataSchemaID,
-    MakePostDataSchema
+    PostSchema,
+    PostDataSchemaID
 )
 from databases_manager.postgres_manager.models import User
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +22,7 @@ social = APIRouter()
 async def get_related_to_history_posts(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends),
-    ) -> List[PostLiteSchema]:
+    ) -> List[PostLiteShortSchema]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.get_related_posts(user=user)
@@ -32,7 +31,7 @@ async def get_related_to_history_posts(
 async def get_followed_posts(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
-    ) -> List[PostLiteSchema]:
+    ) -> List[PostLiteShortSchema]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.get_followed_posts(user=user)
@@ -42,7 +41,7 @@ async def search_posts(
     prompt = Annotated[str, Query(..., max_length=500)],
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
-    ) -> List[PostLiteSchema]:
+    ) -> List[PostLiteShortSchema]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.search_posts(prompt=prompt)

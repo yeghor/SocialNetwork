@@ -1,8 +1,6 @@
 from fastapi import HTTPException
 
-from databases_manager.main_managers.main_manager_creator_abs import (
-    MainServiceBase,
-)
+from databases_manager.main_managers.main_manager_creator_abs import MainServiceBase
 from databases_manager.postgres_manager.models import *
 
 from dotenv import load_dotenv
@@ -13,9 +11,13 @@ from pydantic_schemas.pydantic_schemas_social import (
     UserDataSchema,
     PostSchema,
     PostDataSchemaID,
+    MakePostDataSchema,
+    ParentPostSchema
 )
 
 load_dotenv()
+
+DATETIME_BASE_FORMAT = getenv("DATETIME_BASE_FORMAT")
 
 T = TypeVar("T", bound=Base)
 
@@ -72,12 +74,14 @@ class MainServiceSocial(MainServiceBase):
             parent_post_id=data.parent_post_id,
             title=data.title,
             text=data.text,
-            likes=data.likes,
             image_path=None, # TODO: implement image uploads
             is_reply=data.is_reply
         )
         await self._PostgresService.insert_models_and_flush(post)
-        return PostSchema.model_validate(Post, from_attributes=True)
+        print(type(post.is_reply))
+        print(post.is_reply)
+        await self._PostgresService.refresh_model(post)
+        return PostSchema.model_validate(post)
 
     async def construct_and_flush_user(self,
         username: str,
