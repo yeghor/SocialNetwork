@@ -24,16 +24,16 @@ async def get_related_to_history_posts(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends),
     ) -> List[PostLiteSchema]:
-    user = await refresh_model(session=session, model_object=user_)
-    async with await MainServiceContextManager[MainServiceSocial].create(MainServiceType=MainServiceSocial, postgres_session=session) as social:
-        return await social.get_related_posts(user=user)
+    social, user = await create_main_service_refresh_user(MainService=MainServiceSocial, postgres_session=session, user=user_)
+    async with social as s:
+        return await s.get_related_posts(user=user)
 
 @social.get("/posts/following")
 async def get_followed_posts(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
     ) -> List[PostLiteSchema]:
-    social, user = await create_main_service_refresh_user(MainService=MainServiceSocial, postgres_session=session, user=user)
+    social, user = await create_main_service_refresh_user(MainService=MainServiceSocial, postgres_session=session, user=user_)
     async with social:
         return await social.get_followed_posts(user=user)
 
@@ -64,7 +64,7 @@ async def make_post(
     session: AsyncSession = Depends(get_session_depends),
     post_data: MakePostDataSchema = Body(...)
     ) -> PostSchema:
-    social, user = await create_main_service_refresh_user(MainService=MainServiceSocial, postgres_session=session, user=user)
+    social, user = await create_main_service_refresh_user(MainService=MainServiceSocial, postgres_session=session, user=user_)
     async with social:
         return await social.construct_and_flush_post(data=post_data, user=user)
 
@@ -75,7 +75,7 @@ async def change_post(
     session: AsyncSession = Depends(get_session_depends),
     post_data: PostDataSchemaID = Body(...)
 ) -> PostSchema:
-    social, user = await create_main_service_refresh_user(MainService=MainServiceSocial, postgres_session=session, user=user)
+    social, user = await create_main_service_refresh_user(MainService=MainServiceSocial, postgres_session=session, user=user_)
     async with social:
         await social.change_post(post_data=post_data, user=user)
 

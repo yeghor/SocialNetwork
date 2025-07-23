@@ -79,4 +79,5 @@ async def get_session() -> AsyncSession:
 
 @postgres_error_handler(action="Refresh model")
 async def refresh_model(session: AsyncSession, model_object: ModelT) -> ModelT:
-    return await session.refresh(model_object)
+    await session.refresh(model_object)
+    return model_object

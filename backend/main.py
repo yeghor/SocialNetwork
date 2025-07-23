@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
     # await drop_all(engine=engine, Base=Base)    
     await initialize_models(engine=engine, Base=Base)
     await sync_chroma_postgres_data()
-    await drop_redis()
+    # await drop_redis()
     yield
 
 
@@ -74,4 +74,4 @@ app.include_router(social_router.social)
 
 # for debug
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

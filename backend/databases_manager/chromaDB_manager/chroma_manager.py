@@ -83,12 +83,14 @@ class ChromaService:
             await self.__client.delete_collection(name=PROD_COLLECTION_NAME)
         
 
-    @validate_n_postitive
     @chromaDB_error_handler
     async def get_n_related_posts_ids(self, user: User, n: int = N_MAX_RELATED_POSTS_TO_RETURN) -> List[UUID]:
         """Get n posts related to user's history"""
 
         posts = [post_history_obj.post for post_history_obj in user.views_history[:HISTORY_POSTS_TO_TAKE_INTO_RELATED] if not post_history_obj.post.is_reply ]
+
+        if not posts:
+            return None
 
         related_posts = await self.__collection.query(
             query_texts=[f"{post.title} {post.text} {post.published.strftime(self._datetime_format)}" for post in posts],

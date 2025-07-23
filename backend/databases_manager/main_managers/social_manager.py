@@ -29,7 +29,7 @@ async def create_main_service_refresh_user(MainService: Type[ServiceType], postg
         postgres_session=postgres_session)
     
     if user:
-        user = await refresh_model(model_object=user)
+        user = await postgres_session.merge(user)
         
     return service, user
 
