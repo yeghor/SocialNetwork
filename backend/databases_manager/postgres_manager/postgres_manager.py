@@ -2,11 +2,11 @@ from sqlalchemy import select, delete, update, or_, inspect
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from databases_manager.postgres_manager.models import User, Post, Base
-from databases_manager.postgres_manager.database_utils import postgres_error_handler, validate_ids_type_to_UUID
+from databases_manager.postgres_manager.database_utils import postgres_error_handler
 from databases_manager.postgres_manager.validate_n_postive import validate_n_postitive
 from dotenv import load_dotenv
 from os import getenv
-from typing import Type, TypeVar, List
+from typing import Type, TypeVar, List, Union
 from pydantic_schemas.pydantic_schemas_social import PostDataSchemaID
 from uuid import UUID
 
@@ -17,7 +17,7 @@ MAX_FOLLOWED_POSTS_TO_SHOW = int(getenv("MAX_FOLLOWED_POSTS_TO_SHOW"))
 class PostgresService:
 
     @staticmethod
-    def ids_to_uuids(ids: List[UUID, str, None]) -> List[UUID | None]:
+    def ids_to_uuids(ids: List[Union[UUID, str, None]]) -> List[UUID | None]:
         """If not ids - returns empty list"""
         if not ids:
             return []
@@ -47,11 +47,11 @@ class PostgresService:
         await self.__session.flush()
 
     @postgres_error_handler(action="Get user by id")
-    async def get_user_by_id(self, user_id: UUID) -> User | None:
+    async def get_user_by_id(self, user_id: UUID | str) -> User | None:
         result = await self.__session.execute(
             select(User)
             .options(selectinload(User.followed), selectinload(User.followers)) # Manually passing selection load. Because of self ref. m2m2
-            .where(or_(User.user_id == user_id))
+            .where(or_(User.user_id == UUID(user_id)))
         )
         return result.scalar()
 
@@ -75,10 +75,9 @@ class PostgresService:
         )
         return result.scalars().all()
 
-    @validate_ids_type_to_UUID
     @validate_n_postitive
     @postgres_error_handler(action="Get subcribers posts")
-    async def get_subscribers_posts(self, n: int, ids: List[str] | None, user_models: List[User] | None, most_popular: bool = False) -> List[None] | List[Post]:
+    async def get_subscribers_posts(self, n: int, ids, user_models: List[User] | None, most_popular: bool = False) -> List[Post]:
         """
         Getting posts of users, whose ids mentioned in user_ids or user_models lists. If user_models not empty - getting ids from models.
         Most popular sorts posts by descending amount of likes field. Can be used by your followers or who you follow
@@ -112,7 +111,7 @@ class PostgresService:
         return result.scalars().all()
 
     @postgres_error_handler(action="Get entries from specific model by ids")
-    async def get_entries_by_ids(self, ids: List[UUID | str | None], ModelType: Type[Models], show_replies: bool = True) -> List[Models]:        
+    async def get_entries_by_ids(self, ids: List[Union[UUID, str, None]], ModelType: Type[Models], show_replies: bool = True) -> List[Models]:        
         ids = self.ids_to_uuids(ids=ids)
 
         if ModelType == User:
@@ -166,7 +165,7 @@ class PostgresService:
         await self.__session.flush()
 
     @postgres_error_handler(action="Delete posts by id")
-    async def delete_posts_by_id(self, ids: List[UUID | str]) -> None:
+    async def delete_posts_by_id(self, ids: List[Union[UUID, str, None]]) -> None:
         ids = self.ids_to_uuids(ids=ids)
 
         await self.__session.execute(
@@ -187,7 +186,7 @@ class PostgresService:
         return user
     
     @postgres_error_handler(action="Get followed users posts")
-    async def get_followed_posts(self, user: User) -> List[List[Post] | None]:
+    async def get_followed_posts(self, user: User) -> List[List[Post]]:
         # Getting new user, because merged instances may not include loaded relationships
         user = await self.get_user_by_id(user_id=user.user_id)
 
