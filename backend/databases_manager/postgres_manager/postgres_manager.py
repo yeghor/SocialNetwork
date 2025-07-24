@@ -1,19 +1,30 @@
 from sqlalchemy import select, delete, update, or_, inspect
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
-from databases_manager.postgres_manager.models import *
+from databases_manager.postgres_manager.models import User, Post, Base
 from databases_manager.postgres_manager.database_utils import postgres_error_handler, validate_ids_type_to_UUID
 from databases_manager.postgres_manager.validate_n_postive import validate_n_postitive
 from dotenv import load_dotenv
 from os import getenv
-from typing import Type, TypeVar
+from typing import Type, TypeVar, List
 from pydantic_schemas.pydantic_schemas_social import PostDataSchemaID
+from uuid import UUID
 
 Models = TypeVar("Models", bound=Base)
 
 MAX_FOLLOWED_POSTS_TO_SHOW = int(getenv("MAX_FOLLOWED_POSTS_TO_SHOW"))
 
 class PostgresService:
+
+    @staticmethod
+    def ids_to_uuids(ids: List[UUID, str, None]) -> List[UUID | None]:
+        """If not ids - returns empty list"""
+        if not ids:
+            return []
+
+        for i, id_ in ids:
+            ids[i] = UUID(id_)
+
     def __init__(self, session: AsyncSession):
         # We don't need to close session. Because Depends func will handle it in endpoints.
         self.__session = session
@@ -78,6 +89,8 @@ class PostgresService:
         if user_models:
             ids = [user.user_id for user in user_models]
 
+        ids = self.ids_to_uuids(ids=ids)
+
         result = await self.__session.execute(
             select(Post)
             .where(Post.owner_id.in_(ids))
@@ -99,12 +112,8 @@ class PostgresService:
         return result.scalars().all()
 
     @postgres_error_handler(action="Get entries from specific model by ids")
-    async def get_entries_by_ids(self, ids: List[UUID | str | None], ModelType: Type[Models], show_replies: bool = True) -> List[Models]:
-        if not ids:
-            return []
-        
-        for id_ in ids:
-            print(type(id_))
+    async def get_entries_by_ids(self, ids: List[UUID | str | None], ModelType: Type[Models], show_replies: bool = True) -> List[Models]:        
+        ids = self.ids_to_uuids(ids=ids)
 
         if ModelType == User:
             result = await self.__session.execute(
@@ -122,7 +131,8 @@ class PostgresService:
     
     @postgres_error_handler(action="Get entry from id")
     async def get_entry_by_id(self, id_: UUID | str, ModelType: Type[Models]) -> Models:
-        print(type(ModelType))
+        id_ = UUID(id_)
+
         if ModelType == User:
             result = await self.__session.execute(
                 select(User)
@@ -150,19 +160,18 @@ class PostgresService:
         return result.scalars().all()
 
     @postgres_error_handler(action="Change field and flush")
-    async def change_field_and_flush(self, Model: Base, **kwargs):
+    async def change_field_and_flush(self, Model: Models, **kwargs) -> None:
         for key, value in kwargs.items():
             setattr(Model, key, value)
         await self.__session.flush()
 
     @postgres_error_handler(action="Delete posts by id")
-    async def delete_posts_by_id(self, post_ids: List[UUID | str]) -> None:
-        if not post_ids:
-            raise ValueError("Post ids list is empty")
-        post_ids = [str(post_id) for post_id in post_ids]
+    async def delete_posts_by_id(self, ids: List[UUID | str]) -> None:
+        ids = self.ids_to_uuids(ids=ids)
+
         await self.__session.execute(
             delete(Post)
-            .where(Post.post_id.in_(post_ids))
+            .where(Post.post_id.in_(ids))
         )
 
     @postgres_error_handler(action="Get user by username and email")
@@ -183,10 +192,11 @@ class PostgresService:
         user = await self.get_user_by_id(user_id=user.user_id)
 
         followed_ids = [followed.user_id for followed in user.followed]
-        
+        ids = self.ids_to_uuids(followed_ids)
+
         result = await self.__session.execute(
             select(User)
-            .where(User.user_id.in_(followed_ids))
+            .where(User.user_id.in_(ids))
         )
         users = result.scalars().all()
 
@@ -206,12 +216,12 @@ class PostgresService:
         
         await self.__session.execute(
             update(Post)
-            .where(Post.post_id == post_data.post_id)
+            .where(Post.post_id == UUID(post_data.post_id))
             .values(**post_data_dict)
         )
         if return_updated_post:
             result = await self.__session.execute(
                 select(Post)
-                .where(Post.post_id == post_data.post_id)
+                .where(Post.post_id == UUID(post_data.post_id))
             )
             return result.scalar()
