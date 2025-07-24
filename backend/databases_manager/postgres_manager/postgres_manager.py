@@ -91,14 +91,6 @@ class PostgresService:
 
         return posts
 
-    """For testcases"""
-    @postgres_error_handler(action="Get all users")
-    async def get_all_users(self) -> List[User]:
-        result = await self.__session.execute(
-            select(User)
-        )
-        return result.scalars().all()
-
     @postgres_error_handler(action="Get all posts")
     async def get_all_from_model(self, ModelType: Type[Models]) -> List[Models]:
         result = await self.__session.execute(
@@ -110,16 +102,16 @@ class PostgresService:
     async def get_entries_by_ids(self, ids: List[UUID | str | None], ModelType: Type[Models], show_replies: bool = True) -> List[Models]:
         if not ids:
             return []
-
+        
         for id_ in ids:
-            UUID(id_)
+            print(type(id_))
 
-        if isinstance(ModelType, User):
+        if ModelType == User:
             result = await self.__session.execute(
                 select(User)
                 .where(User.user_id.in_(ids))
             )
-        elif isinstance(ModelType, Post):
+        elif ModelType == Post:
             result = await self.__session.execute(
                 select(Post)
                 .where(Post.post_id.in_(ids))

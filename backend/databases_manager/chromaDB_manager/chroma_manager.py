@@ -42,6 +42,7 @@ class ChromaService:
     def extract_ids_from_metadata(result) -> List[UUID]:
         return [UUID(meta["post_id"]) for meta in result["metadatas"][0]]
 
+
     def __init__(self, client: AsyncClientAPI, collection: Collection, mode: str):
         """To create class object. Use **async** method connect!"""
         self.__collection: Collection = collection
@@ -122,7 +123,6 @@ class ChromaService:
     async def search_posts_by_prompt(self, prompt: str) -> List[UUID]:
         if not prompt:
             raise ValueError("Empty search prompt!")
-        
         search_result = await self.__collection.query(
             query_texts=[prompt.strip()],
             n_results=MAX_POSTS_SEARCH_RETURN

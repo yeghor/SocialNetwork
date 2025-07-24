@@ -114,41 +114,41 @@ class RefreshAccesTokens(RefreshTokenSchema, AccesTokenSchema):
 # ================
 
 
-"""
-Using short schemas to prevent recursive convertation with SQLalchemy relationship.
-"""
+# """
+# Using short schemas to prevent recursive convertation with SQLalchemy relationship.
+# """
 
-class ShortUserProfileSchema(BaseModel):
-    user_id: UUID
-    username: str = Field(min_length=int(getenv("USERNAME_MIN_L")), max_length=int(getenv("USERNAME_MAX_L")))
-    joined: datetime
+# class ShortUserProfileSchema(BaseModel):
+#     user_id: UUID
+#     username: str = Field(min_length=int(getenv("USERNAME_MIN_L")), max_length=int(getenv("USERNAME_MAX_L")))
+#     joined: datetime
 
-class UserProfileSchema(ShortUserProfileSchema):
-    posts: List["PostSchema"]
-    followed: List["ShortUserProfileSchema"]
-    followers: List["ShortUserProfileSchema"]
+# class UserProfileSchema(ShortUserProfileSchema):
+#     posts: List["PostSchema"]
+#     followed: List["ShortUserProfileSchema"]
+#     followers: List["ShortUserProfileSchema"]
 
-class ShortPostSchema(BaseModel):
-    post_id: UUID
-    owner_id: UUID
-    parent_post_id: UUID | None
+# class ShortPostSchema(BaseModel):
+#     post_id: UUID
+#     owner_id: UUID
+#     parent_post_id: UUID | None
 
-    is_reply: bool
+#     is_reply: bool
 
-    title: str = Field(min_length=int(getenv("POST_TITLE_MIN_L")), max_length=int(getenv("POST_TITLE_MAX_L")))
-    text: str = Field(min_length=int(getenv("POST_TEXT_MIN_L")), max_length=int(getenv("POST_TEXT_MAX_L")))
-    image_path: str | None
-    likes: int
-    published: datetime
-    last_updated: datetime
+#     title: str = Field(min_length=int(getenv("POST_TITLE_MIN_L")), max_length=int(getenv("POST_TITLE_MAX_L")))
+#     text: str = Field(min_length=int(getenv("POST_TEXT_MIN_L")), max_length=int(getenv("POST_TEXT_MAX_L")))
+#     image_path: str | None
+#     likes: int
+#     published: datetime
+#     last_updated: datetime
 
 
-class PostSchema(ShortPostSchema):
-    owner: "ShortUserProfileSchema"
-    parent_post: "ShortPostSchema"
-    replies: List["ShortPostSchema"]
-    viewers: List["HistorySchema"]
+# class PostSchema(ShortPostSchema):
+#     owner: "ShortUserProfileSchema"
+#     parent_post: "ShortPostSchema"
+#     replies: List["ShortPostSchema"]
+#     viewers: List["HistorySchema"]
 
-class HistorySchema(BaseModel):
-    owner: "ShortUserProfileSchema"
-    post: "ShortPostSchema"
+# class HistorySchema(BaseModel):
+#     owner: "ShortUserProfileSchema"
+#     post: "ShortPostSchema"

@@ -1,10 +1,12 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, validates, mapped_column, relationship
 from sqlalchemy import ForeignKey, text
-from uuid import UUID, uuid4
+from sqlalchemy.dialects.postgresql import UUID
+from uuid import uuid4
 from datetime import datetime
 from typing import List
 from dotenv import load_dotenv
 from os import getenv
+
 
 load_dotenv()
 
@@ -17,7 +19,8 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
 
-    user_id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    image_path: Mapped[str] = mapped_column(nullable=True)
     username: Mapped[str] = mapped_column(unique=True)
     email: Mapped[str] = mapped_column(unique=True)
     password_hash: Mapped[str]
@@ -74,9 +77,9 @@ class User(Base):
 class Post(Base):
     __tablename__ = "posts"
 
-    post_id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
-    parent_post_id: Mapped[UUID| None] = mapped_column(ForeignKey("posts.post_id", ondelete="SET NULL"), nullable=True)
+    post_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    owner_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
+    parent_post_id: Mapped[UUID| None] = mapped_column(UUID(as_uuid=True), ForeignKey("posts.post_id", ondelete="SET NULL"), nullable=True)
 
     is_reply: Mapped[bool] = mapped_column(default=False)
 
@@ -141,19 +144,19 @@ class Post(Base):
 class ViewsRelationship(Base):
     __tablename__ = "viewsrelationship"
 
-    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
-    post_id: Mapped[UUID] = mapped_column(ForeignKey("posts.pos_id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+    post_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
 
     
 class LikeRelationship(Base):
     __tablename__ = "likesrelationship"
 
-    post_id: Mapped[UUID] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
-    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+    post_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
 
 # Self referential m2m
 class Friendship(Base):
     __tablename__ = "friendship"
 
-    follower_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id"), primary_key=True)
-    followed_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id"), primary_key=True)
+    follower_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+    followed_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
