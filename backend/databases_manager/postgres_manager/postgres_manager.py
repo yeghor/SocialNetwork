@@ -1,13 +1,14 @@
 from sqlalchemy import select, delete, update, or_, inspect
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
-from databases_manager.postgres_manager.models import *
-from databases_manager.postgres_manager.database_utils import postgres_error_handler, validate_ids_type_to_UUID
+from databases_manager.postgres_manager.models import User, Post, Base
+from databases_manager.postgres_manager.database_utils import postgres_error_handler
 from databases_manager.postgres_manager.validate_n_postive import validate_n_postitive
 from dotenv import load_dotenv
 from os import getenv
-from typing import Type, TypeVar
+from typing import Type, TypeVar, List, Union
 from pydantic_schemas.pydantic_schemas_social import PostDataSchemaID
+from uuid import UUID
 
 Models = TypeVar("Models", bound=Base)
 
@@ -36,11 +37,11 @@ class PostgresService:
         await self.__session.flush()
 
     @postgres_error_handler(action="Get user by id")
-    async def get_user_by_id(self, user_id: UUID) -> User | None:
+    async def get_user_by_id(self, user_id: str) -> User | None:
         result = await self.__session.execute(
             select(User)
             .options(selectinload(User.followed), selectinload(User.followers)) # Manually passing selection load. Because of self ref. m2m2
-            .where(or_(User.user_id == user_id))
+            .where(or_(User.user_id == str(user_id)))
         )
         return result.scalar()
 
@@ -64,17 +65,15 @@ class PostgresService:
         )
         return result.scalars().all()
 
-    @validate_ids_type_to_UUID
     @validate_n_postitive
     @postgres_error_handler(action="Get subcribers posts")
-    async def get_subscribers_posts(self, n: int, ids: List[str] | None, user_models: List[User] | None, most_popular: bool = False) -> List[None] | List[Post]:
+    async def get_subscribers_posts(self, n: int, ids, user_models: List[User] | None, most_popular: bool = False) -> List[Post]:
         """
         Getting posts of users, whose ids mentioned in user_ids or user_models lists. If user_models not empty - getting ids from models.
         Most popular sorts posts by descending amount of likes field. Can be used by your followers or who you follow
         """
         if not ids and not user_models:
             return []
-
         if user_models:
             ids = [user.user_id for user in user_models]
 
@@ -91,14 +90,6 @@ class PostgresService:
 
         return posts
 
-    """For testcases"""
-    @postgres_error_handler(action="Get all users")
-    async def get_all_users(self) -> List[User]:
-        result = await self.__session.execute(
-            select(User)
-        )
-        return result.scalars().all()
-
     @postgres_error_handler(action="Get all posts")
     async def get_all_from_model(self, ModelType: Type[Models]) -> List[Models]:
         result = await self.__session.execute(
@@ -107,19 +98,16 @@ class PostgresService:
         return result.scalars().all()
 
     @postgres_error_handler(action="Get entries from specific model by ids")
-    async def get_entries_by_ids(self, ids: List[UUID | str | None], ModelType: Type[Models], show_replies: bool = True) -> List[Models]:
+    async def get_entries_by_ids(self, ids: List[str], ModelType: Type[Models], show_replies: bool = True) -> List[Models]:     
         if not ids:
             return []
 
-        for id_ in ids:
-            UUID(id_)
-
-        if isinstance(ModelType, User):
+        if ModelType == User:
             result = await self.__session.execute(
                 select(User)
                 .where(User.user_id.in_(ids))
             )
-        elif isinstance(ModelType, Post):
+        elif ModelType == Post:
             result = await self.__session.execute(
                 select(Post)
                 .where(Post.post_id.in_(ids))
@@ -129,8 +117,7 @@ class PostgresService:
         return result.scalars().all()
     
     @postgres_error_handler(action="Get entry from id")
-    async def get_entry_by_id(self, id_: UUID | str, ModelType: Type[Models]) -> Models:
-        print(type(ModelType))
+    async def get_entry_by_id(self, id_: str, ModelType: Type[Models]) -> Models:
         if ModelType == User:
             result = await self.__session.execute(
                 select(User)
@@ -158,19 +145,16 @@ class PostgresService:
         return result.scalars().all()
 
     @postgres_error_handler(action="Change field and flush")
-    async def change_field_and_flush(self, Model: Base, **kwargs):
+    async def change_field_and_flush(self, Model: Models, **kwargs) -> None:
         for key, value in kwargs.items():
             setattr(Model, key, value)
         await self.__session.flush()
 
     @postgres_error_handler(action="Delete posts by id")
-    async def delete_posts_by_id(self, post_ids: List[UUID | str]) -> None:
-        if not post_ids:
-            raise ValueError("Post ids list is empty")
-        post_ids = [str(post_id) for post_id in post_ids]
+    async def delete_posts_by_id(self, ids: List[str]) -> None:
         await self.__session.execute(
             delete(Post)
-            .where(Post.post_id.in_(post_ids))
+            .where(Post.post_id.in_(ids))
         )
 
     @postgres_error_handler(action="Get user by username and email")
@@ -186,12 +170,12 @@ class PostgresService:
         return user
     
     @postgres_error_handler(action="Get followed users posts")
-    async def get_followed_posts(self, user: User) -> List[List[Post] | None]:
+    async def get_followed_posts(self, user: User) -> List[List[Post]]:
         # Getting new user, because merged instances may not include loaded relationships
         user = await self.get_user_by_id(user_id=user.user_id)
 
         followed_ids = [followed.user_id for followed in user.followed]
-        
+
         result = await self.__session.execute(
             select(User)
             .where(User.user_id.in_(followed_ids))
@@ -214,12 +198,12 @@ class PostgresService:
         
         await self.__session.execute(
             update(Post)
-            .where(Post.post_id == post_data.post_id)
+            .where(Post.post_id == str(post_data.post_id))
             .values(**post_data_dict)
         )
         if return_updated_post:
             result = await self.__session.execute(
                 select(Post)
-                .where(Post.post_id == post_data.post_id)
+                .where(Post.post_id == str(post_data.post_id))
             )
             return result.scalar()

@@ -8,11 +8,10 @@ from os import getenv
 from typing import List, TypeVar, Type, Tuple
 from uuid import UUID
 from pydantic_schemas.pydantic_schemas_social import (
-    UserDataSchema,
     PostSchema,
     PostDataSchemaID,
     MakePostDataSchema,
-    ParentPostSchema
+    PostLiteShortSchema
 )
 
 load_dotenv()
@@ -55,33 +54,45 @@ class MainServiceSocial(MainServiceBase):
     async def get_followed_posts(self, user: User) -> List[Post]:
         return await self._PostgresService.get_followed_posts(user=user)
     
-    async def search_posts(self, prompt: str) -> List[Post | None]:
+    async def search_posts(self, prompt: str) -> List[PostLiteShortSchema | None]:
         """
         Search posts that similar with meaning with prompt
         """
         posts_UUIDS = await self._ChromaService.search_posts_by_prompt(prompt=prompt)
-        return await self._PostgresService.get_entries_by_ids(ids=posts_UUIDS, ModelType=Post)
+        print(posts_UUIDS)
+        posts = await self._PostgresService.get_entries_by_ids(ids=posts_UUIDS, ModelType=Post)
+        print(posts)
+        model_validated_posts = []
+
+        for post in posts:
+            model_validated_posts.append(PostLiteShortSchema.model_validate(post, from_attributes=True))
+
+        return model_validated_posts
     
     async def search_users(self, prompt: str) -> List[User | None]:
         return await self._PostgresService.get_users_by_username(prompt=prompt)
     
-    async def construct_and_flush_post(self, data: UserDataSchema, user: User) -> PostSchema:
-        if data.is_reply and not data.parent_post_id or data.parent_post_id and not data.is_reply:
-            raise HTTPException(status_code=400, detail="Invalid post relationship")
+    async def construct_and_flush_post(self, data: MakePostDataSchema, user: User) -> PostSchema:
+        if data.parent_post_id:
+            if not await self._PostgresService.get_entry_by_id(id_=data.parent_post_id):
+                raise HTTPException(status_code=400, detail="Youre replying to post that dosen't exist")
 
         post = Post(
+            post_id=str(uuid4()),
             owner_id=user.user_id,
             parent_post_id=data.parent_post_id,
             title=data.title,
             text=data.text,
             image_path=None, # TODO: implement image uploads
-            is_reply=data.is_reply
+            is_reply=bool(data.parent_post_id)
         )
+
         await self._PostgresService.insert_models_and_flush(post)
-        print(type(post.is_reply))
-        print(post.is_reply)
         await self._PostgresService.refresh_model(post)
-        return PostSchema.model_validate(post)
+
+        await self._ChromaService.add_posts_data(posts=[post])
+
+        return PostSchema.model_validate(post, from_attributes=True)
 
     async def construct_and_flush_user(self,
         username: str,
@@ -108,7 +119,7 @@ class MainServiceSocial(MainServiceBase):
         await self._PostgresService.delete_posts_by_id()
 
     async def like_post(self, post_id: str | UUID, user: User) -> None:
-        post = await self._PostgresService.get_entry_by_id(id_=list(post_id), ModelType=Post)
+        post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
         if user in post.liked_by:
             raise HTTPException(status_code=400, detail="You are already liekd this post")
@@ -144,4 +155,4 @@ class MainServiceSocial(MainServiceBase):
             if other_user not in user.followed:
                 raise HTTPException(status_code=400, detail="You are not following this user")
             user.followed.remove(other_user)
-                    
+    

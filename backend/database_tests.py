@@ -1,7 +1,7 @@
 import pytest
 from databases_manager.postgres_manager.database import create_engine, create_sessionmaker
 from databases_manager.postgres_manager.database_utils import get_session
-from databases_manager.postgres_manager.models import User, Post, History, Base
+from databases_manager.postgres_manager.models import User, Post, Base
 from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
 from databases_manager.main_managers.social_manager import MainServiceSocial
 from databases_manager.main_managers.auth_manager import MainServiceAuth

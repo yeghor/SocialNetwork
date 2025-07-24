@@ -1,15 +1,16 @@
 from fastapi import APIRouter, Depends, Body, Query
-from pydantic_schemas.pydantic_schemas_auth import UserProfileSchema
 from databases_manager.postgres_manager.database_utils import get_session_depends, merge_model
 from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
 from databases_manager.main_managers.social_manager import MainServiceSocial
 from authorization.authorization import authorize_request_depends
 from pydantic_schemas.pydantic_schemas_social import (
-    PostLiteShortSchema,
-    MakePostDataSchema,
     UserLiteSchema,
+    PostBase,
+    PostLiteShortSchema,
     PostSchema,
-    PostDataSchemaID
+    MakePostDataSchema,
+    PostDataSchemaID,
+    UserSchema
 )
 from databases_manager.postgres_manager.models import User
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +23,7 @@ social = APIRouter()
 async def get_related_to_history_posts(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends),
-    ) -> List[PostLiteShortSchema]:
+    ) -> List[PostLiteShortSchema | None]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.get_related_posts(user=user)
@@ -31,7 +32,7 @@ async def get_related_to_history_posts(
 async def get_followed_posts(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
-    ) -> List[PostLiteShortSchema]:
+    ) -> List[PostLiteShortSchema | None]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.get_followed_posts(user=user)
@@ -41,7 +42,7 @@ async def search_posts(
     prompt = Annotated[str, Query(..., max_length=500)],
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
-    ) -> List[PostLiteShortSchema]:
+    ) -> List[PostLiteShortSchema | None]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.search_posts(prompt=prompt)
@@ -51,11 +52,10 @@ async def search_users(
     user_: User = Depends(authorize_request_depends),
     prompt: str = Annotated[str, Query(...,)],
     session = Depends(get_session_depends)
-    ) -> List[UserLiteSchema]:
+    ) -> List[UserLiteSchema | None]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.search_users(prompt=prompt)
-
 
 @social.post("/posts")
 async def make_post(
@@ -65,6 +65,7 @@ async def make_post(
     ) -> PostSchema:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
+        print("Validated user data")
         return await social.construct_and_flush_post(data=post_data, user=user)
 
 
@@ -129,11 +130,11 @@ async def unfollow(
         await social.friendship_action(user=user, other_user_id=follow_to_id, follow=False)
 
 @social.patch("/users/my-profile/password")
-async def change_password() -> UserProfileSchema:
+async def change_password() -> UserSchema:
     pass
 
 @social.patch("/users/my-profile/username")
-async def change_username() -> UserProfileSchema:
+async def change_username() -> UserSchema:
     pass
 
 @social.get("/users/{user_id}")
@@ -141,7 +142,7 @@ async def get_user_profile(
     user_id: str | None,
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends),
-    )-> UserProfileSchema:
+    )-> UserSchema:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         pass

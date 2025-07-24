@@ -13,6 +13,8 @@ from pydantic_schemas.pydantic_schemas_auth import (
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 from typing import List        
+from uuid import uuid4
+
 
 class MainServiceAuth(MainServiceBase):
     async def authorize_request(self, token: str, return_user: bool = True) -> User | None:
@@ -35,6 +37,7 @@ class MainServiceAuth(MainServiceBase):
 
         password_hash = password_manager.hash_password(credentials.password)
         new_user = User(
+            user_id=str(uuid4()),
             username=credentials.username, 
             email=credentials.email,
             password_hash=password_hash
