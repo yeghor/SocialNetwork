@@ -78,6 +78,7 @@ class MainServiceSocial(MainServiceBase):
                 raise HTTPException(status_code=400, detail="Youre replying to post that dosen't exist")
 
         post = Post(
+            post_id=str(uuid4()),
             owner_id=user.user_id,
             parent_post_id=data.parent_post_id,
             title=data.title,
@@ -118,7 +119,7 @@ class MainServiceSocial(MainServiceBase):
         await self._PostgresService.delete_posts_by_id()
 
     async def like_post(self, post_id: str | UUID, user: User) -> None:
-        post = await self._PostgresService.get_entry_by_id(id_=list(post_id), ModelType=Post)
+        post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
         if user in post.liked_by:
             raise HTTPException(status_code=400, detail="You are already liekd this post")

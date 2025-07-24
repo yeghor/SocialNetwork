@@ -39,8 +39,8 @@ def chromaDB_error_handler(func):
 
 class ChromaService:
     @staticmethod
-    def extract_ids_from_metadata(result) -> List[UUID]:
-        return [UUID(meta["post_id"]) for meta in result["metadatas"][0]]
+    def extract_ids_from_metadata(result) -> List[str]:
+        return [str(meta["post_id"]) for meta in result["metadatas"][0]]
 
 
     def __init__(self, client: AsyncClientAPI, collection: Collection, mode: str):
@@ -120,7 +120,7 @@ class ChromaService:
         )
 
     @chromaDB_error_handler
-    async def search_posts_by_prompt(self, prompt: str) -> List[UUID]:
+    async def search_posts_by_prompt(self, prompt: str) -> List[str]:
         if not prompt:
             raise ValueError("Empty search prompt!")
         search_result = await self.__collection.query(

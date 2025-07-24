@@ -15,16 +15,6 @@ Models = TypeVar("Models", bound=Base)
 MAX_FOLLOWED_POSTS_TO_SHOW = int(getenv("MAX_FOLLOWED_POSTS_TO_SHOW"))
 
 class PostgresService:
-
-    @staticmethod
-    def ids_to_uuids(ids: List[Union[UUID, str, None]]) -> List[UUID | None]:
-        """If not ids - returns empty list"""
-        if not ids:
-            return []
-
-        for i, id_ in ids:
-            ids[i] = UUID(id_)
-
     def __init__(self, session: AsyncSession):
         # We don't need to close session. Because Depends func will handle it in endpoints.
         self.__session = session
@@ -47,11 +37,11 @@ class PostgresService:
         await self.__session.flush()
 
     @postgres_error_handler(action="Get user by id")
-    async def get_user_by_id(self, user_id: UUID | str) -> User | None:
+    async def get_user_by_id(self, user_id: str) -> User | None:
         result = await self.__session.execute(
             select(User)
             .options(selectinload(User.followed), selectinload(User.followers)) # Manually passing selection load. Because of self ref. m2m2
-            .where(or_(User.user_id == UUID(user_id)))
+            .where(or_(User.user_id == str(user_id)))
         )
         return result.scalar()
 
@@ -84,11 +74,8 @@ class PostgresService:
         """
         if not ids and not user_models:
             return []
-
         if user_models:
             ids = [user.user_id for user in user_models]
-
-        ids = self.ids_to_uuids(ids=ids)
 
         result = await self.__session.execute(
             select(Post)
@@ -111,8 +98,9 @@ class PostgresService:
         return result.scalars().all()
 
     @postgres_error_handler(action="Get entries from specific model by ids")
-    async def get_entries_by_ids(self, ids: List[Union[UUID, str, None]], ModelType: Type[Models], show_replies: bool = True) -> List[Models]:        
-        ids = self.ids_to_uuids(ids=ids)
+    async def get_entries_by_ids(self, ids: List[str], ModelType: Type[Models], show_replies: bool = True) -> List[Models]:     
+        if not ids:
+            return []
 
         if ModelType == User:
             result = await self.__session.execute(
@@ -129,9 +117,7 @@ class PostgresService:
         return result.scalars().all()
     
     @postgres_error_handler(action="Get entry from id")
-    async def get_entry_by_id(self, id_: UUID | str, ModelType: Type[Models]) -> Models:
-        id_ = UUID(id_)
-
+    async def get_entry_by_id(self, id_: str, ModelType: Type[Models]) -> Models:
         if ModelType == User:
             result = await self.__session.execute(
                 select(User)
@@ -165,9 +151,7 @@ class PostgresService:
         await self.__session.flush()
 
     @postgres_error_handler(action="Delete posts by id")
-    async def delete_posts_by_id(self, ids: List[Union[UUID, str, None]]) -> None:
-        ids = self.ids_to_uuids(ids=ids)
-
+    async def delete_posts_by_id(self, ids: List[str]) -> None:
         await self.__session.execute(
             delete(Post)
             .where(Post.post_id.in_(ids))
@@ -191,11 +175,10 @@ class PostgresService:
         user = await self.get_user_by_id(user_id=user.user_id)
 
         followed_ids = [followed.user_id for followed in user.followed]
-        ids = self.ids_to_uuids(followed_ids)
 
         result = await self.__session.execute(
             select(User)
-            .where(User.user_id.in_(ids))
+            .where(User.user_id.in_(followed_ids))
         )
         users = result.scalars().all()
 
@@ -215,12 +198,12 @@ class PostgresService:
         
         await self.__session.execute(
             update(Post)
-            .where(Post.post_id == UUID(post_data.post_id))
+            .where(Post.post_id == str(post_data.post_id))
             .values(**post_data_dict)
         )
         if return_updated_post:
             result = await self.__session.execute(
                 select(Post)
-                .where(Post.post_id == UUID(post_data.post_id))
+                .where(Post.post_id == str(post_data.post_id))
             )
             return result.scalar()
