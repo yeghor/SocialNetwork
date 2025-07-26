@@ -111,7 +111,7 @@ async def like_post(
 ):
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        await social.like_post(post_id=post_id, user=user)
+        await social.like_post_action(post_id=post_id, user=user, like=True)
 
 @social.delete("/posts/{post_id}/like")
 async def unlike_post(
@@ -121,7 +121,7 @@ async def unlike_post(
 ) -> None:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        await social.unlike_post(post_id=post_id, user=user)
+        await social.like_post_action(post_id=post_id, user=user, like=False)
 
 @social.post("/users/{follow_to_id}/follow")
 async def follow(
@@ -159,16 +159,16 @@ async def get_user_profile(
     )-> UserSchema:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        pass
+        return await social.get_user_profile(request_user=user, other_user_id=user_id)
 
-@social.get("users/my-profile")
+@social.get("/users/my-profile")
 async def get_my_profile(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends),
-    ):
+    ) -> UserSchema:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        pass
+        return await social.get_user_profile(request_user=user, other_user_id=user.user_id)
 
 @social.delete("/users/my-profile")
 async def delete_user_account() -> None:

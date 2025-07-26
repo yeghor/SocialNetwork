@@ -119,9 +119,12 @@ class PostgresService:
     @postgres_error_handler(action="Get entry from id")
     async def get_entry_by_id(self, id_: str, ModelType: Type[Models]) -> Models:
         if ModelType == User:
+            print(id_)
+            print(f"Shi? {id_}")
             result = await self.__session.execute(
                 select(User)
                 .where(User.user_id == id_)
+                .options(selectinload(User.followers), selectinload(User.followed), selectinload(User.posts))
             )
         elif ModelType == Post:
             result = await self.__session.execute(

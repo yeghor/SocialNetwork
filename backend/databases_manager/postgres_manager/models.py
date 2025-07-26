@@ -1,6 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, validates, mapped_column, relationship
 from sqlalchemy import ForeignKey, text
-from sqlalchemy.dialects.postgresql import UUID
 from uuid import uuid4
 from datetime import datetime
 from typing import List
@@ -19,7 +18,7 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
 
-    user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id: Mapped[str] = mapped_column(primary_key=True, default=uuid4)
     image_path: Mapped[str] = mapped_column(nullable=True)
     username: Mapped[str] = mapped_column(unique=True)
     email: Mapped[str] = mapped_column(unique=True)
@@ -79,14 +78,14 @@ class Post(Base):
 
     post_id: Mapped[str] = mapped_column(primary_key=True)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
-    parent_post_id: Mapped[UUID| None] = mapped_column(ForeignKey("posts.post_id", ondelete="SET NULL"), nullable=True)
+    parent_post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="SET NULL"), nullable=True)
 
     is_reply: Mapped[bool] = mapped_column(default=False)
 
     # Add constraits!!!
     title: Mapped[str] = mapped_column()
     text: Mapped[str]
-    image_path: Mapped[str | None] = mapped_column(nullable=True)
+    image_path: Mapped[str] = mapped_column(nullable=True)
     published: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
     last_updated: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"), onupdate=text("TIMEZONE('utc', now())"))
 

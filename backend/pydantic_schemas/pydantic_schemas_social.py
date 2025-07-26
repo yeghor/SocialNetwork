@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel, field_validator, Field, ValidationInfo
+from pydantic import BaseModel, field_validator, Field, ValidationInfo, model_validator
 from uuid import UUID
 from datetime import datetime
 from typing import List, Any, Annotated
@@ -66,21 +66,10 @@ class UserShortSchema(UserIDValidate):
 class UserLiteSchema(UserShortSchema):
     """Pass to the followers field List[User]!"""
     followers: List[UserShortSchema]
-    followers_count: int = 0
-
-    @field_validator("followers_count", mode="before")
-    @classmethod
-    def validate_followers(cls, value: Any, info: ValidationInfo) -> int:
-        value = len(info.data["followers"])
-        return
 
 
 class UserSchema(UserLiteSchema):
-    followed: List[UserLiteSchema]
-    joined: datetime
-
-    posts: List[PostLiteShortSchema]
-    replies: List[PostLiteShortSchema]
+    followed: List[UserShortSchema]
 
 # =================
 # Body data structure
@@ -93,4 +82,3 @@ class MakePostDataSchema(PostDataSchemaBase):
 
 class PostDataSchemaID(PostDataSchemaBase):
     post_id: str
-

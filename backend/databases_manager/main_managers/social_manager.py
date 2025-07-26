@@ -12,7 +12,8 @@ from pydantic_schemas.pydantic_schemas_social import (
     PostDataSchemaID,
     MakePostDataSchema,
     PostLiteShortSchema,
-    UserLiteSchema
+    UserLiteSchema,
+    UserSchema
 )
 
 class NotImplementedError(Exception):
@@ -123,13 +124,20 @@ class MainServiceSocial(MainServiceBase):
 
         await self._PostgresService.delete_posts_by_id(ids=[post.post_id])
 
-    async def like_post(self, post_id: str, user: User) -> None:
+    async def like_post_action(self, post_id: str, user: User, like: bool = True) -> None:
+        """Set like to True to leave like. To remove like - set to False"""
+
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
-        if user in post.liked_by:
-            raise HTTPException(status_code=400, detail="You are already liekd this post")
+        if like:
+            if user in post.liked_by:
+                raise HTTPException(status_code=400, detail="You have already liked this post")
+            post.liked_by.append(user)
+        else:
+            if user not in post.liked_by:
+                raise HTTPException(status_code=400, detail="You haven't liked this post yet")
+            post.liked_by.remove(user)
 
-        post.liked_by.append(user)
 
     async def remove_post_like(self, post_id: str, user: User) -> None:
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
@@ -151,13 +159,29 @@ class MainServiceSocial(MainServiceBase):
     async def friendship_action(self, user: User, other_user_id: str, follow: bool) -> None:
         """To follow user - set follow to True. To unfollow - False"""
         other_user = await self._PostgresService.get_entry_by_id(id_=other_user_id, ModelType=User)
+        
+        # Getting fresh user. Because merged Model often lose it's relationships loads
+        fresh_user = await self._PostgresService.get_entry_by_id(id_=user.user_id, ModelType=User)
 
         if follow:
-            if other_user in user.followed:
+            if other_user in fresh_user.followed:
                 raise HTTPException(status_code=400, detail="You are already following this user")
-            user.followed.append(other_user)
+            fresh_user.followed.append(other_user)
         elif not follow:
-            if other_user not in user.followed:
+            if other_user not in fresh_user.followed:
                 raise HTTPException(status_code=400, detail="You are not following this user")
-            user.followed.remove(other_user)
+            fresh_user.followed.remove(other_user)
     
+    # FIX THIS!!!!
+    async def get_user_profile(self, request_user: User, other_user_id: str) -> UserSchema:
+        # Getting request_user to add feature that doesn't allow see profile of user if you're not in his followers list
+
+        print(request_user.user_id)
+
+        # Just to reuse this method :)
+        if request_user.user_id == other_user_id:
+            other_user = await self._PostgresService.get_entry_by_id(id_=other_user_id, ModelType=User)
+        else:
+            other_user = await self._PostgresService.get_entry_by_id(id_=other_user_id, ModelType=User)
+
+        return UserSchema.model_validate(other_user, from_attributes=True)
