@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel, field_validator, Field
+from pydantic import BaseModel, field_validator, Field, ValidationInfo
 from uuid import UUID
 from datetime import datetime
 from typing import List, Any, Annotated
@@ -37,35 +37,46 @@ class PostBase(PostIDValidate):
     image_path: str | None
     published: datetime
 
-    owner: UserLiteSchema | None
+    owner: UserShortSchema | None
 
 class PostLiteShortSchema(PostBase):
-    liked_by: List[UserLiteSchema]
-    viewed_by: List[UserLiteSchema]
+    liked_by: List[UserShortSchema]
+    viewed_by: List[UserShortSchema]
 
     parent_post: PostBase | None
 
 class PostSchema(PostBase):
     text: str
 
-    liked_by: List[UserLiteSchema | None]
-    viewed_by: List[UserLiteSchema | None]
-    replies: List[PostLiteShortSchema | None]
+    last_updated: datetime
+
+    liked_by: List[UserShortSchema]
+    viewed_by: List[UserShortSchema]
+    replies: List[PostLiteShortSchema]
 
     parent_post: PostBase | None
 
 
 # =====================
 
-class UserLiteSchema(UserIDValidate):
+class UserShortSchema(UserIDValidate):
     image_path: str | None
     username: str
 
+class UserLiteSchema(UserShortSchema):
+    """Pass to the followers field List[User]!"""
+    followers: List[UserShortSchema]
+    followers_count: int = 0
+
+    @field_validator("followers_count", mode="before")
+    @classmethod
+    def validate_followers(cls, value: Any, info: ValidationInfo) -> int:
+        value = len(info.data["followers"])
+        return
+
 
 class UserSchema(UserLiteSchema):
-    followers: List[UserLiteSchema]
     followed: List[UserLiteSchema]
-
     joined: datetime
 
     posts: List[PostLiteShortSchema]

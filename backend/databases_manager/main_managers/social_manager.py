@@ -11,12 +11,14 @@ from pydantic_schemas.pydantic_schemas_social import (
     PostSchema,
     PostDataSchemaID,
     MakePostDataSchema,
-    PostLiteShortSchema
+    PostLiteShortSchema,
+    UserLiteSchema
 )
 
-load_dotenv()
+class NotImplementedError(Exception):
+    pass
 
-DATETIME_BASE_FORMAT = getenv("DATETIME_BASE_FORMAT")
+load_dotenv()
 
 T = TypeVar("T", bound=Base)
 
@@ -54,7 +56,7 @@ class MainServiceSocial(MainServiceBase):
     async def get_followed_posts(self, user: User) -> List[Post]:
         return await self._PostgresService.get_followed_posts(user=user)
     
-    async def search_posts(self, prompt: str) -> List[PostLiteShortSchema | None]:
+    async def search_posts(self, prompt: str, user: User) -> List[PostLiteShortSchema | None]:
         """
         Search posts that similar with meaning with prompt
         """
@@ -69,8 +71,11 @@ class MainServiceSocial(MainServiceBase):
 
         return model_validated_posts
     
-    async def search_users(self, prompt: str) -> List[User | None]:
-        return await self._PostgresService.get_users_by_username(prompt=prompt)
+    async def search_users(self, prompt: str,  request_user: User) -> List[UserLiteSchema]:
+        users = await self._PostgresService.get_users_by_username(prompt=prompt)
+        filtered_users = [UserLiteSchema.model_validate(user, from_attributes=True) for user in users if user.user_id != request_user.user_id]
+        return filtered_users
+
     
     async def construct_and_flush_post(self, data: MakePostDataSchema, user: User) -> PostSchema:
         if data.parent_post_id:
@@ -109,16 +114,16 @@ class MainServiceSocial(MainServiceBase):
 
     async def construct_and_flush_view(self, post: Post, user: User) -> None:
         """Calling this method when user click on post \n Data must be validated!"""
-        raise Exception("Is not implemented yet!")
+        raise NotImplementedError("Not implemented yet!")
     
-    async def delete_post(self, post_id: str | UUID, user: User, show_replies: bool) -> None:
-        post = await self._PostgresService.get_entry_by_id(id_=list(post_id), ModelType=Post)
+    async def delete_post(self, post_id: str, user: User) -> None:
+        post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
         self.check_post_user_id(post=post, user=user)
-        
-        await self._PostgresService.delete_posts_by_id()
 
-    async def like_post(self, post_id: str | UUID, user: User) -> None:
+        await self._PostgresService.delete_posts_by_id(ids=[post.post_id])
+
+    async def like_post(self, post_id: str, user: User) -> None:
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
         if user in post.liked_by:
@@ -126,24 +131,24 @@ class MainServiceSocial(MainServiceBase):
 
         post.liked_by.append(user)
 
-    async def remove_post_like(self, post_id: str | UUID, user: User) -> None:
-        post = await self._PostgresService.get_entry_by_id(id_=list(post_id), ModelType=Post)
+    async def remove_post_like(self, post_id: str, user: User) -> None:
+        post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
         if not user in post.liked_by:
             raise HTTPException(status_code=400, detail="You are not liked this post yet")
 
         post.liked_by.remove(user)
 
-    async def change_post(self, post_data: PostDataSchemaID, user: User) -> None:
-        post = await self._PostgresService.get_entry_by_id(id_=post_data.post_id, ModelType=Post)
+    async def change_post(self, post_data: PostDataSchemaID, user: User, post_id: str) -> PostSchema:
+        post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
         self.check_post_user_id(post=post, user=user)
         
-        await self._PostgresService.update_post_fields(post_data=post_data, return_updated_post = False)
+        updated_post = await self._PostgresService.update_post_fields(post_data=post_data, post_id=post_id, return_updated_post = True)
+        await self._ChromaService.add_posts_data(posts=[updated_post])
+        return PostSchema.model_validate(updated_post, from_attributes=True)
 
-    async def friendship_action(self, user: User, other_user_id: str | UUID, follow: bool):
-        if not isinstance(follow, bool):
-            raise TypeError("Uknown follow action")
+    async def friendship_action(self, user: User, other_user_id: str, follow: bool) -> None:
         """To follow user - set follow to True. To unfollow - False"""
         other_user = await self._PostgresService.get_entry_by_id(id_=other_user_id, ModelType=User)
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Body, Query
+from fastapi import APIRouter, Depends, Body, Query, HTTPException
 from databases_manager.postgres_manager.database_utils import get_session_depends, merge_model
 from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
 from databases_manager.main_managers.social_manager import MainServiceSocial
@@ -9,21 +9,33 @@ from pydantic_schemas.pydantic_schemas_social import (
     PostLiteShortSchema,
     PostSchema,
     MakePostDataSchema,
-    PostDataSchemaID,
+    PostDataSchemaBase,
     UserSchema
 )
 from databases_manager.postgres_manager.models import User
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from typing import Annotated, List
+from dotenv import load_dotenv
+from os import getenv
 
 social = APIRouter()
+
+load_dotenv()
+QUERY_PARAM_MAX_L = int(getenv("QUERY_PARAM_MAX_L"))
+
+def query_prompt_required(prompt: Annotated[str, Query(..., max_length=QUERY_PARAM_MAX_L)]):
+    # Somehow... But Depends() makes prompt Query field required...
+    if not prompt.strip():
+        raise HTTPException(status_code=400, detail="Prompt can't be empty!")
+    return prompt
+
 
 @social.get("/posts/history-related")
 async def get_related_to_history_posts(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends),
-    ) -> List[PostLiteShortSchema | None]:
+    ) -> List[PostLiteShortSchema]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.get_related_posts(user=user)
@@ -32,30 +44,31 @@ async def get_related_to_history_posts(
 async def get_followed_posts(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
-    ) -> List[PostLiteShortSchema | None]:
+    ) -> List[PostLiteShortSchema]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.get_followed_posts(user=user)
 
 @social.get("/search/posts")
 async def search_posts(
-    prompt = Annotated[str, Query(..., max_length=500)],
+    prompt: str = Depends(query_prompt_required),
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
-    ) -> List[PostLiteShortSchema | None]:
+    ) -> List[PostLiteShortSchema]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        return await social.search_posts(prompt=prompt)
+        return await social.search_posts(prompt=prompt, user=user)
 
 @social.get("/search/users")
 async def search_users(
+    prompt: str = Depends(query_prompt_required),
     user_: User = Depends(authorize_request_depends),
-    prompt: str = Annotated[str, Query(...,)],
     session = Depends(get_session_depends)
-    ) -> List[UserLiteSchema | None]:
+    ) -> List[UserLiteSchema]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        return await social.search_users(prompt=prompt)
+        users = await social.search_users(prompt=prompt, request_user=user)
+        return users
 
 @social.post("/posts")
 async def make_post(
@@ -71,13 +84,14 @@ async def make_post(
 
 @social.patch("/posts/{post_id}")
 async def change_post(
+    post_id: str,
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends),
-    post_data: PostDataSchemaID = Body(...)
+    post_data: PostDataSchemaBase = Body(...),
 ) -> PostSchema:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        await social.change_post(post_data=post_data, user=user)
+        return await social.change_post(post_data=post_data, user=user, post_id=post_id)
 
 @social.delete("/posts/{post_id}")
 async def delete_post(

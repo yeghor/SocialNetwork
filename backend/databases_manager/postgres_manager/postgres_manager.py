@@ -134,13 +134,14 @@ class PostgresService:
 
     #https://stackoverflow.com/questions/3325467/sqlalchemy-equivalent-to-sql-like-statement
     @postgres_error_handler(action="Get users by LIKE statement")
-    async def get_users_by_username(self, prompt: str) -> List[User | None]:
+    async def get_users_by_username(self, prompt: str) -> List[User]:
         if not prompt:
             raise ValueError("Prompt is None")
 
         result = await self.__session.execute(
             select(User)
             .where(User.username.ilike(f"%{prompt.strip()}%"))
+            .options(selectinload(User.followers))
         )
         return result.scalars().all()
 
@@ -191,19 +192,20 @@ class PostgresService:
         return proccesed_posts
 
     @postgres_error_handler(action="Update post values nad return post is needed")
-    async def update_post_fields(self, post_data: PostDataSchemaID, return_updated_post: bool = False) -> Post | None:
+    async def update_post_fields(self, post_data: PostDataSchemaID, post_id: str, return_updated_post: bool = False) -> Post | None:
         post_data_dict = post_data.model_dump(exclude_defaults=True, exclude_none=True, exclude={"post_id"})
         if not post_data_dict:
             return
         
         await self.__session.execute(
             update(Post)
-            .where(Post.post_id == str(post_data.post_id))
+            .where(Post.post_id == post_id)
             .values(**post_data_dict)
         )
         if return_updated_post:
             result = await self.__session.execute(
                 select(Post)
-                .where(Post.post_id == str(post_data.post_id))
+                .where(Post.post_id == post_id)
+                .options(selectinload(Post.replies))
             )
             return result.scalar()
