@@ -42,17 +42,15 @@ class MainServiceSocial(MainServiceBase):
         """
         Returns related posts to provided User table object view history
         """
-        post_UUIDS = await self._ChromaService.get_n_related_posts_ids(user=user)
-        print(post_UUIDS)
+        post_ids = await self._ChromaService.get_n_related_posts_ids(user=user)
         
-        if not post_UUIDS:
-            # return await self.get_fresh_feed()
-            return []
+        if not post_ids:
+            return await self.get_fresh_feed()
 
-        return await self._PostgresService.get_entries_by_ids(ids=post_UUIDS, ModelType=Post)
+        return await self._PostgresService.get_entries_by_ids(ids=post_ids, ModelType=Post)
         
-    async def get_fresh_feen():
-        pass
+    async def get_fresh_feed(self) -> List[Post]:
+        return await self._PostgresService.get_fresh_posts()
 
     async def get_followed_posts(self, user: User) -> List[Post]:
         return await self._PostgresService.get_followed_posts(user=user)

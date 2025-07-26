@@ -18,8 +18,8 @@ TEST_COLLECTION_NAME = getenv("CHROMADB_TEST_COLLECTION_NAME")
 PORT = int(getenv("CHROMADB_PORT"))
 
 HISTORY_POSTS_TO_TAKE_INTO_RELATED = int(getenv("HISTORY_POSTS_TO_TAKE_INTO_RELATED"))
-N_MAX_FEED_POSTS_SHOW = int(getenv("N_MAX_FEED_POSTS_SHOW"))
-MAX_POSTS_SEARCH_RETURN = int(getenv("MAX_POSTS_SEARCH_RETURN"))
+N_MAX_HISTORY_POSTS_SHOW = int(getenv("N_MAX_HISTORY_POSTS_SHOW"))
+FEED_MAX_POSTS_LOAD = int(getenv("FEED_MAX_POSTS_LOAD"))
 
 class EmptyPostsError(Exception):
     pass    
@@ -85,7 +85,7 @@ class ChromaService:
         
 
     @chromaDB_error_handler
-    async def get_n_related_posts_ids(self, user: User, n: int = N_MAX_FEED_POSTS_SHOW) -> List[UUID]:
+    async def get_n_related_posts_ids(self, user: User, n: int = FEED_MAX_POSTS_LOAD) -> List[UUID]:
         """Get n posts related to user's history"""
 
         posts = [post_history_obj.post for post_history_obj in user.views_history[:HISTORY_POSTS_TO_TAKE_INTO_RELATED] if not post_history_obj.post.is_reply ]
@@ -99,8 +99,7 @@ class ChromaService:
         )
 
         return self.extract_ids_from_metadata(result=related_posts)
-        
-        
+
     @chromaDB_error_handler
     async def add_posts_data(self, posts: List[Post]) -> None:
         """
@@ -125,7 +124,7 @@ class ChromaService:
             raise ValueError("Empty search prompt!")
         search_result = await self.__collection.query(
             query_texts=[prompt.strip()],
-            n_results=MAX_POSTS_SEARCH_RETURN
+            n_results=FEED_MAX_POSTS_LOAD
         )
 
         return self.extract_ids_from_metadata(result=search_result)

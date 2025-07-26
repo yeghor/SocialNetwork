@@ -12,6 +12,9 @@ from uuid import UUID
 
 Models = TypeVar("Models", bound=Base)
 
+FEED_MAX_POSTS_LOADED = int(getenv("FEED_MAX_POSTS_LOADED"))
+N_MAX_FRESH_POSTS_TO_MIX = int(getenv("N_MAX_FRESH_POSTS_TO_MIX"))
+
 MAX_FOLLOWED_POSTS_TO_SHOW = int(getenv("MAX_FOLLOWED_POSTS_TO_SHOW"))
 
 class PostgresService:
