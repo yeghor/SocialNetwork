@@ -49,49 +49,40 @@ class PostgresService:
         return result.scalar()
 
     @validate_n_postitive
-    @postgres_error_handler(action="Get n most popular posts")
-    async def get_n_popular_posts(self, n: int) -> List[Post]:
+    @postgres_error_handler(action="Get fresh feed")
+    async def get_fresh_posts(self, user: User) -> List[Post]:
         result = await self.__session.execute(
             select(Post)
-            .order_by(Post.likes.desc())
-            .limit(n)
+            .where(Post.owner_id != user.user_id)
+            .order_by(Post.popularity_rate.desc(), Post.published.desc())
+            .limit(FEED_MAX_POSTS_LOADED)
         )
         return result.scalars().all()
 
-    @validate_n_postitive
-    @postgres_error_handler(action="Get n most fresh posts")
-    async def get_fresh_posts(self, n: int) -> List[Post]:
-        result = await self.__session.execute(
-            select(Post)
-            .order_by(Post.published.desc())
-            .limit(n)
-        )
-        return result.scalars().all()
+    # @validate_n_postitive
+    # @postgres_error_handler(action="Get subcribers posts")
+    # async def get_subscribers_posts(self, n: int, ids, user_models: List[User] | None, most_popular: bool = False) -> List[Post]:
+    #     """
+    #     Getting posts of users, whose ids mentioned in user_ids or user_models lists. If user_models not empty - getting ids from models.
+    #     Most popular sorts posts by descending amount of likes field. Can be used by your followers or who you follow
+    #     """
+    #     if not ids and not user_models:
+    #         return []
+    #     if user_models:
+    #         ids = [user.user_id for user in user_models]
 
-    @validate_n_postitive
-    @postgres_error_handler(action="Get subcribers posts")
-    async def get_subscribers_posts(self, n: int, ids, user_models: List[User] | None, most_popular: bool = False) -> List[Post]:
-        """
-        Getting posts of users, whose ids mentioned in user_ids or user_models lists. If user_models not empty - getting ids from models.
-        Most popular sorts posts by descending amount of likes field. Can be used by your followers or who you follow
-        """
-        if not ids and not user_models:
-            return []
-        if user_models:
-            ids = [user.user_id for user in user_models]
-
-        result = await self.__session.execute(
-            select(Post)
-            .where(Post.owner_id.in_(ids))
-            .order_by(Post.published.desc())
-            .limit(n)
-        )
-        posts = result.scalars().all()
+    #     result = await self.__session.execute(
+    #         select(Post)
+    #         .where(Post.owner_id.in_(ids))
+    #         .order_by(Post.published.desc())
+    #         .limit(n)
+    #     )
+    #     posts = result.scalars().all()
         
-        if most_popular:
-            return sorted(posts, key=lambda post : post.likes, reverse=True)
+    #     if most_popular:
+    #         return sorted(posts, key=lambda post : post.likes, reverse=True)
 
-        return posts
+    #     return posts
 
     @postgres_error_handler(action="Get all posts")
     async def get_all_from_model(self, ModelType: Type[Models]) -> List[Models]:

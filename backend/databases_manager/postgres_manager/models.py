@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List
 from dotenv import load_dotenv
 from os import getenv
+import enum
 
 
 load_dotenv()
@@ -80,6 +81,8 @@ class Post(Base):
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
     parent_post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="SET NULL"), nullable=True)
 
+    popularity_rate: Mapped[int] = mapped_column(default=0)
+
     is_reply: Mapped[bool] = mapped_column(default=False)
 
     # Add constraits!!!
@@ -109,6 +112,15 @@ class Post(Base):
         lazy="selectin"
     )
 
+    popularity_rate: Mapped[int] = mapped_column(default=0)
+    last_rate_calculated: Mapped[datetime] = mapped_column(server_default="TIMEZONE('utc', now())", onupdate="TIMEZONE('utc', now())")
+    actions: Mapped[List["PostActions"]] = relationship(
+        "PostActions",
+        back_populates="post",
+        lazy="selectin"
+    )
+
+
     # Self referable one-2-many relationship https://docs.sqlalchemy.org/en/20/orm/self_referential.html
     parent_post: Mapped["Post"] = relationship(
         "Post",
@@ -136,7 +148,7 @@ class Post(Base):
         return text
 
     def __repr__(self):
-        return f"Post name: {self.title}"
+        return f"Post name: {self.title} | Rate: {self.popularity_rate}"
 
 # For m2m
 
@@ -159,3 +171,24 @@ class Friendship(Base):
 
     follower_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
     followed_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+
+
+class ActionType(enum.Enum):
+    view = "view"
+    like = "like"
+    reply = "reply"
+    repost = "repost"
+
+
+class PostActions(Base):
+    __tablename__ = "postactions"
+
+    post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
+    action: Mapped[ActionType]
+    date: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
+
+    post: Mapped[Post] = relationship(
+        "Post",
+        back_populates="actions",
+        lazy="selectin"
+    )
