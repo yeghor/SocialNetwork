@@ -24,7 +24,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(unique=True)
     email: Mapped[str] = mapped_column(unique=True)
     password_hash: Mapped[str]
-    joined: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
+    joined: Mapped[datetime] = mapped_column(default=datetime.utcnow())
 
     posts: Mapped[List["Post"]] = relationship(
         "Post",
@@ -79,9 +79,7 @@ class Post(Base):
 
     post_id: Mapped[str] = mapped_column(primary_key=True)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
-    parent_post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="SET NULL"), nullable=True)
-
-    popularity_rate: Mapped[int] = mapped_column(default=0)
+    parent_post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="SET NULL"), nullable=True)    
 
     is_reply: Mapped[bool] = mapped_column(default=False)
 
@@ -89,8 +87,8 @@ class Post(Base):
     title: Mapped[str] = mapped_column()
     text: Mapped[str]
     image_path: Mapped[str] = mapped_column(nullable=True)
-    published: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
-    last_updated: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"), onupdate=text("TIMEZONE('utc', now())"))
+    published: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    last_updated: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
 
     owner: Mapped["User"] = relationship(
         "User",
@@ -113,7 +111,7 @@ class Post(Base):
     )
 
     popularity_rate: Mapped[int] = mapped_column(default=0)
-    last_rate_calculated: Mapped[datetime] = mapped_column(server_default="TIMEZONE('utc', now())", onupdate="TIMEZONE('utc', now())")
+    last_rate_calculated: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
     actions: Mapped[List["PostActions"]] = relationship(
         "PostActions",
         back_populates="post",
@@ -185,7 +183,7 @@ class PostActions(Base):
 
     post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
     action: Mapped[ActionType]
-    date: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
+    date: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     post: Mapped[Post] = relationship(
         "Post",
