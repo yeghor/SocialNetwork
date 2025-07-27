@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncEngine
 from routes import auth_router, social_router
 from databases_manager.postgres_manager.models import *
-from databases_manager.postgres_manager.database import engine
+from databases_manager.postgres_manager.database import engine, initialize_models, drop_all
 from databases_manager.postgres_manager.database_utils import get_session
 from databases_manager.main_managers.social_manager import MainServiceSocial
 from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
@@ -15,14 +15,6 @@ from os import getenv
 from dotenv import load_dotenv
 
 load_dotenv()
-
-async def drop_all(engine: AsyncEngine, Base: Base) -> None:
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-
-async def initialize_models(engine: AsyncEngine, Base: Base) -> None:
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
 
 async def drop_redis() -> None:
     client = async_redis.Redis(
