@@ -1,7 +1,3 @@
-class Test:
-    def __init__(self, var):
-        self.var = var
+import asgiref
 
-ins = Test(5)
-
-print(type(ins))
+print(asgiref.__version__)
