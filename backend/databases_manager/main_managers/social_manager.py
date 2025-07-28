@@ -14,7 +14,9 @@ from pydantic_schemas.pydantic_schemas_social import (
     MakePostDataSchema,
     PostLiteShortSchema,
     UserLiteSchema,
-    UserSchema
+    UserSchema,
+    UserShortSchema,
+    PostBase
 )
 
 class NotImplementedError(Exception):
@@ -105,13 +107,33 @@ class MainServiceSocial(MainServiceBase):
         await self._PostgresService.refresh_model(post)
 
         await self._ChromaService.add_posts_data(posts=[post])
+        print(post.parent_post)
+        if post.parent_post:
+            parent_post_validated = PostBase.model_validate(post.parent_post, from_attributes=True)
+        else:
+            parent_post_validated = None
 
-        return PostSchema.model_validate(post, from_attributes=True)
+        return PostSchema(
+            post_id=post.post_id,
+            owner=UserShortSchema.model_validate(user, from_attributes=True),
+            title=post.title,
+            text=post.text,
+            image_path=None, # TODO 
+            last_updated=post.last_updated,
+            published=post.published,
+            parent_post=parent_post_validated,
+            replies=[]
+        )
 
     async def construct_and_flush_action(self, action_type: ActionType, post_id: str, user: User):
+        if await self._PostgresService.get_action(user_id=user.user_id, action_type=action_type):
+            if not action_type == ActionType.view:
+                raise HTTPException(status_code=400, detail=f"You have already '{action_type.value}' this post")
+
         action = PostActions(
-            owner_id=user.user_id,
-            post_id = post_id,
+            action_id=str(uuid4()),
+            owner_id=str(user.user_id),
+            post_id=str(post_id),
             action=action_type,
         )
         await self._PostgresService.insert_models_and_flush(action)
@@ -137,21 +159,18 @@ class MainServiceSocial(MainServiceBase):
         await self._PostgresService.delete_posts_by_id(ids=[post.post_id])
 
     async def like_post_action(self, post_id: str, user: User, like: bool = True) -> None:
-        """Set like to True to leave like. To remove like - set to False"""
-
+        """Set 'like' param to True to leave like. To remove like - set to False"""
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
-        potential_action = await self._PostgresService.get_action(user_id=user.user_id, action_type=ActionType.like)
-
         if like:
-            if potential_action in post.actions:
-                raise HTTPException(status_code=400, detail="You already liked this post")
             post.popularity_rate += POST_ACTIONS["like"]
             await self.construct_and_flush_action(action_type=ActionType.like, post_id=post.post_id, user=user)
         else:
-            if potential_action not in post.actions:
-                raise HTTPException(status_code=400, detail="You haven't like this post yet")
+            potential_action = await self._PostgresService.get_action(user_id=user.user_id, action_type=ActionType.like)
+
+            if not potential_action:
+                raise HTTPException(status_code=400, detail="You haven't liked this post")
+
             post.popularity_rate -= POST_ACTIONS["like"]
-            await self._PostgresService.make_post_action()
             await self._PostgresService.delete_models(potential_action)
 
 
@@ -194,5 +213,41 @@ class MainServiceSocial(MainServiceBase):
 
         return UserSchema.model_validate(other_user, from_attributes=True)
     
-    async def load_post(user: User, post_id: str) -> PostSchema:
-        pass
+    async def load_post(self, user: User, post_id: str) -> PostSchema:
+        post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
+
+        if not post:
+            raise HTTPException(status_code=400, detail="Post with this id doesn't exist")
+
+        await self.construct_and_flush_action(action_type=ActionType.view, post_id=post_id, user=user)
+
+        liked_by = await self._PostgresService.get_user_that_left_action(post_id=post.post_id, action_type=ActionType.like) 
+        viewed_by = await self._PostgresService.get_user_that_left_action(post_id=post.post_id, action_type=ActionType.view) 
+
+        print(liked_by)
+        print(viewed_by)
+
+        viewed_by_validated = None
+        if post.owner_id == user.user_id:
+            viewed_by_validated = [UserShortSchema.model_validate(action.owner, from_attributes=True) for action in viewed_by if action]
+
+        liked_by_validated = [UserShortSchema.model_validate(action.owner, from_attributes=True) for action in liked_by if action]
+
+        print(liked_by_validated)
+        print(liked_by_validated)
+
+        return PostSchema(
+            post_id=post.post_id,
+            title=post.title,
+            text=post.text,
+            image_path=None,
+            published=post.published,
+            owner=UserShortSchema.model_validate(post.owner, from_attributes=True),
+            liked_by=liked_by_validated,
+            likes=len(liked_by),
+            viewed_by=viewed_by_validated,
+            views=len(viewed_by),
+            parent_post=post.parent_post,
+            replies=post.replies,
+            last_updated=post.last_updated
+        )

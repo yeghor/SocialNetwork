@@ -19,7 +19,7 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
 
-    user_id: Mapped[str] = mapped_column(primary_key=True, default=uuid4)
+    user_id: Mapped[str] = mapped_column(primary_key=True)
     image_path: Mapped[str] = mapped_column(nullable=True)
     username: Mapped[str] = mapped_column(unique=True)
     email: Mapped[str] = mapped_column(unique=True)
@@ -33,7 +33,7 @@ class User(Base):
     )
 
     actions: Mapped[List["PostActions"]] = relationship(
-        "postactions",
+        "PostActions",
         back_populates="owner",
         lazy="selectin"
     )
@@ -145,6 +145,8 @@ class ActionType(enum.Enum):
 
 class PostActions(Base):
     __tablename__ = "postactions"
+
+    action_id: Mapped[str] = mapped_column(primary_key=True)
 
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
     post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)

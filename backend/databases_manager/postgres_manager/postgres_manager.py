@@ -132,6 +132,7 @@ class PostgresService:
             result = await self.__session.execute(
                 select(Post)
                 .where(Post.post_id == id_)
+                .options(selectinload(Post.replies))
             )
         else:
             raise TypeError("Unsupported model type!")
@@ -222,3 +223,14 @@ class PostgresService:
             .where(and_(PostActions.owner_id == user_id, PostActions.action == action_type))
         )
         return result.scalar()
+    
+    # FIX THIS!
+    @postgres_error_handler(action="Get users that liked post")
+    async def get_user_that_left_action(self, post_id: str, action_type: ActionType) -> List[User]:
+        result = await self.__session.execute(
+            select(PostActions)
+            .where(and_(PostActions.post_id == post_id, PostActions.action == action_type))
+            .order_by(PostActions.date.desc())
+        )
+        # I DONT KNOW WHY. But, when I call PostActions.owner it returns [True] ???
+        return result.scalars().all()

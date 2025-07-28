@@ -81,6 +81,15 @@ async def make_post(
         print("Validated user data")
         return await social.construct_and_flush_post(data=post_data, user=user)
 
+@social.get("/posts/{post_id}")
+async def load_post(
+    post_id: str,
+    user_: User = Depends(authorize_request_depends),
+    session: AsyncSession = Depends(get_session_depends)
+) -> PostSchema:
+    user = await merge_model(postgres_session=session, model_obj=user_)
+    async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
+        return await social.load_post(user=user, post_id=post_id)
 
 @social.patch("/posts/{post_id}")
 async def change_post(

@@ -21,7 +21,7 @@ PASSWORD_MAX_L = int(getenv("PASSWORD_MAX_L"))
 # PRIVATE - App only usage
 # ==========================
 class PayloadJWT(BaseModel):
-    user_id: UUID
+    user_id: str
     issued_at: datetime
 
     @field_validator("issued_at", mode="before")
@@ -36,14 +36,6 @@ class PayloadJWT(BaseModel):
         else:
             raise TypeError("Invalid issued_at type. Should be: int | str | datetime")
         return value
-    
-    @field_validator("user_id", mode="before")
-    @classmethod
-    def user_id_to_uuid(cls, value: any) -> UUID:
-        if isinstance(value, str):
-            value = UUID(value)
-        return value
-
 
 
 # Login Register

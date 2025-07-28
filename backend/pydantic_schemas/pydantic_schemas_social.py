@@ -54,21 +54,23 @@ class PostBase(PostBaseShort):
     owner: UserShortSchema | None
 
 class PostLiteShortSchema(PostBase):
-
     parent_post: PostBase | None
 
 class PostSchema(PostBase):
     text: str
 
-    liked_by: List[UserShortSchema]
-    likes: int
-    views: int
+    liked_by: List[UserShortSchema] = []
+    likes: int = 0
+    views: int = 0
 
     last_updated: datetime
 
     replies: List[PostLiteShortSchema]
 
     parent_post: PostBase | None
+
+    # Owner stats
+    viewed_by: List[UserShortSchema] | None = None
 
 
 # =====================
