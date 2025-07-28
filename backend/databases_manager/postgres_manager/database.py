@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngin
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 from os import getenv    
-from models import Base
+from databases_manager.postgres_manager.models import Base
 
 load_dotenv()
 

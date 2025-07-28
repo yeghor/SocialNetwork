@@ -2,6 +2,7 @@ from fastapi import HTTPException
 
 from databases_manager.main_managers.main_manager_creator_abs import MainServiceBase
 from databases_manager.postgres_manager.models import *
+from post_popularity_rate_task.popularity_rate import POST_ACTIONS
 
 from dotenv import load_dotenv
 from os import getenv
@@ -130,11 +131,15 @@ class MainServiceSocial(MainServiceBase):
         if like:
             if user in post.liked_by:
                 raise HTTPException(status_code=400, detail="You have already liked this post")
+            post.popularity_rate += POST_ACTIONS["like"]
             post.liked_by.append(user)
         else:
             if user not in post.liked_by:
                 raise HTTPException(status_code=400, detail="You haven't liked this post yet")
+            post.popularity_rate -= POST_ACTIONS["like"]
+            await self._PostgresService.make_post_action()
             post.liked_by.remove(user)
+            
 
 
     async def remove_post_like(self, post_id: str, user: User) -> None:
@@ -183,3 +188,6 @@ class MainServiceSocial(MainServiceBase):
             other_user = await self._PostgresService.get_entry_by_id(id_=other_user_id, ModelType=User)
 
         return UserSchema.model_validate(other_user, from_attributes=True)
+    
+    async def load_post(user: User, post_id: str) -> PostSchema:
+        pass
