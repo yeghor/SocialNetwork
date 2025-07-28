@@ -27,6 +27,15 @@ T = TypeVar("T", bound=Base)
 
 class MainServiceSocial(MainServiceBase):
     @staticmethod
+    def change_post_rate(post: Post, action: str, add: bool) -> None:
+        """Set add to True to add tate, False to subtrack"""
+        cost = POST_ACTIONS[action]
+        if add: 
+            post.popularity_rate += cost
+        else:
+            post.popularity_rate -= cost
+
+    @staticmethod
     def check_post_user_id(post: Post, user: User) -> None:
         """If ids don't match - raises HTTPException 401"""
         if post.owner_id != user.user_id:
@@ -99,6 +108,14 @@ class MainServiceSocial(MainServiceBase):
 
         return PostSchema.model_validate(post, from_attributes=True)
 
+    async def construct_and_flush_action(self, action_type: ActionType, post_id: str, user: User):
+        action = PostActions(
+            owner_id=user.user_id,
+            post_id = post_id,
+            action=action_type,
+        )
+        await self._PostgresService.insert_models_and_flush(action)
+
     async def construct_and_flush_user(self,
         username: str,
         email: str,
@@ -111,10 +128,6 @@ class MainServiceSocial(MainServiceBase):
             password_hash=password_hash
         )
         await self._PostgresService.insert_models_and_flush(user)
-
-    async def construct_and_flush_view(self, post: Post, user: User) -> None:
-        """Calling this method when user click on post \n Data must be validated!"""
-        raise NotImplementedError("Not implemented yet!")
     
     async def delete_post(self, post_id: str, user: User) -> None:
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
@@ -127,28 +140,20 @@ class MainServiceSocial(MainServiceBase):
         """Set like to True to leave like. To remove like - set to False"""
 
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
+        potential_action = await self._PostgresService.get_action(user_id=user.user_id, action_type=ActionType.like)
 
         if like:
-            if user in post.liked_by:
-                raise HTTPException(status_code=400, detail="You have already liked this post")
+            if potential_action in post.actions:
+                raise HTTPException(status_code=400, detail="You already liked this post")
             post.popularity_rate += POST_ACTIONS["like"]
-            post.liked_by.append(user)
+            await self.construct_and_flush_action(action_type=ActionType.like, post_id=post.post_id, user=user)
         else:
-            if user not in post.liked_by:
-                raise HTTPException(status_code=400, detail="You haven't liked this post yet")
+            if potential_action not in post.actions:
+                raise HTTPException(status_code=400, detail="You haven't like this post yet")
             post.popularity_rate -= POST_ACTIONS["like"]
             await self._PostgresService.make_post_action()
-            post.liked_by.remove(user)
-            
+            await self._PostgresService.delete_models(potential_action)
 
-
-    async def remove_post_like(self, post_id: str, user: User) -> None:
-        post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
-
-        if not user in post.liked_by:
-            raise HTTPException(status_code=400, detail="You are not liked this post yet")
-
-        post.liked_by.remove(user)
 
     async def change_post(self, post_data: PostDataSchemaID, user: User, post_id: str) -> PostSchema:
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)

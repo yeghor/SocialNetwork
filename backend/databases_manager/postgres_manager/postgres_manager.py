@@ -1,7 +1,7 @@
-from sqlalchemy import select, delete, update, or_, inspect
+from sqlalchemy import select, delete, update, or_, inspect, and_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
-from databases_manager.postgres_manager.models import User, Post, Base
+from databases_manager.postgres_manager.models import User, Post, Base, PostActions, ActionType
 from databases_manager.postgres_manager.database_utils import postgres_error_handler
 from databases_manager.postgres_manager.validate_n_postive import validate_n_postitive
 from dotenv import load_dotenv
@@ -33,6 +33,14 @@ class PostgresService:
 
     async def refresh_model(self, model_obj: Base) -> None:
         await self.__session.refresh(model_obj)
+
+    async def flush(self) -> None:
+        await self.__session.flush()
+
+    async def delete_models(self, *models: Base) -> None:
+        for model in models:
+            await self.__session.delete(model)
+        
 
     @postgres_error_handler(action="Add model and flush")
     async def insert_models_and_flush(self, *models: Base):
@@ -206,3 +214,11 @@ class PostgresService:
                 .options(selectinload(Post.replies))
             )
             return result.scalar()
+
+    @postgres_error_handler(action="Get action")
+    async def get_action(self, user_id: str, action_type: ActionType) -> PostActions:
+        result = await self.__session.execute(
+            select(PostActions)
+            .where(and_(PostActions.owner_id == user_id, PostActions.action == action_type))
+        )
+        return result.scalar()

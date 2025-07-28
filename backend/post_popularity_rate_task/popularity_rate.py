@@ -19,13 +19,11 @@ DATETIME_BASE_FORMAT = getenv("DATETIME_BASE_FORMAT")
 VIEW = int(getenv("VIEW", 1))
 LIKE = int(getenv("LIKE", 5))
 REPLY = int(getenv("REPLY", 5))
-REPOST = int(getenv("REPOST", 8))
 
 POST_ACTIONS = {
     "view": VIEW,
     "like": LIKE,
     "reply": REPLY,
-    "repost": REPOST,
 }
 
 POST_RATING_EXPIRATION = int(getenv("POST_RATING_EXPIRATION"))

@@ -32,17 +32,9 @@ class User(Base):
         lazy="selectin"
     )
 
-    liked: Mapped[List["Post"]] = relationship(
-        "Post",
-        secondary="likesrelationship",
-        back_populates="liked_by",
-        lazy="selectin"
-    )
-
-    views_history: Mapped[List["Post"]] = relationship(
-        "Post",
-        secondary="viewsrelationship",
-        back_populates="viewed_by",
+    actions: Mapped[List["PostActions"]] = relationship(
+        "postactions",
+        back_populates="owner",
         lazy="selectin"
     )
 
@@ -96,20 +88,6 @@ class Post(Base):
         lazy="selectin"
     )
 
-    liked_by: Mapped[List["User"]] = relationship(
-        "User",
-        secondary="likesrelationship",
-        back_populates="liked",
-        lazy="selectin"
-    )
-
-    viewed_by: Mapped[List["User"]] = relationship(
-        "User",
-        secondary="viewsrelationship",
-        back_populates="views_history",
-        lazy="selectin"
-    )
-
     popularity_rate: Mapped[int] = mapped_column(default=0)
     last_rate_calculated: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
     actions: Mapped[List["PostActions"]] = relationship(
@@ -126,6 +104,7 @@ class Post(Base):
         remote_side=[post_id],
         lazy="selectin"
     )
+
     replies: Mapped[List["Post"]] = relationship(
         "Post",
         back_populates="parent_post",
@@ -148,20 +127,6 @@ class Post(Base):
     def __repr__(self):
         return f"Post name: {self.title} | Rate: {self.popularity_rate}"
 
-# For m2m
-
-class ViewsRelationship(Base):
-    __tablename__ = "viewsrelationship"
-
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
-    post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
-
-    
-class LikeRelationship(Base):
-    __tablename__ = "likesrelationship"
-
-    post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
 
 # Self referential m2m
 class Friendship(Base):
@@ -181,12 +146,19 @@ class ActionType(enum.Enum):
 class PostActions(Base):
     __tablename__ = "postactions"
 
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
     post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
     action: Mapped[ActionType]
     date: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     post: Mapped[Post] = relationship(
         "Post",
+        back_populates="actions",
+        lazy="selectin"
+    )
+
+    owner: Mapped[User] = relationship(
+        "User",
         back_populates="actions",
         lazy="selectin"
     )

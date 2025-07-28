@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+from databases_manager.postgres_manager.models import ActionType
+
 from pydantic import BaseModel, field_validator, Field, ValidationInfo, model_validator
 from uuid import UUID
 from datetime import datetime
@@ -14,6 +17,16 @@ POST_TITLE_MIN_L = int(getenv("POST_TITLE_MIN_L", 1))
 POST_TEXT_MAX_L = int(getenv("POST_TEXT_MAX_L", 1000))
 POST_TEXT_MIN_L = int(getenv("POST_TEXT_MIN_L", 1))
 
+class ActionSchemaShort(BaseModel):
+    owner_id: str
+    post_id: str
+
+    action: ActionType
+    date: datetime
+
+class ActionShema(ActionSchemaShort):
+    owner: UserShortSchema
+    post: PostBaseShort
 
 class PostIDValidate(BaseModel):
     post_id: str
@@ -32,26 +45,27 @@ class UserIDValidate(BaseModel):
     def validate_id(cls, value: Any):        
         return str(value)
 
-class PostBase(PostIDValidate):
+class PostBaseShort(PostIDValidate):
     title: str
     image_path: str | None
     published: datetime
 
+class PostBase(PostBaseShort):
     owner: UserShortSchema | None
 
 class PostLiteShortSchema(PostBase):
-    liked_by: List[UserShortSchema]
-    viewed_by: List[UserShortSchema]
 
     parent_post: PostBase | None
 
 class PostSchema(PostBase):
     text: str
 
+    liked_by: List[UserShortSchema]
+    likes: int
+    views: int
+
     last_updated: datetime
 
-    liked_by: List[UserShortSchema]
-    viewed_by: List[UserShortSchema]
     replies: List[PostLiteShortSchema]
 
     parent_post: PostBase | None
@@ -70,6 +84,7 @@ class UserLiteSchema(UserShortSchema):
 
 class UserSchema(UserLiteSchema):
     followed: List[UserShortSchema]
+    posts: List[PostLiteShortSchema]
 
 # =================
 # Body data structure
