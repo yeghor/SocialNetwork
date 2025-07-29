@@ -14,6 +14,7 @@ from pydantic_schemas.pydantic_schemas_social import (
 )
 from databases_manager.postgres_manager.models import User
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import inspect
 
 from typing import Annotated, List
 from dotenv import load_dotenv
@@ -88,6 +89,7 @@ async def load_post(
     session: AsyncSession = Depends(get_session_depends)
 ) -> PostSchema:
     user = await merge_model(postgres_session=session, model_obj=user_)
+    print(inspect(user))
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.load_post(user=user, post_id=post_id)
 
@@ -110,6 +112,7 @@ async def delete_post(
 ) -> None:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
+        print(post_id)
         await social.delete_post(post_id=post_id, user=user)
 
 @social.post("/posts/{post_id}/like")

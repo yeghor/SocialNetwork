@@ -79,4 +79,5 @@ async def get_session() -> AsyncSession:
 
 async def merge_model(postgres_session: AsyncSession, model_obj: ModelT) -> ModelT:
     """Caution! When merging old model. It can clear all loaded relationsghips!"""
+    print(model_obj)
     return await postgres_session.merge(model_obj)

@@ -156,11 +156,11 @@ class PostgresService:
             setattr(Model, key, value)
         await self.__session.flush()
 
-    @postgres_error_handler(action="Delete posts by id")
-    async def delete_posts_by_id(self, ids: List[str]) -> None:
+    @postgres_error_handler(action="Delete post by id")
+    async def delete_post_by_id(self, id_: str) -> None:
         await self.__session.execute(
             delete(Post)
-            .where(Post.post_id.in_(ids))
+            .where(Post.post_id == id_)
         )
 
     @postgres_error_handler(action="Get user by username and email")
@@ -172,8 +172,7 @@ class PostgresService:
             select(User)
             .where(or_(User.username == username, User.email == email))
         )
-        user = result.scalar()
-        return user
+        return result.scalar()
     
     @postgres_error_handler(action="Get followed users posts")
     async def get_followed_posts(self, user: User) -> List[List[Post]]:
@@ -221,11 +220,13 @@ class PostgresService:
             select(PostActions)
             .where(and_(PostActions.owner_id == user_id, PostActions.action == action_type, PostActions.post_id == post_id))
         )
-        return result.one_or_none()
-    
+        return result.scalars().all()
+
+
+        
 
     @postgres_error_handler(action="Get users that liked post")
-    async def get_user_that_left_action(self, post_id: str, action_type: ActionType) -> List[User]:
+    async def get_users_that_left_action(self, post_id: str, action_type: ActionType) -> List[User]:
         result = await self.__session.execute(
             select(PostActions)
             .where(and_(PostActions.post_id == post_id, PostActions.action == action_type))

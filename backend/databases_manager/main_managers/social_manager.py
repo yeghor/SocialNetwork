@@ -28,9 +28,9 @@ T = TypeVar("T", bound=Base)
 
 class MainServiceSocial(MainServiceBase):
     @staticmethod
-    def change_post_rate(post: Post, action: str, add: bool) -> None:
+    def change_post_rate(post: Post, action_type: ActionType, add: bool) -> None:
         """Set add to True to add tate, False to subtrack"""
-        cost = POST_ACTIONS[action]
+        cost = POST_ACTIONS[action_type.value]
         if add: 
             post.popularity_rate += cost
         else:
@@ -38,7 +38,7 @@ class MainServiceSocial(MainServiceBase):
 
     @staticmethod
     def check_post_user_id(post: Post, user: User) -> None:
-        """If ids don't match - raises HTTPException 401"""
+        """If ids doesn't match - raises HTTPException 401"""
         if post.owner_id != user.user_id:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -70,9 +70,9 @@ class MainServiceSocial(MainServiceBase):
         """
         Search posts that similar with meaning with prompt
         """
-        posts_UUIDS = await self._ChromaService.search_posts_by_prompt(prompt=prompt)
-        print(posts_UUIDS)
-        posts = await self._PostgresService.get_entries_by_ids(ids=posts_UUIDS, ModelType=Post)
+        posts_ids = await self._ChromaService.search_posts_by_prompt(prompt=prompt)
+        print(posts_ids)
+        posts = await self._PostgresService.get_entries_by_ids(ids=posts_ids, ModelType=Post)
         print(posts)
         model_validated_posts = []
 
@@ -127,13 +127,13 @@ class MainServiceSocial(MainServiceBase):
     async def _construct_and_flush_action(self, action_type: ActionType, user: User, post: Post = None) -> None:
         """Do NOT call this method outside the class"""
         if await self._PostgresService.get_action(user_id=user.user_id, post_id=post.post_id, action_type=action_type):
-            if not action_type == ActionType.view:
-                raise HTTPException(status_code=400, detail=f"Action: '{action_type}' is already given on this post")
+            # THERE WILL BE REDIS CHECK FOR REPEATED VIEWS
+            raise HTTPException(status_code=400, detail=f"Action: '{action_type}' is already given on this post")
 
-        self.change_post_rate(post=post, action=action_type, add=True)
+        self.change_post_rate(post=post, action_type=action_type, add=True)
 
         action = PostActions(
-            action_id=uuid4(),
+            action_id=str(uuid4()),
             owner_id=user.user_id,
             post_id=post.post_id,
             action=action_type,
@@ -146,14 +146,15 @@ class MainServiceSocial(MainServiceBase):
             raise HTTPException(status_code=400, detail=f"Action '{action_type} was not given to this post'")
         
         await self._PostgresService.delete_models(potential_action)
-        self.change_post_rate(post=post, action=action_type, add=False)
+        self.change_post_rate(post=post, action_type=action_type, add=False)
     
     async def delete_post(self, post_id: str, user: User) -> None:
+        print(post_id)
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
         self.check_post_user_id(post=post, user=user)
 
-        await self._PostgresService.delete_posts_by_id(ids=[post.post_id])
+        await self._PostgresService.delete_post_by_id(id_=post.post_id)
 
     async def like_post_action(self, post_id: str, user: User, like: bool = True) -> None:
         """Set 'like' param to True to leave like. To remove like - set to False"""
@@ -212,8 +213,8 @@ class MainServiceSocial(MainServiceBase):
 
         await self._construct_and_flush_action(action_type=ActionType.view, post=post, user=user)
 
-        liked_by = await self._PostgresService.get_user_that_left_action(post_id=post.post_id, action_type=ActionType.like) 
-        viewed_by = await self._PostgresService.get_user_that_left_action(post_id=post.post_id, action_type=ActionType.view) 
+        liked_by = await self._PostgresService.get_users_that_left_action(post_id=post.post_id, action_type=ActionType.like) 
+        viewed_by = await self._PostgresService.get_users_that_left_action(post_id=post.post_id, action_type=ActionType.view) 
 
         viewed_by_validated = None
 
