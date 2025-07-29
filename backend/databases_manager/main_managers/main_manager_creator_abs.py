@@ -75,7 +75,7 @@ class MainServiceBase(MainServiceABC):
     @classmethod
     async def create(cls, postgres_session: AsyncSession, mode: str = "prod") -> "MainServiceABC":
         """Postgres AsyncSession needs to be closed manualy!"""
-        Postgres = PostgresService(session=postgres_session)
+        Postgres = PostgresService(postgres_session=postgres_session)
         Redis = RedisService(db_pool=mode)
         ChromaDB = await ChromaService.connect(mode=mode)
         return cls(Chroma=ChromaDB, Redis=Redis, Postgres=Postgres)

@@ -51,9 +51,8 @@ async def update_post_rates() -> None:
                 .where(and_((now - PostActions.date) > EXPIRATION_INTERVAL), PostActions.post_id == post.post_id)
             )
             actions = actions_raw.scalars().all()
-            print(actions)
-            print(post.popularity_rate)
             post.popularity_rate = calculate_new_rate(actions=actions)
+            post.last_rate_calculated = now
 
         await session.commit()
         print("Task finished")

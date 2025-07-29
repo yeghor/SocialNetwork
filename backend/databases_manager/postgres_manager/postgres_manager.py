@@ -12,15 +12,15 @@ from uuid import UUID
 
 Models = TypeVar("Models", bound=Base)
 
-FEED_MAX_POSTS_LOADED = int(getenv("FEED_MAX_POSTS_LOAD"))
+FEED_MAX_POSTS_LOAD = int(getenv("FEED_MAX_POSTS_LOAD"))
 N_MAX_FRESH_POSTS_TO_MIX = int(getenv("N_MAX_FRESH_POSTS_TO_MIX"))
 
 MAX_FOLLOWED_POSTS_TO_SHOW = int(getenv("MAX_FOLLOWED_POSTS_TO_SHOW"))
 
 class PostgresService:
-    def __init__(self, session: AsyncSession):
+    def __init__(self, postgres_session: AsyncSession):
         # We don't need to close session. Because Depends func will handle it in endpoints.
-        self.__session = session
+        self.__session = postgres_session
 
     async def close(self) -> None:
         await self.__session.aclose()
@@ -55,14 +55,14 @@ class PostgresService:
         )
         return result.scalar()
 
-    @validate_n_postitive
+    # BAMBAM
     @postgres_error_handler(action="Get fresh feed")
-    async def get_fresh_posts(self, user: User) -> List[Post]:
+    async def get_fresh_posts(self, user: User, user_id: str) -> List[Post]:
         result = await self.__session.execute(
             select(Post)
             .where(Post.owner_id != user.user_id)
             .order_by(Post.popularity_rate.desc(), Post.published.desc())
-            .limit(FEED_MAX_POSTS_LOADED)
+            .limit(FEED_MAX_POSTS_LOAD)
         )
         return result.scalars().all()
 
@@ -99,7 +99,7 @@ class PostgresService:
         return result.scalars().all()
 
     @postgres_error_handler(action="Get entries from specific model by ids")
-    async def get_entries_by_ids(self, ids: List[str], ModelType: Type[Models], show_replies: bool = True) -> List[Models]:     
+    async def get_entries_by_ids(self, ids: List[str], ModelType: Type[Models]) -> List[Models]:     
         if not ids:
             return []
 

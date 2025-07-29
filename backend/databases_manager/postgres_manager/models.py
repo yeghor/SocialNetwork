@@ -24,7 +24,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(unique=True)
     email: Mapped[str] = mapped_column(unique=True)
     password_hash: Mapped[str]
-    joined: Mapped[datetime] = mapped_column(default=datetime.utcnow())
+    joined: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     posts: Mapped[List["Post"]] = relationship(
         "Post",
@@ -89,7 +89,7 @@ class Post(Base):
     )
 
     popularity_rate: Mapped[int] = mapped_column(default=0)
-    last_rate_calculated: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_rate_calculated: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     actions: Mapped[List["PostActions"]] = relationship(
         "PostActions",
         back_populates="post",
