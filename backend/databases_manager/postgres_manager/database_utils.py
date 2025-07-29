@@ -71,13 +71,8 @@ def postgres_error_handler(action: str = "Unknown action with the database"):
     return decorator
 
 async def get_session() -> AsyncSession:
-    try:
-        session = SessionLocal()
-        return SessionLocal()
-    finally:
-        await session.aclose()
+    return SessionLocal()
 
 async def merge_model(postgres_session: AsyncSession, model_obj: ModelT) -> ModelT:
     """Caution! When merging old model. It can clear all loaded relationsghips!"""
-    print(model_obj)
     return await postgres_session.merge(model_obj)

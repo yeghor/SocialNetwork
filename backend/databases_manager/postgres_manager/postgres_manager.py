@@ -51,7 +51,7 @@ class PostgresService:
         result = await self.__session.execute(
             select(User)
             .options(selectinload(User.followed), selectinload(User.followers)) # Manually passing selection load. Because of self ref. m2m2
-            .where(or_(User.user_id == str(user_id)))
+            .where(User.user_id == user_id)
         )
         return result.scalar()
 

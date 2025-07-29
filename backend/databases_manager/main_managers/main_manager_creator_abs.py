@@ -82,10 +82,10 @@ class MainServiceBase(MainServiceABC):
     
     async def finish(self, commit_postgres: bool = True) -> None:
         # If i'm not mistaken, chromaDB doesn't require connection close
-        # Class assume that provided session is handling it's close
         await self._RedisService.finish()
         if commit_postgres: await self._PostgresService.commit_changes()
         else: await self._PostgresService.rollback()
+        await self._PostgresService.close()
 
     
 class MainServiceContextManager(Generic[ServiceType], MainServiceContextManagerABS):

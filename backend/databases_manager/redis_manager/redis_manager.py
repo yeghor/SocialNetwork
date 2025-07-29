@@ -3,7 +3,7 @@ import redis.exceptions as redis_exceptions
 from fastapi.exceptions import HTTPException
 from dotenv import load_dotenv
 from os import getenv
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 from functools import wraps
 from datetime import datetime
 from uuid import UUID
@@ -12,6 +12,7 @@ load_dotenv()
 ACCES_JWT_EXPIRY_SECONDS = int(getenv("ACCES_JWT_EXPIRY_SECONDS"))
 REFRESH_JWT_EXPIRY_SECONDS = int(getenv("REFRESH_JWT_EXPIRY_SECONDS"))
 DATETIME_BASE_FORMAT = getenv("DATETIME_BASE_FORMAT")
+RECOMMEND_POST_AGAING_IN = int(getenv("RECOMMEND_POST_AGAING_IN"))
 
 def redis_error_handler(func):
     @wraps(func)
@@ -26,6 +27,9 @@ def redis_error_handler(func):
 
 
 class RedisService:
+    def exclude_post_key_pattern(self, user_id: str, post_id: str):
+        return f"{self.__exclude_posts_prefix_1}{user_id}{self.__exclude_posts_prefix_2}{post_id}"
+
     @staticmethod
     def _chose_pool(pool: str) -> Literal[0, 1]:
         """0 - Prod pool. 1 - Test pool"""
@@ -55,8 +59,13 @@ class RedisService:
                 db=self._chose_pool(db_pool),
                 decode_responses=True,
             )
+
             self.__jwt_acces_prefix = "acces-jwt-token:"
             self.__jwt_refresh_prefix = "refresh-jwt-token:"
+
+            self.__exclude_posts_prefix_1 = "exclude-posts-ids-user-"
+            self.__exclude_posts_prefix_2 = "-post-"
+
         except redis_exceptions.RedisError:
             raise HTTPException(status_code=500, detail="Connection to redis failed")
     
@@ -140,3 +149,14 @@ class RedisService:
     @redis_error_handler
     async def finish(self) -> None:
         await self.__client.aclose()
+
+
+    @redis_error_handler
+    async def add_exclude_post_ids(self, ids: List[str], user_id: str) -> None:
+        for id_ in ids:
+            pattern = self.exclude_post_key_pattern(user_id=user_id, post_id=id_)
+            await self.__client.setex(pattern, RECOMMEND_POST_AGAING_IN, id_)
+
+    @redis_error_handler
+    async def get_exclude_post_ids(self, user_id: str) -> List[str]:
+        return [key async for key in self.__client.scan_iter(match=f"{self.__exclude_posts_prefix_1}{user_id}*")]            

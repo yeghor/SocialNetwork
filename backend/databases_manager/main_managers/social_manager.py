@@ -128,6 +128,10 @@ class MainServiceSocial(MainServiceBase):
         """Do NOT call this method outside the class"""
         if await self._PostgresService.get_action(user_id=user.user_id, post_id=post.post_id, action_type=action_type):
             # THERE WILL BE REDIS CHECK FOR REPEATED VIEWS
+            # TEMPORARY PLUG
+            if action_type == ActionType.view:
+                return
+
             raise HTTPException(status_code=400, detail=f"Action: '{action_type}' is already given on this post")
 
         self.change_post_rate(post=post, action_type=action_type, add=True)
@@ -168,6 +172,9 @@ class MainServiceSocial(MainServiceBase):
 
     async def change_post(self, post_data: PostDataSchemaID, user: User, post_id: str) -> PostSchema:
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
+
+        if not post:
+            raise HTTPException(status_code=400, detail="Post with this id doesn't exist")
 
         self.check_post_user_id(post=post, user=user)
         

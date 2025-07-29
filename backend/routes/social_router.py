@@ -89,7 +89,6 @@ async def load_post(
     session: AsyncSession = Depends(get_session_depends)
 ) -> PostSchema:
     user = await merge_model(postgres_session=session, model_obj=user_)
-    print(inspect(user))
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.load_post(user=user, post_id=post_id)
 
