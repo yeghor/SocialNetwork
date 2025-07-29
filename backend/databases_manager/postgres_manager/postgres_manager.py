@@ -40,7 +40,6 @@ class PostgresService:
     async def delete_models(self, *models: Base) -> None:
         for model in models:
             await self.__session.delete(model)
-        
 
     @postgres_error_handler(action="Add model and flush")
     async def insert_models_and_flush(self, *models: Base):
@@ -217,14 +216,14 @@ class PostgresService:
             return result.scalar()
 
     @postgres_error_handler(action="Get action")
-    async def get_action(self, user_id: str, action_type: ActionType) -> PostActions:
+    async def get_action(self, user_id: str, post_id: str, action_type: ActionType) -> PostActions:
         result = await self.__session.execute(
             select(PostActions)
-            .where(and_(PostActions.owner_id == user_id, PostActions.action == action_type))
+            .where(and_(PostActions.owner_id == user_id, PostActions.action == action_type, PostActions.post_id == post_id))
         )
-        return result.scalar()
+        return result.one_or_none()
     
-    # FIX THIS!
+
     @postgres_error_handler(action="Get users that liked post")
     async def get_user_that_left_action(self, post_id: str, action_type: ActionType) -> List[User]:
         result = await self.__session.execute(
@@ -232,5 +231,4 @@ class PostgresService:
             .where(and_(PostActions.post_id == post_id, PostActions.action == action_type))
             .order_by(PostActions.date.desc())
         )
-        # I DONT KNOW WHY. But, when I call PostActions.owner it returns [True] ???
         return result.scalars().all()

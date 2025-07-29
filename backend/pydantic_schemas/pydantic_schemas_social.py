@@ -69,7 +69,7 @@ class PostSchema(PostBase):
 
     parent_post: PostBase | None
 
-    # Owner stats
+    # Owner stats. Private field: post_id == user_id
     viewed_by: List[UserShortSchema] | None = None
 
 

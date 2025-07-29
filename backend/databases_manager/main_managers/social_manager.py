@@ -26,7 +26,6 @@ load_dotenv()
 
 T = TypeVar("T", bound=Base)
 
-
 class MainServiceSocial(MainServiceBase):
     @staticmethod
     def change_post_rate(post: Post, action: str, add: bool) -> None:
@@ -47,10 +46,10 @@ class MainServiceSocial(MainServiceBase):
         posts = await self._PostgresService.get_all_from_model(ModelType=Post)
         await self._ChromaService.add_posts_data(posts=posts)
 
-    async def get_all_from_specific_model(self, ModelType: Type[T]) -> List[T | None]:
+    async def get_all_from_specific_model(self, ModelType: Type[T]) -> List[T]:
         return await self._PostgresService.get_all_from_model(ModelType=ModelType)
 
-    async def get_related_posts(self, user: User) -> List[Post | None]:
+    async def get_related_posts(self, user: User) -> List[Post]:
         """
         Returns related posts to provided User table object view history
         """
@@ -67,7 +66,7 @@ class MainServiceSocial(MainServiceBase):
     async def get_followed_posts(self, user: User) -> List[Post]:
         return await self._PostgresService.get_followed_posts(user=user)
     
-    async def search_posts(self, prompt: str, user: User) -> List[PostLiteShortSchema | None]:
+    async def search_posts(self, prompt: str, user: User) -> List[PostLiteShortSchema]:
         """
         Search posts that similar with meaning with prompt
         """
@@ -125,31 +124,29 @@ class MainServiceSocial(MainServiceBase):
             replies=[]
         )
 
-    async def construct_and_flush_action(self, action_type: ActionType, post_id: str, user: User):
-        if await self._PostgresService.get_action(user_id=user.user_id, action_type=action_type):
+    async def _construct_and_flush_action(self, action_type: ActionType, user: User, post: Post = None) -> None:
+        """Do NOT call this method outside the class"""
+        if await self._PostgresService.get_action(user_id=user.user_id, post_id=post.post_id, action_type=action_type):
             if not action_type == ActionType.view:
-                raise HTTPException(status_code=400, detail=f"You have already '{action_type.value}' this post")
+                raise HTTPException(status_code=400, detail=f"Action: '{action_type}' is already given on this post")
+
+        self.change_post_rate(post=post, action=action_type, add=True)
 
         action = PostActions(
-            action_id=str(uuid4()),
-            owner_id=str(user.user_id),
-            post_id=str(post_id),
+            action_id=uuid4(),
+            owner_id=user.user_id,
+            post_id=post.post_id,
             action=action_type,
         )
         await self._PostgresService.insert_models_and_flush(action)
 
-    async def construct_and_flush_user(self,
-        username: str,
-        email: str,
-        password_hash: str
-        ) -> None:
-        """Data must be validated!"""
-        user = User(
-            username=username,
-            email=email,
-            password_hash=password_hash
-        )
-        await self._PostgresService.insert_models_and_flush(user)
+    async def remove_action(self, user: User, post: Post, action_type: ActionType) -> None:
+        potential_action = await self._PostgresService.get_action(user_id=user.user_id, post_id=post.post_id, action_type=action_type)
+        if not potential_action:
+            raise HTTPException(status_code=400, detail=f"Action '{action_type} was not given to this post'")
+        
+        await self._PostgresService.delete_models(potential_action)
+        self.change_post_rate(post=post, action=action_type, add=False)
     
     async def delete_post(self, post_id: str, user: User) -> None:
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
@@ -163,15 +160,9 @@ class MainServiceSocial(MainServiceBase):
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
         if like:
             post.popularity_rate += POST_ACTIONS["like"]
-            await self.construct_and_flush_action(action_type=ActionType.like, post_id=post.post_id, user=user)
+            await self._construct_and_flush_action(action_type=ActionType.like,post=post, user=user)
         else:
-            potential_action = await self._PostgresService.get_action(user_id=user.user_id, action_type=ActionType.like)
-
-            if not potential_action:
-                raise HTTPException(status_code=400, detail="You haven't liked this post")
-
-            post.popularity_rate -= POST_ACTIONS["like"]
-            await self._PostgresService.delete_models(potential_action)
+            await self.remove_action(user=user, post=post, action_type=ActionType.like)
 
 
     async def change_post(self, post_data: PostDataSchemaID, user: User, post_id: str) -> PostSchema:
@@ -205,7 +196,7 @@ class MainServiceSocial(MainServiceBase):
 
         print(request_user.user_id)
 
-        # Just to reuse this method :)
+        # Just to reuse this method
         if request_user.user_id == other_user_id:
             other_user = await self._PostgresService.get_entry_by_id(id_=other_user_id, ModelType=User)
         else:
@@ -219,22 +210,16 @@ class MainServiceSocial(MainServiceBase):
         if not post:
             raise HTTPException(status_code=400, detail="Post with this id doesn't exist")
 
-        await self.construct_and_flush_action(action_type=ActionType.view, post_id=post_id, user=user)
+        await self._construct_and_flush_action(action_type=ActionType.view, post=post, user=user)
 
         liked_by = await self._PostgresService.get_user_that_left_action(post_id=post.post_id, action_type=ActionType.like) 
         viewed_by = await self._PostgresService.get_user_that_left_action(post_id=post.post_id, action_type=ActionType.view) 
 
-        print(liked_by)
-        print(viewed_by)
-
         viewed_by_validated = None
+
         if post.owner_id == user.user_id:
             viewed_by_validated = [UserShortSchema.model_validate(action.owner, from_attributes=True) for action in viewed_by if action]
-
         liked_by_validated = [UserShortSchema.model_validate(action.owner, from_attributes=True) for action in liked_by if action]
-
-        print(liked_by_validated)
-        print(liked_by_validated)
 
         return PostSchema(
             post_id=post.post_id,

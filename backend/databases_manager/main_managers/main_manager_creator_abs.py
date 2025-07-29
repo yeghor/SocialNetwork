@@ -85,6 +85,7 @@ class MainServiceBase(MainServiceABC):
         # Class assume that provided session is handling it's close
         await self._RedisService.finish()
         if commit_postgres: await self._PostgresService.commit_changes()
+        else: await self._PostgresService.rollback()
 
     
 class MainServiceContextManager(Generic[ServiceType], MainServiceContextManagerABS):
