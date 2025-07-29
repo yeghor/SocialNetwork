@@ -232,3 +232,4 @@ class PostgresService:
             .order_by(PostActions.date.desc())
         )
         return result.scalars().all()
+    
