@@ -49,19 +49,29 @@ class MainServiceSocial(MainServiceBase):
     async def get_all_from_specific_model(self, ModelType: Type[T]) -> List[T]:
         return await self._PostgresService.get_all_from_model(ModelType=ModelType)
 
-    async def get_related_posts(self, user: User) -> List[Post]:
+    async def get_feed(self, user: User, exclude: bool) -> List[Post]:
         """
-        Returns related posts to provided User table object view history
+        Returns related posts to provided User table object view history \n
+        Caution! If `exclude` set to True. It means that user clicked on `Load more` button and we need to update Redis exclude ids with fresh loaded. And ensure that we load non repeating posts
         """
-        post_ids = await self._ChromaService.get_n_related_posts_ids(user=user)
+        exclude_ids = []
         
+        if exclude:
+            exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user.user_id, exclude_type="feed")
+        else:
+            await self._RedisService.clear_exclude(exclude_type="feed", user_id=user.user_id)
+
+        post_ids = await self._ChromaService.get_n_related_posts_ids(user=user, exclude_ids=exclude_ids)
+        
+        await self._RedisService.add_exclude_post_ids(post_ids=post_ids, user_id=user.user_id, exclude_type="feed")
+
         if not post_ids:
-            return await self.get_fresh_feed()
+            return await self.get_fresh_feed(exclude_ids=exclude_ids, user=user)
 
         return await self._PostgresService.get_entries_by_ids(ids=post_ids, ModelType=Post)
         
-    async def get_fresh_feed(self) -> List[Post]:
-        return await self._PostgresService.get_fresh_posts()
+    async def get_fresh_feed(self, exclude_ids: List[str], user: User) -> List[Post]:
+        return await self._PostgresService.get_fresh_posts(user=user, exclude_ids=exclude_ids)
 
     async def get_followed_posts(self, user: User) -> List[Post]:
         return await self._PostgresService.get_followed_posts(user=user)

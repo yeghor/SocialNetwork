@@ -39,8 +39,9 @@ def chromaDB_error_handler(func):
 
 class ChromaService:
     @staticmethod
-    def extract_ids_from_metadata(result) -> List[str]:
-        return [str(meta["post_id"]) for meta in result["metadatas"][0]]
+    def extract_ids_from_metadata(result, exclude_ids: List[str] = []) -> List[str]:
+        post_ids = [str(meta["post_id"]) for meta in result["metadatas"][0]]
+        return [id_ for id_ in post_ids if id_ not in exclude_ids]
 
 
     def __init__(self, client: AsyncClientAPI, collection: Collection, mode: str):
@@ -85,20 +86,20 @@ class ChromaService:
         
 
     @chromaDB_error_handler
-    async def get_n_related_posts_ids(self, user: User, n: int = FEED_MAX_POSTS_LOAD) -> List[UUID]:
-        """Get n posts related to user's history"""
+    async def get_n_related_posts_ids(self, user: User, exclude_ids: List[str], n: int = FEED_MAX_POSTS_LOAD) -> List[str]:
+        """Get n posts related to user's history \n If user history empty - return []"""
 
-        posts = [post_history_obj.post for post_history_obj in user.views_history[:HISTORY_POSTS_TO_TAKE_INTO_RELATED] if not post_history_obj.post.is_reply ]
+        posts = [post_history_obj.post for post_history_obj in user.views_history[:HISTORY_POSTS_TO_TAKE_INTO_RELATED] if not post_history_obj.post.is_reply]
 
         if not posts:
             return []
 
         related_posts = await self.__collection.query(
             query_texts=[f"{post.title} {post.text} {post.published.strftime(self._datetime_format)}" for post in posts],
-            n_results=n
+            n_results=(n + len(exclude_ids))
         )
 
-        return self.extract_ids_from_metadata(result=related_posts)
+        return self.extract_ids_from_metadata(result=related_posts, exclude_ids=exclude_ids)
 
     @chromaDB_error_handler
     async def add_posts_data(self, posts: List[Post]) -> None:

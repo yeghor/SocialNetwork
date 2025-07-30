@@ -161,9 +161,12 @@ class RedisService:
                 return key.removeprefix(prefix)
 
     @redis_error_handler
-    async def clear_all_by_prefix(self):
+    async def clear_exclude(self, exclude_type: ExcludeType, user_id: str) -> None:
         # https://stackoverflow.com/questions/21975228/redis-python-how-to-delete-all-keys-according-to-a-specific-pattern-in-python
-        raise Exception("Is not implemented yet")
+        first_prefix = self.get_right_first_prefix(exclude_type=exclude_type)
+        keys = [key async for key in self.__client.scan_iter(match=f"{first_prefix}{user_id}*")]
+        if keys:
+            await self.__client.delete(*keys)
 
     @redis_error_handler
     async def finish(self) -> None:

@@ -31,15 +31,20 @@ def query_prompt_required(prompt: Annotated[str, Query(..., max_length=QUERY_PAR
         raise HTTPException(status_code=400, detail="Prompt can't be empty!")
     return prompt
 
+def query_exclude_required(exclude_viewed: bool = Query(..., description="Exclude viewed post. Set to True if user user 'load more' button")):
+    if not isinstance(exclude_viewed, bool):
+        raise HTTPException(status_code=400, detail="Exclude posts wasn't specified correctly")
+    return exclude_viewed
 
-@social.get("/posts/history-related")
-async def get_related_to_history_posts(
+@social.get("/posts/feed")
+async def get_feed(
+    exclude_viewed: bool = Depends(query_exclude_required),
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends),
     ) -> List[PostLiteShortSchema]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        return await social.get_related_posts(user=user)
+        return await social.get_feed(user=user, exclude=exclude_viewed)
 
 @social.get("/posts/following")
 async def get_followed_posts(

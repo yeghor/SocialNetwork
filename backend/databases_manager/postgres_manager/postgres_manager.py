@@ -58,10 +58,10 @@ class PostgresService:
 
     # BAMBAM
     @postgres_error_handler(action="Get fresh feed")
-    async def get_fresh_posts(self, user: User, user_id: str) -> List[Post]:
+    async def get_fresh_posts(self, user: User, exclude_ids: List[str] = []) -> List[Post]:
         result = await self.__session.execute(
             select(Post)
-            .where(Post.owner_id != user.user_id)
+            .where(and_(Post.owner_id != user.user_id, Post.post_id not in exclude_ids))
             .order_by(Post.popularity_rate.desc(), Post.published.desc())
             .limit(FEED_MAX_POSTS_LOAD)
         )
