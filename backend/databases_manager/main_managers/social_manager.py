@@ -70,6 +70,7 @@ class MainServiceSocial(MainServiceBase):
         """
         Search posts that similar with meaning with prompt
         """
+        exclude_ids = self._RedisService.get_exclude_post_ids(user_id=user.user_id)
         posts_ids = await self._ChromaService.search_posts_by_prompt(prompt=prompt)
         print(posts_ids)
         posts = await self._PostgresService.get_entries_by_ids(ids=posts_ids, ModelType=Post)

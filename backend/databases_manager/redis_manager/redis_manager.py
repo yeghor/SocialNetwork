@@ -159,4 +159,4 @@ class RedisService:
 
     @redis_error_handler
     async def get_exclude_post_ids(self, user_id: str) -> List[str]:
-        return [key async for key in self.__client.scan_iter(match=f"{self.__exclude_posts_prefix_1}{user_id}*")]            
+        return [value async for value in self.__client.scan_iter(match=f"{self.__exclude_posts_prefix_1}{user_id}*")]            
