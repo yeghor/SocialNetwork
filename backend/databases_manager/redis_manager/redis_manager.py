@@ -14,6 +14,8 @@ REFRESH_JWT_EXPIRY_SECONDS = int(getenv("REFRESH_JWT_EXPIRY_SECONDS"))
 DATETIME_BASE_FORMAT = getenv("DATETIME_BASE_FORMAT")
 RECOMMEND_POST_AGAING_IN = int(getenv("RECOMMEND_POST_AGAING_IN"))
 
+ExcludeType = Literal["search", "feed", "viewed"]
+
 def redis_error_handler(func):
     @wraps(func)
     async def wrapper(*args, **kwargs):
@@ -27,8 +29,19 @@ def redis_error_handler(func):
 
 
 class RedisService:
-    def exclude_post_key_pattern(self, user_id: str, post_id: str):
-        return f"{self.__exclude_posts_prefix_1}{user_id}{self.__exclude_posts_prefix_2}{post_id}"
+    def get_right_first_prefix(self, exclude_type: ExcludeType) -> str:
+        if exclude_type == 'feed':
+            return self.__exclude_posts_feed_prefix_1
+        elif exclude_type == 'search':
+            return self.__exclude_posts_search_prefix_1
+        elif exclude_type == 'viewed':
+            return self.__exclude_posts_viewed_prefix_1
+        else:
+            raise ValueError("Invalid exclude_type provided")
+
+    def exclude_post_key_pattern(self, user_id: str, post_id: str, exclude_type: ExcludeType):
+        first_prefix = self.get_right_first_prefix(exclude_type=exclude_type)
+        return f"{first_prefix}{user_id}{self.__exclude_posts_prefix_2}{post_id}"
 
     @staticmethod
     def _chose_pool(pool: str) -> Literal[0, 1]:
@@ -60,11 +73,18 @@ class RedisService:
                 decode_responses=True,
             )
 
+            # Jwt
             self.__jwt_acces_prefix = "acces-jwt-token:"
             self.__jwt_refresh_prefix = "refresh-jwt-token:"
 
-            self.__exclude_posts_prefix_1 = "exclude-posts-ids-user-"
-            self.__exclude_posts_prefix_2 = "-post-"
+            # Exclude posts
+            # ========
+            #universal exclude posts second prefix
+            self.__exclude_posts_prefix_2 = "-post:"
+
+            self.__exclude_posts_feed_prefix_1 = "exclude-posts-feed-user:"
+            self.__exclude_posts_search_prefix_1 = "exclude-posts-search-user:"
+            self.__exclude_posts_viewed_prefix_1 = "exclude-posts-viewed-user:"
 
         except redis_exceptions.RedisError:
             raise HTTPException(status_code=500, detail="Connection to redis failed")
@@ -141,22 +161,21 @@ class RedisService:
                 return key.removeprefix(prefix)
 
     @redis_error_handler
-    async def clear_all_by_prefix():
+    async def clear_all_by_prefix(self):
         # https://stackoverflow.com/questions/21975228/redis-python-how-to-delete-all-keys-according-to-a-specific-pattern-in-python
-        pass
-
+        raise Exception("Is not implemented yet")
 
     @redis_error_handler
     async def finish(self) -> None:
         await self.__client.aclose()
 
-
     @redis_error_handler
-    async def add_exclude_post_ids(self, ids: List[str], user_id: str) -> None:
-        for id_ in ids:
-            pattern = self.exclude_post_key_pattern(user_id=user_id, post_id=id_)
+    async def add_exclude_post_ids(self, post_ids: List[str], user_id: str, exclude_type: ExcludeType) -> None:
+        for id_ in post_ids:
+            pattern = self.exclude_post_key_pattern(user_id=user_id, post_id=id_, exclude_type=exclude_type)
             await self.__client.setex(pattern, RECOMMEND_POST_AGAING_IN, id_)
 
     @redis_error_handler
-    async def get_exclude_post_ids(self, user_id: str) -> List[str]:
-        return [value async for value in self.__client.scan_iter(match=f"{self.__exclude_posts_prefix_1}{user_id}*")]            
+    async def get_exclude_post_ids(self, user_id: str, exclude_type: ExcludeType) -> List[str]:
+        first_prefix = self.get_right_first_prefix(exclude_type=exclude_type)
+        return [await self.__client.get(key) async for key in self.__client.scan_iter(match=f"{first_prefix}{user_id}*")]            

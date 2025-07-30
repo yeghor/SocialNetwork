@@ -14,7 +14,7 @@ from authorization.password_manager import hash_password
 from uuid import uuid4
 from typing import AsyncGenerator, List
 import logging
-
+from pydantic_schemas.pydantic_schemas_social import PostDataSchemaID
 from databases_manager.main_managers.auth_manager import MainServiceAuth
 from datetime import datetime
 
@@ -57,7 +57,7 @@ async def test_postgres_service():
         user3 = User(
             user_id=uid3,
             image_path=None,
-            username="user3",
+            username="ggg",
             email="user3@example.com",
             password_hash=hash_password("password3"),
         )
@@ -120,6 +120,45 @@ async def test_postgres_service():
 
         assert await ps.get_entry_by_id(id_=uid3, ModelType=User) == user3
         
+        users = await ps.get_users_by_username(prompt="user")
+        assert user1 in users
+        assert user2 in users
+        assert user3 not in users
+
+        await ps.change_field_and_flush(Model=user3, username="user3", email="user3@newemail.com")
+        assert user3.username == "user3"
+        assert user3.email == "user3@newemail.com"
+
+        post4 = Post(
+            post_id=str(uuid4()),
+            owner_id=user2.user_id,
+            parent_post_id=None,
+            is_reply=False,
+            title="Post to delete",
+            text="This is another post by user2.",
+            image_path=None,
+            popularity_rate=423,
+        )
+        await ps.insert_models_and_flush(post4)
+        id_ = post4.post_id
+        await ps.delete_models_and_flush(post4)
+        assert not await ps.get_entry_by_id(id_=id_, ModelType=Post)
+
+        assert await ps.get_user_by_username_or_email(email=user1.email) == user1
+        assert await ps.get_user_by_username_or_email(username=user1.username) == user1
+
+        followed_posts = await ps.get_followed_posts(user=user1)
+        assert post2 in followed_posts
+        assert post3 in followed_posts
+        assert post1 not in followed_posts
+
+
+        updated_post = await ps.update_post_fields(post_data=PostDataSchemaID(post_id=post3.post_id, title="New title", text="New wonderful text"), return_updated_post=True)
+        assert updated_post.title == "New title"
+        assert updated_post.text == "New wonderful text"
+
+        ...
+
 
     finally:
         await ps.close()

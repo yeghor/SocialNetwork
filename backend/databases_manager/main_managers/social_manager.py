@@ -150,7 +150,7 @@ class MainServiceSocial(MainServiceBase):
         if not potential_action:
             raise HTTPException(status_code=400, detail=f"Action '{action_type} was not given to this post'")
         
-        await self._PostgresService.delete_models(potential_action)
+        await self._PostgresService.delete_models_and_flush(potential_action)
         self.change_post_rate(post=post, action_type=action_type, add=False)
     
     async def delete_post(self, post_id: str, user: User) -> None:

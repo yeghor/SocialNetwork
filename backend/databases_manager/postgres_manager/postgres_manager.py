@@ -37,9 +37,10 @@ class PostgresService:
     async def flush(self) -> None:
         await self.__session.flush()
 
-    async def delete_models(self, *models: Base) -> None:
+    async def delete_models_and_flush(self, *models: Base) -> None:
         for model in models:
             await self.__session.delete(model)
+        await self.flush()
 
     @postgres_error_handler(action="Add model and flush")
     async def insert_models_and_flush(self, *models: Base):
@@ -164,7 +165,7 @@ class PostgresService:
         )
 
     @postgres_error_handler(action="Get user by username and email")
-    async def get_user_by_username_or_email(self, username: str | None, email: str | None) -> User:
+    async def get_user_by_username_or_email(self, username: str | None = None, email: str | None = None) -> User:
         if not username and not email:
             raise ValueError("Username and email are None!")
 
@@ -182,34 +183,29 @@ class PostgresService:
         followed_ids = [followed.user_id for followed in user.followed]
 
         result = await self.__session.execute(
-            select(User)
-            .where(User.user_id.in_(followed_ids))
+            select(Post)
+            .where(Post.owner_id.in_(followed_ids))
+            .order_by(Post.popularity_rate.desc(), Post.published.desc())
+            .limit(FEED_MAX_POSTS_LOAD)
         )
-        users = result.scalars().all()
+        return result.scalars().all()
 
-        sorted_posts = [sorted(user.posts, key= lambda x: x.published, reverse=True)[:MAX_FOLLOWED_POSTS_TO_SHOW] for user in users]
-        proccesed_posts = []
-        for posts in sorted_posts:
-            for post in posts:
-                if not post.is_reply:
-                    proccesed_posts.append(post)
-        return proccesed_posts
 
     @postgres_error_handler(action="Update post values nad return post is needed")
-    async def update_post_fields(self, post_data: PostDataSchemaID, post_id: str, return_updated_post: bool = False) -> Post | None:
+    async def update_post_fields(self, post_data: PostDataSchemaID, return_updated_post: bool = False) -> Post | None:
         post_data_dict = post_data.model_dump(exclude_defaults=True, exclude_none=True, exclude={"post_id"})
         if not post_data_dict:
             return
         
         await self.__session.execute(
             update(Post)
-            .where(Post.post_id == post_id)
+            .where(Post.post_id == post_data.post_id)
             .values(**post_data_dict)
         )
         if return_updated_post:
             result = await self.__session.execute(
                 select(Post)
-                .where(Post.post_id == post_id)
+                .where(Post.post_id == post_data.post_id)
                 .options(selectinload(Post.replies))
             )
             return result.scalar()
@@ -221,9 +217,6 @@ class PostgresService:
             .where(and_(PostActions.owner_id == user_id, PostActions.action == action_type, PostActions.post_id == post_id))
         )
         return result.scalars().all()
-
-
-        
 
     @postgres_error_handler(action="Get users that liked post")
     async def get_users_that_left_action(self, post_id: str, action_type: ActionType) -> List[User]:
