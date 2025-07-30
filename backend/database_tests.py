@@ -107,7 +107,7 @@ async def test_postgres_service():
         assert await ps.get_user_by_id(user_id=uid1) == user1
 
         # Assume that FEED_MAX_POSTS_LOAD >= 3
-        fresh_posts = await ps.get_fresh_posts(user=user2, user_id=None)
+        fresh_posts = await ps.get_fresh_posts(user=user2)
         assert len(fresh_posts) == 2
         assert fresh_posts[0] == post3
 
