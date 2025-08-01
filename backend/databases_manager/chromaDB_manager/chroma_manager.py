@@ -78,11 +78,13 @@ class ChromaService:
     @chromaDB_error_handler
     async def drop_all(self):
         """Drops all embeddings."""
-
+        
         if self.__mode == "prod":
             await self.__client.delete_collection(name=PROD_COLLECTION_NAME)
+            self.__collection = await self.__client.create_collection(name=PROD_COLLECTION_NAME)
         elif self.__mode == "test":
-            await self.__client.delete_collection(name=PROD_COLLECTION_NAME)
+            await self.__client.delete_collection(name=TEST_COLLECTION_NAME)
+            self.__collection = await self.__client.create_collection(name=TEST_COLLECTION_NAME)
         
 
     @chromaDB_error_handler
@@ -128,3 +130,9 @@ class ChromaService:
         )
 
         return self.extract_ids_from_metadata(result=search_result, exclude_ids=exclude_ids)
+    
+    @chromaDB_error_handler
+    async def delete_by_ids(self, ids: List[str]):
+        await self.__collection.delete(
+            ids=ids
+        )

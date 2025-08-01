@@ -128,7 +128,7 @@ async def like_post(
 ):
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        await social.like_post_action(post_id=post_id, user=user, like=True)
+        await social.post_action(post_id=post_id, user=user, like=True)
 
 @social.delete("/posts/{post_id}/like")
 async def unlike_post(

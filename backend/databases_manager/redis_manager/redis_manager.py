@@ -13,8 +13,9 @@ ACCES_JWT_EXPIRY_SECONDS = int(getenv("ACCES_JWT_EXPIRY_SECONDS"))
 REFRESH_JWT_EXPIRY_SECONDS = int(getenv("REFRESH_JWT_EXPIRY_SECONDS"))
 DATETIME_BASE_FORMAT = getenv("DATETIME_BASE_FORMAT")
 RECOMMEND_POST_AGAING_IN = int(getenv("RECOMMEND_POST_AGAING_IN"))
+VIEW_TIMEOUT = int(getenv("VIEW_TIMEOUT"))
 
-ExcludeType = Literal["search", "feed", "viewed"]
+ExcludeType = Literal["search", "feed", "viewed"] # TODO: Change "viewed" to "view"
 
 def redis_error_handler(func):
     @wraps(func)
@@ -182,3 +183,15 @@ class RedisService:
     async def get_exclude_post_ids(self, user_id: str, exclude_type: ExcludeType) -> List[str]:
         first_prefix = self.get_right_first_prefix(exclude_type=exclude_type)
         return [await self.__client.get(key) async for key in self.__client.scan_iter(match=f"{first_prefix}{user_id}*")]            
+
+
+    @redis_error_handler
+    async def add_view(self, id_: str, user_id: str) -> None:
+        pattern = self.exclude_post_key_pattern(user_id=user_id, post_id=id_, exclude_type="viewed")
+        await self.__client.setex(pattern, VIEW_TIMEOUT, id_)
+
+    @redis_error_handler
+    async def check_view_timeout(self, id_: str, user_id:str) -> bool:
+        "Returns True - if view from user timeouted, it means that the view can be counted."
+        pattern = self.exclude_post_key_pattern(user_id=user_id, post_id=id_, exclude_type="viewed")
+        return not bool(await self.__client.exists(pattern))

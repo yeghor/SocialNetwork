@@ -25,6 +25,7 @@ class NotImplementedError(Exception):
 load_dotenv()
 
 HISTORY_POSTS_TO_TAKE_INTO_RELATED = int(getenv("HISTORY_POSTS_TO_TAKE_INTO_RELATED", 30))
+REPLY_COST_DEVALUATION = float(getenv("REPLY_COST_DEVALUATION"))
 
 T = TypeVar("T", bound=Base)
 
@@ -44,11 +45,13 @@ class MainServiceSocial(MainServiceBase):
         if post.owner_id != user.user_id:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
-    async def sync_data(self) -> None:
+    async def sync_postgres_chroma_DEV_METHOD(self) -> None:
+        # TEMPORARY!
+        await self._ChromaService.drop_all()
         posts = await self._PostgresService.get_all_from_model(ModelType=Post)
         await self._ChromaService.add_posts_data(posts=posts)
 
-    async def get_all_from_specific_model(self, ModelType: Type[T]) -> List[T]:
+    async def _get_all_from_specific_model(self, ModelType: Type[T]) -> List[T]:
         return await self._PostgresService.get_all_from_model(ModelType=ModelType)
 
     async def get_feed(self, user: User, exclude: bool) -> List[PostLiteSchema]:
@@ -76,7 +79,7 @@ class MainServiceSocial(MainServiceBase):
     
         return [PostLiteSchema.model_validate(post, from_attributes=True) for post in posts]
         
-    async def get_fresh_feed_ids(self, exclude_ids: List[str], user: User) -> List[str]:
+    async def _get_fresh_feed_ids(self, exclude_ids: List[str], user: User) -> List[str]:
         posts = await self._PostgresService.get_fresh_posts(user=user, exclude_ids=exclude_ids)
         return [post.post_id for post in posts]
 
@@ -103,10 +106,8 @@ class MainServiceSocial(MainServiceBase):
 
     async def search_users(self, prompt: str,  request_user: User) -> List[UserLiteSchema]:
         users = await self._PostgresService.get_users_by_username(prompt=prompt)
-        filtered_users = [UserLiteSchema.model_validate(user, from_attributes=True) for user in users if user.user_id != request_user.user_id]
-        return filtered_users
-
-    
+        return [UserLiteSchema.model_validate(user, from_attributes=True) for user in users if user.user_id != request_user.user_id]
+        
     async def construct_and_flush_post(self, data: MakePostDataSchema, user: User) -> PostSchema:
         if data.parent_post_id:
             if not await self._PostgresService.get_entry_by_id(id_=data.parent_post_id):
@@ -146,15 +147,27 @@ class MainServiceSocial(MainServiceBase):
 
     async def _construct_and_flush_action(self, action_type: ActionType, user: User, post: Post = None) -> None:
         """Do NOT call this method outside the class"""
+
+        # if user.user_id == post.owner_id:
+        #     # To prevent self popularity abuse
+        #     return
+
+        change_rate: bool = True
+
         if await self._PostgresService.get_action(user_id=user.user_id, post_id=post.post_id, action_type=action_type):
-            # THERE WILL BE REDIS CHECK FOR REPEATED VIEWS
-            # TEMPORARY PLUG
             if action_type == ActionType.view:
-                return
+                change_rate = False
+                if not await self._RedisService.check_view_timeout(id_=post.post_id, user_id=user.user_id):
+                    return
+                await self._RedisService.add_view(user_id=user.user_id, id_=post.post_id)
+            elif action_type == ActionType.reply:
+                # TODO: Reply populatiry rate evaluation
+                pass
+            else:
+                raise HTTPException(status_code=400, detail=f"Action: '{action_type}' is already given on this post")
 
-            raise HTTPException(status_code=400, detail=f"Action: '{action_type}' is already given on this post")
-
-        self.change_post_rate(post=post, action_type=action_type, add=True)
+        if change_rate:
+            self.change_post_rate(post=post, action_type=action_type, add=True)
 
         action = PostActions(
             action_id=str(uuid4()),
@@ -172,19 +185,20 @@ class MainServiceSocial(MainServiceBase):
         await self._PostgresService.delete_models_and_flush(potential_action)
         self.change_post_rate(post=post, action_type=action_type, add=False)
     
+
     async def delete_post(self, post_id: str, user: User) -> None:
-        print(post_id)
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
         self.check_post_user_id(post=post, user=user)
 
         await self._PostgresService.delete_post_by_id(id_=post.post_id)
+        await self._ChromaService.delete_by_ids(ids=[post.post_id])
+
 
     async def like_post_action(self, post_id: str, user: User, like: bool = True) -> None:
         """Set 'like' param to True to leave like. To remove like - set to False"""
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
         if like:
-            post.popularity_rate += POST_ACTIONS["like"]
             await self._construct_and_flush_action(action_type=ActionType.like,post=post, user=user)
         else:
             await self.remove_action(user=user, post=post, action_type=ActionType.like)
@@ -200,7 +214,9 @@ class MainServiceSocial(MainServiceBase):
         
         updated_post = await self._PostgresService.update_post_fields(post_data=post_data, post_id=post_id, return_updated_post = True)
         await self._ChromaService.add_posts_data(posts=[updated_post])
+
         return PostSchema.model_validate(updated_post, from_attributes=True)
+
 
     async def friendship_action(self, user: User, other_user_id: str, follow: bool) -> None:
         """To follow user - set follow to True. To unfollow - False"""

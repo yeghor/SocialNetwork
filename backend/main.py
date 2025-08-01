@@ -29,11 +29,12 @@ async def drop_redis() -> None:
     await client.flushall()
     await client.aclose()
 
+# To be deleted
 async def sync_chroma_postgres_data() -> None:
     try:
         session = await get_session()
         async with await MainServiceContextManager[MainServiceSocial].create(MainServiceType=MainServiceSocial, postgres_session=session, mode="prod") as social_service:
-            await social_service.sync_data()
+            await social_service.sync_postgres_chroma_DEV_METHOD()
     except EmptyPostsError:
         pass
     finally:
