@@ -56,14 +56,15 @@ async def get_followed_posts(
         return await social.get_followed_posts(user=user)
 
 @social.get("/search/posts")
-async def search_posts(
+async def search_posts( # TODO: Exclude self posts
+    exclude: bool = Depends(query_exclude_required),
     prompt: str = Depends(query_prompt_required),
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
     ) -> List[PostLiteSchema]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        return await social.search_posts(prompt=prompt, user=user)
+        return await social.search_posts(prompt=prompt, user=user, exclude=exclude)
 
 @social.get("/search/users")
 async def search_users(

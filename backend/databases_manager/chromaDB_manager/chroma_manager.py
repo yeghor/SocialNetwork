@@ -118,12 +118,13 @@ class ChromaService:
         )
 
     @chromaDB_error_handler
-    async def search_posts_by_prompt(self, prompt: str) -> List[str]:
+    async def search_posts_by_prompt(self, prompt: str, exclude_ids: List[str], n: int = FEED_MAX_POSTS_LOAD) -> List[str]:
         if not prompt:
             raise ValueError("Empty search prompt!")
+        
         search_result = await self.__collection.query(
             query_texts=[prompt.strip()],
-            n_results=FEED_MAX_POSTS_LOAD
+            n_results=(n + len(exclude_ids))
         )
 
-        return self.extract_ids_from_metadata(result=search_result)
+        return self.extract_ids_from_metadata(result=search_result, exclude_ids=exclude_ids)

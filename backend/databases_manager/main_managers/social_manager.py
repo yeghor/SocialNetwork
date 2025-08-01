@@ -83,22 +83,24 @@ class MainServiceSocial(MainServiceBase):
     async def get_followed_posts(self, user: User) -> List[Post]:
         return await self._PostgresService.get_followed_posts(user=user)
     
-    async def search_posts(self, prompt: str, user: User) -> List[PostLiteSchema]:
+    async def search_posts(self, prompt: str, user: User, exclude: bool) -> List[PostLiteSchema]:
         """
         Search posts that similar with meaning with prompt
         """
-        exclude_ids = self._RedisService.get_exclude_post_ids(user_id=user.user_id)
-        posts_ids = await self._ChromaService.search_posts_by_prompt(prompt=prompt)
-        print(posts_ids)
-        posts = await self._PostgresService.get_entries_by_ids(ids=posts_ids, ModelType=Post)
-        print(posts)
-        model_validated_posts = []
 
-        for post in posts:
-            model_validated_posts.append(PostLiteSchema.model_validate(post, from_attributes=True))
+        exclude_ids = []
+        if exclude:
+            exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user.user_id, exclude_type="search")
+        else:
+            await self._RedisService.clear_exclude(exclude_type="search", user_id=user.user_id)
+        
+        post_ids = await self._ChromaService.search_posts_by_prompt(prompt=prompt, exclude_ids=exclude_ids)
+        posts = await self._PostgresService.get_entries_by_ids(ids=post_ids, ModelType=Post)
 
-        return model_validated_posts
-    
+        await self._RedisService.add_exclude_post_ids(post_ids=post_ids, user_id=user.user_id, exclude_type="search")
+
+        return [PostLiteSchema.model_validate(post, from_attributes=True) for post in posts]
+
     async def search_users(self, prompt: str,  request_user: User) -> List[UserLiteSchema]:
         users = await self._PostgresService.get_users_by_username(prompt=prompt)
         filtered_users = [UserLiteSchema.model_validate(user, from_attributes=True) for user in users if user.user_id != request_user.user_id]
