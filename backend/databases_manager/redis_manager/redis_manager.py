@@ -82,9 +82,9 @@ class RedisService:
             #universal exclude posts second prefix
             self.__exclude_posts_prefix_2 = "-post:"
 
-            self.__exclude_posts_feed_prefix_1 = "exclude-posts-feed-user:"
-            self.__exclude_posts_search_prefix_1 = "exclude-posts-search-user:"
-            self.__exclude_posts_viewed_prefix_1 = "exclude-posts-viewed-user:"
+            self.__exclude_posts_feed_prefix_1 = "exclude-posts-feed-user-"
+            self.__exclude_posts_search_prefix_1 = "exclude-posts-search-user-"
+            self.__exclude_posts_viewed_prefix_1 = "exclude-posts-viewed-user-"
 
         except redis_exceptions.RedisError:
             raise HTTPException(status_code=500, detail="Connection to redis failed")

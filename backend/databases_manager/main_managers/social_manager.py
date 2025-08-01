@@ -12,7 +12,7 @@ from pydantic_schemas.pydantic_schemas_social import (
     PostSchema,
     PostDataSchemaID,
     MakePostDataSchema,
-    PostLiteShortSchema,
+    PostLiteSchema,
     UserLiteSchema,
     UserSchema,
     UserShortSchema,
@@ -23,6 +23,8 @@ class NotImplementedError(Exception):
     pass
 
 load_dotenv()
+
+HISTORY_POSTS_TO_TAKE_INTO_RELATED = int(getenv("HISTORY_POSTS_TO_TAKE_INTO_RELATED", 30))
 
 T = TypeVar("T", bound=Base)
 
@@ -49,34 +51,39 @@ class MainServiceSocial(MainServiceBase):
     async def get_all_from_specific_model(self, ModelType: Type[T]) -> List[T]:
         return await self._PostgresService.get_all_from_model(ModelType=ModelType)
 
-    async def get_feed(self, user: User, exclude: bool) -> List[Post]:
+    async def get_feed(self, user: User, exclude: bool) -> List[PostLiteSchema]:
         """
         Returns related posts to provided User table object view history \n
         Caution! If `exclude` set to True. It means that user clicked on `Load more` button and we need to update Redis exclude ids with fresh loaded. And ensure that we load non repeating posts
         """
         exclude_ids = []
-        
         if exclude:
             exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user.user_id, exclude_type="feed")
         else:
             await self._RedisService.clear_exclude(exclude_type="feed", user_id=user.user_id)
 
-        post_ids = await self._ChromaService.get_n_related_posts_ids(user=user, exclude_ids=exclude_ids)
-        
-        await self._RedisService.add_exclude_post_ids(post_ids=post_ids, user_id=user.user_id, exclude_type="feed")
+        views_history = await self._PostgresService.get_user_actions(user_id=user.user_id, action_type=ActionType.view, n_most_fresh=HISTORY_POSTS_TO_TAKE_INTO_RELATED, return_posts=True)
 
+        post_ids = await self._ChromaService.get_n_related_posts_ids(user=user, exclude_ids=exclude_ids, views_history=views_history)
+        posts = None
         if not post_ids:
-            return await self.get_fresh_feed(exclude_ids=exclude_ids, user=user)
+            posts, post_ids = await self.get_fresh_feed(exclude_ids=exclude_ids, user=user)
 
-        return await self._PostgresService.get_entries_by_ids(ids=post_ids, ModelType=Post)
+        await self._RedisService.add_exclude_post_ids(post_ids=post_ids, user_id=user.user_id, exclude_type="feed")
         
-    async def get_fresh_feed(self, exclude_ids: List[str], user: User) -> List[Post]:
-        return await self._PostgresService.get_fresh_posts(user=user, exclude_ids=exclude_ids)
+        if not posts:
+            posts = await self._PostgresService.get_entries_by_ids(ids=post_ids, ModelType=Post)
+    
+        return [PostLiteSchema.model_validate(post, from_attributes=True) for post in posts]
+        
+    async def get_fresh_feed_ids(self, exclude_ids: List[str], user: User) -> List[str]:
+        posts = await self._PostgresService.get_fresh_posts(user=user, exclude_ids=exclude_ids)
+        return [post.post_id for post in posts]
 
     async def get_followed_posts(self, user: User) -> List[Post]:
         return await self._PostgresService.get_followed_posts(user=user)
     
-    async def search_posts(self, prompt: str, user: User) -> List[PostLiteShortSchema]:
+    async def search_posts(self, prompt: str, user: User) -> List[PostLiteSchema]:
         """
         Search posts that similar with meaning with prompt
         """
@@ -88,7 +95,7 @@ class MainServiceSocial(MainServiceBase):
         model_validated_posts = []
 
         for post in posts:
-            model_validated_posts.append(PostLiteShortSchema.model_validate(post, from_attributes=True))
+            model_validated_posts.append(PostLiteSchema.model_validate(post, from_attributes=True))
 
         return model_validated_posts
     

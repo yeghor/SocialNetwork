@@ -56,7 +56,6 @@ class PostgresService:
         )
         return result.scalar()
 
-    # BAMBAM
     @postgres_error_handler(action="Get fresh feed")
     async def get_fresh_posts(self, user: User, exclude_ids: List[str] = []) -> List[Post]:
         result = await self.__session.execute(
@@ -121,8 +120,6 @@ class PostgresService:
     @postgres_error_handler(action="Get entry from id")
     async def get_entry_by_id(self, id_: str, ModelType: Type[Models]) -> Models:
         if ModelType == User:
-            print(id_)
-            print(f"Shi? {id_}")
             result = await self.__session.execute(
                 select(User)
                 .where(User.user_id == id_)
@@ -227,3 +224,15 @@ class PostgresService:
         )
         return result.scalars().all()
     
+    @postgres_error_handler(action="Get user actions by type")
+    async def get_user_actions(self, user_id: str, action_type: ActionType, n_most_fresh: int | None, return_posts: bool = False) -> List[PostActions]:
+        result = await self.__session.execute(
+            select(PostActions)
+            .where(and_(PostActions.owner_id == user_id, PostActions.action == action_type))
+            .order_by(PostActions.date.desc())
+            .limit(n_most_fresh) # limit an integer LIMIT parameter, or a SQL expression that provides an integer result. Pass None to reset it.
+        )
+        actions = result.scalars().all()
+
+        if return_posts: return [action.post for action in actions]
+        else: return actions

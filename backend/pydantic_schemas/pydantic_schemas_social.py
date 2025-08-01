@@ -53,7 +53,7 @@ class PostBaseShort(PostIDValidate):
 class PostBase(PostBaseShort):
     owner: UserShortSchema | None
 
-class PostLiteShortSchema(PostBase):
+class PostLiteSchema(PostBase):
     parent_post: PostBase | None
 
 class PostSchema(PostBase):
@@ -65,7 +65,7 @@ class PostSchema(PostBase):
 
     last_updated: datetime
 
-    replies: List[PostLiteShortSchema]
+    replies: List[PostLiteSchema]
 
     parent_post: PostBase | None
 
@@ -86,7 +86,7 @@ class UserLiteSchema(UserShortSchema):
 
 class UserSchema(UserLiteSchema):
     followed: List[UserShortSchema]
-    posts: List[PostLiteShortSchema]
+    posts: List[PostLiteSchema]
 
 # =================
 # Body data structure

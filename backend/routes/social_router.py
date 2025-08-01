@@ -6,7 +6,7 @@ from authorization.authorization import authorize_request_depends
 from pydantic_schemas.pydantic_schemas_social import (
     UserLiteSchema,
     PostBase,
-    PostLiteShortSchema,
+    PostLiteSchema,
     PostSchema,
     MakePostDataSchema,
     PostDataSchemaBase,
@@ -31,7 +31,7 @@ def query_prompt_required(prompt: Annotated[str, Query(..., max_length=QUERY_PAR
         raise HTTPException(status_code=400, detail="Prompt can't be empty!")
     return prompt
 
-def query_exclude_required(exclude_viewed: bool = Query(..., description="Exclude viewed post. Set to True if user user 'load more' button")):
+def query_exclude_required(exclude_viewed: bool = Query(..., description="Exclude viewed post. Set to True if user pressed 'load more' button")):
     if not isinstance(exclude_viewed, bool):
         raise HTTPException(status_code=400, detail="Exclude posts wasn't specified correctly")
     return exclude_viewed
@@ -41,7 +41,7 @@ async def get_feed(
     exclude_viewed: bool = Depends(query_exclude_required),
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends),
-    ) -> List[PostLiteShortSchema]:
+    ) -> List[PostLiteSchema]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.get_feed(user=user, exclude=exclude_viewed)
@@ -50,7 +50,7 @@ async def get_feed(
 async def get_followed_posts(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
-    ) -> List[PostLiteShortSchema]:
+    ) -> List[PostLiteSchema]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.get_followed_posts(user=user)
@@ -60,7 +60,7 @@ async def search_posts(
     prompt: str = Depends(query_prompt_required),
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
-    ) -> List[PostLiteShortSchema]:
+    ) -> List[PostLiteSchema]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.search_posts(prompt=prompt, user=user)

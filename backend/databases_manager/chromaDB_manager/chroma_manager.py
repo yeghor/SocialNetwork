@@ -86,16 +86,14 @@ class ChromaService:
         
 
     @chromaDB_error_handler
-    async def get_n_related_posts_ids(self, user: User, exclude_ids: List[str], n: int = FEED_MAX_POSTS_LOAD) -> List[str]:
-        """Get n posts related to user's history \n If user history empty - return []"""
+    async def get_n_related_posts_ids(self, user: User, exclude_ids: List[str], views_history: List[Post], n: int = FEED_MAX_POSTS_LOAD) -> List[str]:
+        """Get n posts related to user's history \n If user history empty - return [] \n `views_history` Must be list of Posts in descending view date."""
 
-        posts = [post_history_obj.post for post_history_obj in user.views_history[:HISTORY_POSTS_TO_TAKE_INTO_RELATED] if not post_history_obj.post.is_reply]
-
-        if not posts:
+        if not views_history:
             return []
 
         related_posts = await self.__collection.query(
-            query_texts=[f"{post.title} {post.text} {post.published.strftime(self._datetime_format)}" for post in posts],
+            query_texts=[f"{post.title} {post.text} {post.published.strftime(self._datetime_format)}" for post in views_history],
             n_results=(n + len(exclude_ids))
         )
 
