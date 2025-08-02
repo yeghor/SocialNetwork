@@ -166,13 +166,20 @@ async def test_postgres_service():
 
         await ps.insert_models_and_flush(action1, action2)
 
-        await ps.flush()
-
         p2 = await ps.get_entry_by_id(id_=post2.post_id, ModelType=Post)
+        assert p2.actions == [action1, action2]
+        
+        action = await ps.get_actions(user_id=user3.user_id, post_id=post2.post_id, action_type=ActionType.like)
+        assert action[0].action_id == action2.action_id
 
+        actions = await ps.get_post_action_by_type(post_id=pid2, action_type=ActionType.view)
+        assert actions[0] == action1
 
-        assert action1.post == post2
-        assert action2.post == post2
+        actions = await ps.get_user_actions(user_id=uid3, action_type=ActionType.like, n_most_fresh=1, return_posts=False)
+        posts = await ps.get_user_actions(user_id=uid3, action_type=ActionType.like, n_most_fresh=1, return_posts=True)
+
+        assert actions[0].owner_id == user3.user_id
+        assert posts[0].post_id == post2.post_id
 
     finally:
         await ps.close()

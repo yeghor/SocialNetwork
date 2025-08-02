@@ -154,7 +154,7 @@ class MainServiceSocial(MainServiceBase):
 
         change_rate: bool = True
 
-        if await self._PostgresService.get_action(user_id=user.user_id, post_id=post.post_id, action_type=action_type):
+        if await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=action_type):
             if action_type == ActionType.view:
                 change_rate = False
                 if not await self._RedisService.check_view_timeout(id_=post.post_id, user_id=user.user_id):
@@ -178,7 +178,7 @@ class MainServiceSocial(MainServiceBase):
         await self._PostgresService.insert_models_and_flush(action)
 
     async def remove_action(self, user: User, post: Post, action_type: ActionType) -> None:
-        potential_action = await self._PostgresService.get_action(user_id=user.user_id, post_id=post.post_id, action_type=action_type)
+        potential_action = await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=action_type)
         if not potential_action:
             raise HTTPException(status_code=400, detail=f"Action '{action_type} was not given to this post'")
         
@@ -256,8 +256,8 @@ class MainServiceSocial(MainServiceBase):
 
         await self._construct_and_flush_action(action_type=ActionType.view, post=post, user=user)
 
-        liked_by = await self._PostgresService.get_users_that_left_action(post_id=post.post_id, action_type=ActionType.like) 
-        viewed_by = await self._PostgresService.get_users_that_left_action(post_id=post.post_id, action_type=ActionType.view) 
+        liked_by = await self._PostgresService.get_post_action_by_type(post_id=post.post_id, action_type=ActionType.like) 
+        viewed_by = await self._PostgresService.get_post_action_by_type(post_id=post.post_id, action_type=ActionType.view) 
 
         viewed_by_validated = None
 

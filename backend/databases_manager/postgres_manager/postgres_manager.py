@@ -129,7 +129,7 @@ class PostgresService:
             result = await self.__session.execute(
                 select(Post)
                 .where(Post.post_id == id_)
-                .options(selectinload(Post.replies), selectinload(Post.actions))
+                .options(selectinload(Post.replies))
             )
         else:
             raise TypeError("Unsupported model type!")
@@ -208,15 +208,16 @@ class PostgresService:
             return result.scalar()
 
     @postgres_error_handler(action="Get action")
-    async def get_action(self, user_id: str, post_id: str, action_type: ActionType) -> PostActions:
+    async def get_actions(self, user_id: str, post_id: str, action_type: ActionType) -> List[PostActions]:
+        """Return **list** of actions. Even if you specified `action_type` as single action"""
         result = await self.__session.execute(
             select(PostActions)
             .where(and_(PostActions.owner_id == user_id, PostActions.action == action_type, PostActions.post_id == post_id))
         )
         return result.scalars().all()
 
-    @postgres_error_handler(action="Get users that liked post")
-    async def get_users_that_left_action(self, post_id: str, action_type: ActionType) -> List[User]:
+    @postgres_error_handler(action="Get actions on post by specified type")
+    async def get_post_action_by_type(self, post_id: str, action_type: ActionType) -> List[User]:
         result = await self.__session.execute(
             select(PostActions)
             .where(and_(PostActions.post_id == post_id, PostActions.action == action_type))
@@ -225,7 +226,7 @@ class PostgresService:
         return result.scalars().all()
     
     @postgres_error_handler(action="Get user actions by type")
-    async def get_user_actions(self, user_id: str, action_type: ActionType, n_most_fresh: int | None, return_posts: bool = False) -> List[PostActions]:
+    async def get_user_actions(self, user_id: str, action_type: ActionType, n_most_fresh: int | None, return_posts: bool = False) -> List[PostActions] | List[Post]:
         result = await self.__session.execute(
             select(PostActions)
             .where(and_(PostActions.owner_id == user_id, PostActions.action == action_type))
