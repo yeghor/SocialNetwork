@@ -13,7 +13,6 @@ from uuid import UUID
 Models = TypeVar("Models", bound=Base)
 
 FEED_MAX_POSTS_LOAD = int(getenv("FEED_MAX_POSTS_LOAD"))
-N_MAX_FRESH_POSTS_TO_MIX = int(getenv("N_MAX_FRESH_POSTS_TO_MIX"))
 
 MAX_FOLLOWED_POSTS_TO_SHOW = int(getenv("MAX_FOLLOWED_POSTS_TO_SHOW"))
 
@@ -57,14 +56,16 @@ class PostgresService:
         return result.scalar()
 
     @postgres_error_handler(action="Get fresh feed")
-    async def get_fresh_posts(self, user: User, exclude_ids: List[str] = []) -> List[Post]:
+    async def get_fresh_posts(self, user: User, exclude_ids: List[str] = [], n: int = FEED_MAX_POSTS_LOAD) -> List[Post]:
         result = await self.__session.execute(
             select(Post)
             .where(and_(Post.owner_id != user.user_id, Post.post_id not in exclude_ids))
             .order_by(Post.popularity_rate.desc(), Post.published.desc())
-            .limit(FEED_MAX_POSTS_LOAD)
+            .limit(n)
         )
         return result.scalars().all()
+
+    @postgres_error_handler(action="Get new posts")
 
     # @validate_n_postitive
     # @postgres_error_handler(action="Get subcribers posts")
@@ -173,17 +174,20 @@ class PostgresService:
         return result.scalar()
     
     @postgres_error_handler(action="Get followed users posts")
-    async def get_followed_posts(self, user: User) -> List[List[Post]]:
+    async def get_followed_posts(self, user: User, n: int, exclude_ids: List[str] = []) -> List[Post]:
         # Getting new user, because merged instances may not include loaded relationships
+        if n <= 0:
+            raise ValueError("Invalid number of posts requested")
+        
         user = await self.get_user_by_id(user_id=user.user_id)
 
         followed_ids = [followed.user_id for followed in user.followed]
 
         result = await self.__session.execute(
             select(Post)
-            .where(Post.owner_id.in_(followed_ids))
+            .where(and_(Post.owner_id.in_(followed_ids), Post.post_id.not_in(exclude_ids)))
             .order_by(Post.popularity_rate.desc(), Post.published.desc())
-            .limit(FEED_MAX_POSTS_LOAD)
+            .limit(n)
         )
         return result.scalars().all()
 
