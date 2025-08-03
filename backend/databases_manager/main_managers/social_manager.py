@@ -7,7 +7,7 @@ from databases_manager.main_managers.mix_posts import MIX_FOLLOWING, MIX_UNRELEV
 
 from dotenv import load_dotenv
 from os import getenv
-from typing import List, TypeVar, Type, Literal, Iterable
+from typing import List, TypeVar, Type, Literal, Iterable, NamedTuple, Union
 from pydantic_schemas.pydantic_schemas_social import (
     PostSchema,
     PostDataSchemaID,
@@ -34,6 +34,10 @@ SHUFFLE_BY_TIMESTAMP = float(getenv("SHUFFLE_BY_TIMESTAMP", "0.3"))
 
 T = TypeVar("T", bound=Base)
 
+class IdsPostTuple(NamedTuple):
+    ids: List[str]
+    posts: List[Post]
+
 class MainServiceSocial(MainServiceBase):
     @staticmethod
     def change_post_rate(post: Post, action_type: ActionType, add: bool) -> None:
@@ -53,7 +57,7 @@ class MainServiceSocial(MainServiceBase):
         return to_return
 
     @staticmethod
-    def shuffle_posts(posts: List[Post]) -> List[Post]:
+    def _shuffle_posts(posts: List[Post]) -> List[Post]:
         return sorted(posts, key=lambda post: (post.popularity_rate * SHUFFLE_BY_RATE, int(post.published.timestamp()) * SHUFFLE_BY_TIMESTAMP), reverse=True)
 
     @staticmethod
@@ -95,38 +99,48 @@ class MainServiceSocial(MainServiceBase):
 
         exclude_ids.extend(related_ids)
 
-
-
         # Following mix
         following_ids =  await self._get_ids_by_query_type(user=user, exclude_ids=exclude_ids, n=MIX_FOLLOWING, id_type="followed")
         if not following_ids:
             following_ids = await self._get_ids_by_query_type(user=user, exclude_ids=exclude_ids, n=MIX_FOLLOWING, id_type="fresh")
         exclude_ids.extend(following_ids)
 
-
         # Mix unrelevant
         unrelevant_ids = await self._get_ids_by_query_type(user=user, exclude_ids=exclude_ids, n=MIX_UNRELEVANT, id_type="fresh")
-
 
         all_ids = self.extend_list(related_ids, following_ids, unrelevant_ids)
 
         await self._RedisService.add_exclude_post_ids(post_ids=all_ids, user_id=user.user_id, exclude_type="feed")
         
         posts = await self._PostgresService.get_entries_by_ids(ids=all_ids, ModelType=Post)
-        posts = self.shuffle_posts(posts=posts)
+        posts = self._shuffle_posts(posts=posts)
         return [PostLiteSchema.model_validate(post, from_attributes=True) for post in posts]
         
-    async def _get_ids_by_query_type(self, exclude_ids: List[str], user: User, n: int, id_type: Literal["followed", "fresh"]) -> List[str]:
+    async def _get_ids_by_query_type(self, exclude_ids: List[str], user: User, n: int, id_type: Literal["followed", "fresh"], return_posts_too: bool = False) -> Union[List[str], NamedTuple]:
         posts = []
         if id_type == "fresh": posts = await self._PostgresService.get_fresh_posts(user=user, exclude_ids=exclude_ids, n=n)
         elif id_type == "followed": posts = await self._PostgresService.get_followed_posts(user=user, exclude_ids=exclude_ids, n=n)
 
-        return [post.post_id for post in posts]
+        ids = [post.post_id for post in posts]
+
+        if return_posts_too: return (ids, posts)
+        else: return ids
 
     # TODO: Implement post excluding
-    async def get_followed_posts(self, user: User) -> List[Post]:
-        return await self._PostgresService.get_followed_posts(user=user, n=FEED_MAX_POSTS_LOAD)
-    
+    async def get_followed_posts(self, user: User, exclude: bool) -> List[PostLiteSchema]:
+        exclude_ids = []
+        if exclude:
+            exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user.user_id, exclude_type="feed")
+        else:
+            await self._RedisService.clear_exclude(user_id=user.user_id, exclude_type="feed")
+        
+        post_ids, posts = await self._get_ids_by_query_type(exclude_ids=exclude_ids, user=user, n=FEED_MAX_POSTS_LOAD, id_type="followed", return_posts_too=True)
+        await self._RedisService.add_exclude_post_ids(post_ids=post_ids, user_id=user.user_id, exclude_type="feed")
+
+        posts = self._shuffle_posts(posts=posts)
+
+        return [PostLiteSchema.model_validate(post, from_attributes=True) for post in posts]
+
     async def search_posts(self, prompt: str, user: User, exclude: bool) -> List[PostLiteSchema]:
         """
         Search posts that similar with meaning with prompt
