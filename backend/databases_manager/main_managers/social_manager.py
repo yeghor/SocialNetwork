@@ -49,6 +49,7 @@ class MainServiceSocial(MainServiceBase):
         to_return = []
         for lst in lists:
             to_return.extend(lst)
+        print(to_return)
         return to_return
 
     @staticmethod
@@ -90,27 +91,36 @@ class MainServiceSocial(MainServiceBase):
             related_ids = await self._ChromaService.get_n_related_posts_ids(user=user, exclude_ids=exclude_ids, views_history=views_history)
         
         if not related_ids:
-            related_ids = await self._get_ids_by_query_type(exclude_ids=exclude_ids, user=user, n=MIX_HISTORY_POSTS_RELATED)
+            related_ids = await self._get_ids_by_query_type(exclude_ids=exclude_ids, user=user, n=MIX_HISTORY_POSTS_RELATED, id_type="fresh")
+
+        exclude_ids.extend(related_ids)
+
+
 
         # Following mix
         following_ids =  await self._get_ids_by_query_type(user=user, exclude_ids=exclude_ids, n=MIX_FOLLOWING, id_type="followed")
+        if not following_ids:
+            following_ids = await self._get_ids_by_query_type(user=user, exclude_ids=exclude_ids, n=MIX_FOLLOWING, id_type="fresh")
+        exclude_ids.extend(following_ids)
+
 
         # Mix unrelevant
         unrelevant_ids = await self._get_ids_by_query_type(user=user, exclude_ids=exclude_ids, n=MIX_UNRELEVANT, id_type="fresh")
 
+
         all_ids = self.extend_list(related_ids, following_ids, unrelevant_ids)
+
         await self._RedisService.add_exclude_post_ids(post_ids=all_ids, user_id=user.user_id, exclude_type="feed")
         
         posts = await self._PostgresService.get_entries_by_ids(ids=all_ids, ModelType=Post)
-
         posts = self.shuffle_posts(posts=posts)
-
         return [PostLiteSchema.model_validate(post, from_attributes=True) for post in posts]
         
     async def _get_ids_by_query_type(self, exclude_ids: List[str], user: User, n: int, id_type: Literal["followed", "fresh"]) -> List[str]:
         posts = []
         if id_type == "fresh": posts = await self._PostgresService.get_fresh_posts(user=user, exclude_ids=exclude_ids, n=n)
         elif id_type == "followed": posts = await self._PostgresService.get_followed_posts(user=user, exclude_ids=exclude_ids, n=n)
+
         return [post.post_id for post in posts]
 
     # TODO: Implement post excluding

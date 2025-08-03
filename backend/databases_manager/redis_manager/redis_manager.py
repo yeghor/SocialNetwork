@@ -177,6 +177,7 @@ class RedisService:
     async def add_exclude_post_ids(self, post_ids: List[str], user_id: str, exclude_type: ExcludeType) -> None:
         for id_ in post_ids:
             pattern = self.exclude_post_key_pattern(user_id=user_id, post_id=id_, exclude_type=exclude_type)
+            print(pattern)
             await self.__client.setex(pattern, RECOMMEND_POST_AGAING_IN, id_)
 
     @redis_error_handler

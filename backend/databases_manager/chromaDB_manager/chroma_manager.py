@@ -4,7 +4,7 @@ from chromadb.errors import ChromaError
 from dotenv import load_dotenv
 from os import getenv
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+from typing import List, Literal
 from functools import wraps
 from databases_manager.postgres_manager.models import Post, User
 from databases_manager.postgres_manager.validate_n_postive import validate_n_postitive
@@ -43,12 +43,15 @@ def chromaDB_error_handler(func):
 
 class ChromaService:
     @staticmethod
-    def extract_ids_from_metadata(result, exclude_ids: List[str] = []) -> List[str]:
+    def extract_ids_from_metadata(result, posts_type: Literal["search", "feed"], exclude_ids: List[str] = []) -> List[str]:
         metadatas = sorted(result["metadatas"][0], key=lambda meta: meta["published"], reverse=True)
+        print(len(metadatas))
         post_ids = [str(meta["post_id"]) for meta in metadatas]
-        excluded_ids = [id_ for id_ in post_ids if id_ not in exclude_ids]
-        return excluded_ids[:MIX_HISTORY_POSTS_RELATED]
-
+        prepared_ids = [id_ for id_ in post_ids if id_ not in exclude_ids]
+        print(prepared_ids)
+        if posts_type == "feed": return prepared_ids[:MIX_HISTORY_POSTS_RELATED]
+        elif posts_type == "search": return prepared_ids[:FEED_MAX_POSTS_LOAD]
+ 
 
     def __init__(self, client: AsyncClientAPI, collection: Collection, mode: str):
         """To create class object. Use **async** method connect!"""
@@ -102,15 +105,20 @@ class ChromaService:
 
         related_posts = await self.__collection.query(
             query_texts=[f"{post.title} {post.text} {post.published.strftime(self._datetime_format)}" for post in views_history],
-            n_results=(n + len(exclude_ids) + GET_EXTRA_CHROMADB_RELATED_RESULTS)
+            n_results=(n + len(exclude_ids) + GET_EXTRA_CHROMADB_RELATED_RESULTS),
+            where={
+                "user_id": {
+                    "$ne": user.user_id
+                }
+            }
         )
 
-        return self.extract_ids_from_metadata(result=related_posts, exclude_ids=exclude_ids)
+        return self.extract_ids_from_metadata(result=related_posts, exclude_ids=exclude_ids, posts_type="feed")
 
     @chromaDB_error_handler
     async def add_posts_data(self, posts: List[Post]) -> None:
         """
-        Add new post embeddings or update existing by post UUID \n
+        Add new post embeddings or update existing by post ids \n
         If posts empty - raise EmptyPostsError (declared in this file)
         """
         filtered_posts = [post for post in posts if not post.is_reply]
@@ -122,7 +130,7 @@ class ChromaService:
         await self.__collection.upsert(
             ids=[str(post.post_id) for post in filtered_posts],
             documents=[f"{post.title} {post.text} {post.published.strftime(self._datetime_format)}" for post in filtered_posts],
-            metadatas=[{"post_id": str(post.post_id), "published": int(post.published.timestamp())} for post in filtered_posts]
+            metadatas=[{"post_id": str(post.post_id), "published": int(post.published.timestamp()), "user_id": str(post.owner_id)} for post in filtered_posts]
         )
 
     @chromaDB_error_handler
@@ -134,8 +142,8 @@ class ChromaService:
             query_texts=[prompt.strip()],
             n_results=(n + len(exclude_ids))
         )
-
-        return self.extract_ids_from_metadata(result=search_result, exclude_ids=exclude_ids)
+        print(n+len(exclude_ids))
+        return self.extract_ids_from_metadata(result=search_result, exclude_ids=exclude_ids, posts_type="search")
     
     @chromaDB_error_handler
     async def delete_by_ids(self, ids: List[str]):

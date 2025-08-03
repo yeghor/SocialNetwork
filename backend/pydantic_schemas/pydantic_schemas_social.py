@@ -33,8 +33,7 @@ class PostIDValidate(BaseModel):
 
     @field_validator("post_id", mode="before")
     @classmethod
-    def validate_id(cls, value: Any):
-        print(value)        
+    def validate_id(cls, value: Any):       
         return str(value)
 
 class UserIDValidate(BaseModel):

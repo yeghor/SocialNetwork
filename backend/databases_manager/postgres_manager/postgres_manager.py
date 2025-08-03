@@ -59,7 +59,7 @@ class PostgresService:
     async def get_fresh_posts(self, user: User, exclude_ids: List[str] = [], n: int = FEED_MAX_POSTS_LOAD) -> List[Post]:
         result = await self.__session.execute(
             select(Post)
-            .where(and_(Post.owner_id != user.user_id, Post.post_id not in exclude_ids))
+            .where(and_(Post.owner_id != user.user_id, Post.post_id.not_in(exclude_ids)))
             .order_by(Post.popularity_rate.desc(), Post.published.desc())
             .limit(n)
         )
@@ -175,6 +175,8 @@ class PostgresService:
     
     @postgres_error_handler(action="Get followed users posts")
     async def get_followed_posts(self, user: User, n: int, exclude_ids: List[str] = []) -> List[Post]:
+        """If user not following anyone - returns empty list"""
+
         # Getting new user, because merged instances may not include loaded relationships
         if n <= 0:
             raise ValueError("Invalid number of posts requested")
