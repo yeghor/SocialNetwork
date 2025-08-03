@@ -11,7 +11,7 @@ from databases_manager.postgres_manager.validate_n_postive import validate_n_pos
 from uuid import UUID
 from fastapi import HTTPException
 from datetime import datetime
-from main_managers.mix_posts import MIX_HISTORY_POSTS_RELATED, FEED_MAX_POSTS_LOAD
+from databases_manager.main_managers.mix_posts import MIX_HISTORY_POSTS_RELATED, FEED_MAX_POSTS_LOAD
 
 load_dotenv()
 
