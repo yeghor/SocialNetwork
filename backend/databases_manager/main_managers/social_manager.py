@@ -54,7 +54,7 @@ class MainServiceSocial(MainServiceBase):
 
     @staticmethod
     def shuffle_posts(posts: List[Post]) -> List[Post]:
-        return sorted(posts, key=lambda post: (post.popularity_rate * SHUFFLE_BY_RATE, int(post.published.timestamp()) * SHUFFLE_BY_TIMESTAMP))
+        return sorted(posts, key=lambda post: (post.popularity_rate * SHUFFLE_BY_RATE, int(post.published.timestamp()) * SHUFFLE_BY_TIMESTAMP), reverse=True)
 
     @staticmethod
     def check_post_user_id(post: Post, user: User) -> None:
