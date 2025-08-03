@@ -1,7 +1,8 @@
 import pytest
 from databases_manager.postgres_manager.database import create_engine, create_sessionmaker
 from databases_manager.postgres_manager.database_utils import get_session
-from databases_manager.postgres_manager.models import User, Post, Base
+from databases_manager.postgres_manager.models import User, Post, Base, PostActions, ActionType
+from post_popularity_rate_task.popularity_rate import POST_ACTIONS
 from databases_manager.postgres_manager.postgres_manager import PostgresService
 from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
 from databases_manager.main_managers.social_manager import MainServiceSocial
@@ -88,7 +89,7 @@ async def test_postgres_service():
             title="Reply to First Post",
             text="This is a reply to the first post by user2.",
             image_path=None,
-            popularity_rate=200,
+            popularity_rate=0,
         )
 
         post3 = Post(
@@ -157,8 +158,28 @@ async def test_postgres_service():
         assert updated_post.title == "New title"
         assert updated_post.text == "New wonderful text"
 
-        ...
+        aid1 = str(uuid4())
+        aid2 = str(uuid4())
 
+        action1 = PostActions(action_id=aid1, post_id=post2.post_id, owner_id=user1.user_id, action=ActionType.view, post=post2)
+        action2 = PostActions(action_id=aid2, post_id=post2.post_id, owner_id=user3.user_id, action=ActionType.like, post=post2)
+
+        await ps.insert_models_and_flush(action1, action2)
+
+        p2 = await ps.get_entry_by_id(id_=post2.post_id, ModelType=Post)
+        assert p2.actions == [action1, action2]
+        
+        action = await ps.get_actions(user_id=user3.user_id, post_id=post2.post_id, action_type=ActionType.like)
+        assert action[0].action_id == action2.action_id
+
+        actions = await ps.get_post_action_by_type(post_id=pid2, action_type=ActionType.view)
+        assert actions[0] == action1
+
+        actions = await ps.get_user_actions(user_id=uid3, action_type=ActionType.like, n_most_fresh=1, return_posts=False)
+        posts = await ps.get_user_actions(user_id=uid3, action_type=ActionType.like, n_most_fresh=1, return_posts=True)
+
+        assert actions[0].owner_id == user3.user_id
+        assert posts[0].post_id == post2.post_id
 
     finally:
         await ps.close()

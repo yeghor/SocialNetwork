@@ -3,11 +3,11 @@ from fastapi import HTTPException
 from databases_manager.main_managers.main_manager_creator_abs import MainServiceBase
 from databases_manager.postgres_manager.models import *
 from post_popularity_rate_task.popularity_rate import POST_ACTIONS
+from databases_manager.main_managers.mix_posts import MIX_FOLLOWING, MIX_UNRELEVANT, MIX_HISTORY_POSTS_RELATED
 
 from dotenv import load_dotenv
 from os import getenv
-from typing import List, TypeVar, Type, Tuple
-from uuid import UUID
+from typing import List, TypeVar, Type, Literal, Iterable
 from pydantic_schemas.pydantic_schemas_social import (
     PostSchema,
     PostDataSchemaID,
@@ -25,7 +25,12 @@ class NotImplementedError(Exception):
 load_dotenv()
 
 HISTORY_POSTS_TO_TAKE_INTO_RELATED = int(getenv("HISTORY_POSTS_TO_TAKE_INTO_RELATED", 30))
-REPLY_COST_DEVALUATION = float(getenv("REPLY_COST_DEVALUATION"))
+REPLY_COST_DEVALUATION = float(getenv("REPLY_COST_DEVALUATION")) # TODO: Devaluate multiple replies cost. To prevent popularity rate abuse
+FEED_MAX_POSTS_LOAD = int(getenv("FEED_MAX_POSTS_LOAD"))
+MINIMUM_USER_HISTORY_LENGTH = int(getenv("MINIMUM_USER_HISTORY_LENGTH"))
+
+SHUFFLE_BY_RATE = float(getenv("SHUFFLE_BY_RATE", "0.7"))
+SHUFFLE_BY_TIMESTAMP = float(getenv("SHUFFLE_BY_TIMESTAMP", "0.3"))
 
 T = TypeVar("T", bound=Base)
 
@@ -38,6 +43,17 @@ class MainServiceSocial(MainServiceBase):
             post.popularity_rate += cost
         else:
             post.popularity_rate -= cost
+
+    @staticmethod
+    def extend_list(*lists: Iterable) -> List:
+        to_return = []
+        for lst in lists:
+            to_return.extend(lst)
+        return to_return
+
+    @staticmethod
+    def shuffle_posts(posts: List[Post]) -> List[Post]:
+        return sorted(posts, key=lambda post: (post.popularity_rate * SHUFFLE_BY_RATE, int(post.published.timestamp()) * SHUFFLE_BY_TIMESTAMP))
 
     @staticmethod
     def check_post_user_id(post: Post, user: User) -> None:
@@ -57,7 +73,8 @@ class MainServiceSocial(MainServiceBase):
     async def get_feed(self, user: User, exclude: bool) -> List[PostLiteSchema]:
         """
         Returns related posts to provided User table object view history \n
-        Caution! If `exclude` set to True. It means that user clicked on `Load more` button and we need to update Redis exclude ids with fresh loaded. And ensure that we load non repeating posts
+        It mixes history rated with most popular posts, and newest ones.
+        Caution! If `exclude` set to True. It means that user clicked on `Load more` button and we need to update Redis exclude ids with fresh loaded. And ensure that we load non repeating posts \n
         """
         exclude_ids = []
         if exclude:
@@ -67,24 +84,38 @@ class MainServiceSocial(MainServiceBase):
 
         views_history = await self._PostgresService.get_user_actions(user_id=user.user_id, action_type=ActionType.view, n_most_fresh=HISTORY_POSTS_TO_TAKE_INTO_RELATED, return_posts=True)
 
-        post_ids = await self._ChromaService.get_n_related_posts_ids(user=user, exclude_ids=exclude_ids, views_history=views_history)
-        posts = None
-        if not post_ids:
-            posts, post_ids = await self.get_fresh_feed(exclude_ids=exclude_ids, user=user)
-
-        await self._RedisService.add_exclude_post_ids(post_ids=post_ids, user_id=user.user_id, exclude_type="feed")
+        # History related mix
+        related_ids = []
+        if len(views_history) > MINIMUM_USER_HISTORY_LENGTH:
+            related_ids = await self._ChromaService.get_n_related_posts_ids(user=user, exclude_ids=exclude_ids, views_history=views_history)
         
-        if not posts:
-            posts = await self._PostgresService.get_entries_by_ids(ids=post_ids, ModelType=Post)
-    
+        if not related_ids:
+            related_ids = await self._get_ids_by_query_type(exclude_ids=exclude_ids, user=user, n=MIX_HISTORY_POSTS_RELATED)
+
+        # Following mix
+        following_ids =  await self._get_ids_by_query_type(user=user, exclude_ids=exclude_ids, n=MIX_FOLLOWING, id_type="followed")
+
+        # Mix unrelevant
+        unrelevant_ids = await self._get_ids_by_query_type(user=user, exclude_ids=exclude_ids, n=MIX_UNRELEVANT, id_type="fresh")
+
+        all_ids = self.extend_list(related_ids, following_ids, unrelevant_ids)
+        await self._RedisService.add_exclude_post_ids(post_ids=all_ids, user_id=user.user_id, exclude_type="feed")
+        
+        posts = await self._PostgresService.get_entries_by_ids(ids=all_ids, ModelType=Post)
+
+        posts = self.shuffle_posts(posts=posts)
+
         return [PostLiteSchema.model_validate(post, from_attributes=True) for post in posts]
         
-    async def _get_fresh_feed_ids(self, exclude_ids: List[str], user: User) -> List[str]:
-        posts = await self._PostgresService.get_fresh_posts(user=user, exclude_ids=exclude_ids)
+    async def _get_ids_by_query_type(self, exclude_ids: List[str], user: User, n: int, id_type: Literal["followed", "fresh"]) -> List[str]:
+        posts = []
+        if id_type == "fresh": posts = await self._PostgresService.get_fresh_posts(user=user, exclude_ids=exclude_ids, n=n)
+        elif id_type == "followed": posts = await self._PostgresService.get_followed_posts(user=user, exclude_ids=exclude_ids, n=n)
         return [post.post_id for post in posts]
 
+    # TODO: Implement post excluding
     async def get_followed_posts(self, user: User) -> List[Post]:
-        return await self._PostgresService.get_followed_posts(user=user)
+        return await self._PostgresService.get_followed_posts(user=user, n=FEED_MAX_POSTS_LOAD)
     
     async def search_posts(self, prompt: str, user: User, exclude: bool) -> List[PostLiteSchema]:
         """
@@ -127,7 +158,7 @@ class MainServiceSocial(MainServiceBase):
         await self._PostgresService.refresh_model(post)
 
         await self._ChromaService.add_posts_data(posts=[post])
-        print(post.parent_post)
+
         if post.parent_post:
             parent_post_validated = PostBase.model_validate(post.parent_post, from_attributes=True)
         else:
@@ -154,7 +185,7 @@ class MainServiceSocial(MainServiceBase):
 
         change_rate: bool = True
 
-        if await self._PostgresService.get_action(user_id=user.user_id, post_id=post.post_id, action_type=action_type):
+        if await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=action_type):
             if action_type == ActionType.view:
                 change_rate = False
                 if not await self._RedisService.check_view_timeout(id_=post.post_id, user_id=user.user_id):
@@ -178,7 +209,7 @@ class MainServiceSocial(MainServiceBase):
         await self._PostgresService.insert_models_and_flush(action)
 
     async def remove_action(self, user: User, post: Post, action_type: ActionType) -> None:
-        potential_action = await self._PostgresService.get_action(user_id=user.user_id, post_id=post.post_id, action_type=action_type)
+        potential_action = await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=action_type)
         if not potential_action:
             raise HTTPException(status_code=400, detail=f"Action '{action_type} was not given to this post'")
         
@@ -256,8 +287,8 @@ class MainServiceSocial(MainServiceBase):
 
         await self._construct_and_flush_action(action_type=ActionType.view, post=post, user=user)
 
-        liked_by = await self._PostgresService.get_users_that_left_action(post_id=post.post_id, action_type=ActionType.like) 
-        viewed_by = await self._PostgresService.get_users_that_left_action(post_id=post.post_id, action_type=ActionType.view) 
+        liked_by = await self._PostgresService.get_post_action_by_type(post_id=post.post_id, action_type=ActionType.like) 
+        viewed_by = await self._PostgresService.get_post_action_by_type(post_id=post.post_id, action_type=ActionType.view) 
 
         viewed_by_validated = None
 

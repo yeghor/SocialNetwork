@@ -13,7 +13,6 @@ from uuid import UUID
 Models = TypeVar("Models", bound=Base)
 
 FEED_MAX_POSTS_LOAD = int(getenv("FEED_MAX_POSTS_LOAD"))
-N_MAX_FRESH_POSTS_TO_MIX = int(getenv("N_MAX_FRESH_POSTS_TO_MIX"))
 
 MAX_FOLLOWED_POSTS_TO_SHOW = int(getenv("MAX_FOLLOWED_POSTS_TO_SHOW"))
 
@@ -57,14 +56,16 @@ class PostgresService:
         return result.scalar()
 
     @postgres_error_handler(action="Get fresh feed")
-    async def get_fresh_posts(self, user: User, exclude_ids: List[str] = []) -> List[Post]:
+    async def get_fresh_posts(self, user: User, exclude_ids: List[str] = [], n: int = FEED_MAX_POSTS_LOAD) -> List[Post]:
         result = await self.__session.execute(
             select(Post)
             .where(and_(Post.owner_id != user.user_id, Post.post_id not in exclude_ids))
             .order_by(Post.popularity_rate.desc(), Post.published.desc())
-            .limit(FEED_MAX_POSTS_LOAD)
+            .limit(n)
         )
         return result.scalars().all()
+
+    @postgres_error_handler(action="Get new posts")
 
     # @validate_n_postitive
     # @postgres_error_handler(action="Get subcribers posts")
@@ -173,17 +174,20 @@ class PostgresService:
         return result.scalar()
     
     @postgres_error_handler(action="Get followed users posts")
-    async def get_followed_posts(self, user: User) -> List[List[Post]]:
+    async def get_followed_posts(self, user: User, n: int, exclude_ids: List[str] = []) -> List[Post]:
         # Getting new user, because merged instances may not include loaded relationships
+        if n <= 0:
+            raise ValueError("Invalid number of posts requested")
+        
         user = await self.get_user_by_id(user_id=user.user_id)
 
         followed_ids = [followed.user_id for followed in user.followed]
 
         result = await self.__session.execute(
             select(Post)
-            .where(Post.owner_id.in_(followed_ids))
+            .where(and_(Post.owner_id.in_(followed_ids), Post.post_id.not_in(exclude_ids)))
             .order_by(Post.popularity_rate.desc(), Post.published.desc())
-            .limit(FEED_MAX_POSTS_LOAD)
+            .limit(n)
         )
         return result.scalars().all()
 
@@ -208,15 +212,16 @@ class PostgresService:
             return result.scalar()
 
     @postgres_error_handler(action="Get action")
-    async def get_action(self, user_id: str, post_id: str, action_type: ActionType) -> PostActions:
+    async def get_actions(self, user_id: str, post_id: str, action_type: ActionType) -> List[PostActions]:
+        """Return **list** of actions. Even if you specified `action_type` as single action"""
         result = await self.__session.execute(
             select(PostActions)
             .where(and_(PostActions.owner_id == user_id, PostActions.action == action_type, PostActions.post_id == post_id))
         )
         return result.scalars().all()
 
-    @postgres_error_handler(action="Get users that liked post")
-    async def get_users_that_left_action(self, post_id: str, action_type: ActionType) -> List[User]:
+    @postgres_error_handler(action="Get actions on post by specified type")
+    async def get_post_action_by_type(self, post_id: str, action_type: ActionType) -> List[User]:
         result = await self.__session.execute(
             select(PostActions)
             .where(and_(PostActions.post_id == post_id, PostActions.action == action_type))

@@ -10,6 +10,8 @@ from databases_manager.postgres_manager.models import Post, User
 from databases_manager.postgres_manager.validate_n_postive import validate_n_postitive
 from uuid import UUID
 from fastapi import HTTPException
+from datetime import datetime
+from databases_manager.main_managers.mix_posts import MIX_HISTORY_POSTS_RELATED, FEED_MAX_POSTS_LOAD
 
 load_dotenv()
 
@@ -17,9 +19,11 @@ PROD_COLLECTION_NAME = getenv("CHROMADB_PROD_COLLECTION_NAME")
 TEST_COLLECTION_NAME = getenv("CHROMADB_TEST_COLLECTION_NAME")
 PORT = int(getenv("CHROMADB_PORT"))
 
+DATETIME_BASE_FORMAT = getenv("DATETIME_BASE_FORMAT")
+
 HISTORY_POSTS_TO_TAKE_INTO_RELATED = int(getenv("HISTORY_POSTS_TO_TAKE_INTO_RELATED"))
-N_MAX_HISTORY_POSTS_SHOW = int(getenv("N_MAX_HISTORY_POSTS_SHOW"))
-FEED_MAX_POSTS_LOAD = int(getenv("FEED_MAX_POSTS_LOAD"))
+
+GET_EXTRA_CHROMADB_RELATED_RESULTS = int(getenv("GET_EXTRA_CHROMADB_RELATED_RESULTS"))
 
 class EmptyPostsError(Exception):
     pass    
@@ -40,8 +44,10 @@ def chromaDB_error_handler(func):
 class ChromaService:
     @staticmethod
     def extract_ids_from_metadata(result, exclude_ids: List[str] = []) -> List[str]:
-        post_ids = [str(meta["post_id"]) for meta in result["metadatas"][0]]
-        return [id_ for id_ in post_ids if id_ not in exclude_ids]
+        metadatas = sorted(result["metadatas"][0], key=lambda meta: meta["published"], reverse=True)
+        post_ids = [str(meta["post_id"]) for meta in metadatas]
+        excluded_ids = [id_ for id_ in post_ids if id_ not in exclude_ids]
+        return excluded_ids[:MIX_HISTORY_POSTS_RELATED]
 
 
     def __init__(self, client: AsyncClientAPI, collection: Collection, mode: str):
@@ -88,7 +94,7 @@ class ChromaService:
         
 
     @chromaDB_error_handler
-    async def get_n_related_posts_ids(self, user: User, exclude_ids: List[str], views_history: List[Post], n: int = FEED_MAX_POSTS_LOAD) -> List[str]:
+    async def get_n_related_posts_ids(self, user: User, exclude_ids: List[str], views_history: List[Post], n: int = FEED_MAX_POSTS_LOAD)-> List[str]:
         """Get n posts related to user's history \n If user history empty - return [] \n `views_history` Must be list of Posts in descending view date."""
 
         if not views_history:
@@ -96,7 +102,7 @@ class ChromaService:
 
         related_posts = await self.__collection.query(
             query_texts=[f"{post.title} {post.text} {post.published.strftime(self._datetime_format)}" for post in views_history],
-            n_results=(n + len(exclude_ids))
+            n_results=(n + len(exclude_ids) + GET_EXTRA_CHROMADB_RELATED_RESULTS)
         )
 
         return self.extract_ids_from_metadata(result=related_posts, exclude_ids=exclude_ids)
@@ -116,7 +122,7 @@ class ChromaService:
         await self.__collection.upsert(
             ids=[str(post.post_id) for post in filtered_posts],
             documents=[f"{post.title} {post.text} {post.published.strftime(self._datetime_format)}" for post in filtered_posts],
-            metadatas=[{"post_id": str(post.post_id)} for post in filtered_posts]
+            metadatas=[{"post_id": str(post.post_id), "published": int(post.published.timestamp())} for post in filtered_posts]
         )
 
     @chromaDB_error_handler
