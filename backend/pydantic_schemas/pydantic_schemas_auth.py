@@ -1,8 +1,9 @@
-from pydantic import BaseModel, field_validator, ValidationInfo, Field
+from pydantic import BaseModel, field_validator, ValidationInfo, Field, model_validator
 from datetime import datetime
 from typing import Any, List
 from uuid import UUID
 from dotenv import load_dotenv
+from typing_extensions import Self
 from os import getenv
 import re
 from fastapi import HTTPException
@@ -38,7 +39,7 @@ class PayloadJWT(BaseModel):
         return value
 
 
-# Login Register
+# Body forms
 # ==============
 class LoginSchema(BaseModel):
     username: str = Field(..., min_length=USERNAME_MIN_L, max_length=USERNAME_MAX_L)
@@ -61,6 +62,21 @@ class RegisterSchema(LoginSchema):
             raise HTTPException(status_code=400, detail="Invalid password data type")
         validate_password(value)
         return value
+    
+class OldNewPassword(BaseModel):
+    old_password: str
+    new_password: str = Field(..., min_length=PASSWORD_MIN_L, max_length=PASSWORD_MAX_L)
+
+
+    @model_validator
+    def match_passwords(self) -> Self:
+        if self.old_password == self.new_password:
+            raise ValueError("Old password can not match the new one!")
+        return self
+
+class NewUsername(BaseModel):
+    new_username: str = Field(..., min_length=USERNAME_MIN_L, max_length=USERNAME_MAX_L)
+
 # =============
 
 

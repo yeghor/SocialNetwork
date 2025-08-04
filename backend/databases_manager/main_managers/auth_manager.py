@@ -7,13 +7,14 @@ from pydantic_schemas.pydantic_schemas_auth import (
     RefreshTokenSchema,
     AccesTokenSchema,
     LoginSchema,
-    RefreshAccesTokens
-    )
+    RefreshAccesTokens,
+    OldNewPassword,
+    NewUsername
+)
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 from uuid import uuid4
-
 
 class MainServiceAuth(MainServiceBase):
     async def authorize_request(self, token: str, return_user: bool = True) -> User | None:
@@ -30,7 +31,7 @@ class MainServiceAuth(MainServiceBase):
         
         return None
 
-    async def register(self, credentials: RegisterSchema, avatar: bytes) -> RefreshAccesTokens:
+    async def register(self, credentials: RegisterSchema) -> RefreshAccesTokens:
         if await self._PostgresService.get_user_by_username_or_email(username=credentials.username, email=credentials.email):
             raise HTTPException(status_code=409, detail="Registered account with these credetials already exists")
 
@@ -83,3 +84,18 @@ class MainServiceAuth(MainServiceBase):
 
         await self._RedisService.refresh_acces_token(old_token=old_acces_token, new_token=new_acces_token.acces_token, user_id=user_id)
         return new_acces_token
+    
+    async def change_password(self, user: User, credentials: OldNewPassword) -> None:
+        if not password_manager.check_password(entered_pass=credentials.old_password, hashed_pass=user.password_hash):
+            raise HTTPException(status_code=401, detail="Old password didn't match")
+
+        new_password_hashed = password_manager.hash_password(raw_pass=credentials.new_password)
+        await self._PostgresService.change_field_and_flush(Model=user, password_hash=new_password_hashed)
+
+    async def change_username(self, user: User, credentials: NewUsername) -> None:
+        new_username = credentials.new_username
+
+        if user.username != credentials.new_username:
+            raise HTTPException(status_code=400, detail="New username can't be the same with an old one")
+
+        await self._PostgresService.change_field_and_flush(Model=User, username=new_username)

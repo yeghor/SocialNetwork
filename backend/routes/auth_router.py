@@ -3,13 +3,19 @@ from databases_manager.postgres_manager.database_utils import get_session_depend
 from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
 from databases_manager.main_managers.auth_manager import MainServiceAuth
 from sqlalchemy.ext.asyncio import AsyncSession
+from authorization.authorization import authorize_request_depends
+from databases_manager.postgres_manager.database_utils import merge_model
+from databases_manager.postgres_manager.models import User
 from pydantic_schemas.pydantic_schemas_auth import (
     LoginSchema,
     RegisterSchema,
     RefreshAccesTokens,
     AccesTokenSchema,
-    RefreshAccesTokensProvided
+    RefreshAccesTokensProvided,
+    OldNewPassword,
+    NewUsername
 )
+from pydantic_schemas.pydantic_schemas_social import UserSchema
 
 auth = APIRouter()
 
@@ -24,13 +30,11 @@ async def login(
 
 @auth.post("/register")
 async def register(
-    file: UploadFile,
     credentials: RegisterSchema = Body(...),
     session: AsyncSession = Depends(get_session_depends)
     ) -> RefreshAccesTokens:
-    byte_avatar = await file.read()
     async with await MainServiceContextManager[MainServiceAuth].create(MainServiceType=MainServiceAuth, postgres_session=session) as main_service:
-        response = await main_service.register(credentials=credentials, avatar=byte_avatar)
+        response = await main_service.register(credentials=credentials)
         return response
 
 
@@ -52,3 +56,23 @@ async def refresh_token(
         response = await main_service.refresh_token(refresh_token=token)
         print(response)
         return response
+
+@auth.patch("/users/my-profile/password")
+async def change_password(
+    credentials: OldNewPassword = Body(...),
+    user_: User = Depends(authorize_request_depends),
+    session: AsyncSession = Depends(get_session_depends)
+) -> UserSchema:
+    user = await merge_model(postgres_session=session, model_obj=user_)
+    async with await MainServiceContextManager[MainServiceAuth].create(postgres_session=session, MainServiceType=MainServiceAuth) as social:
+        await social.change_password(user=user, credentials=credentials)
+
+@auth.patch("/users/my-profile/username")
+async def change_username(
+    credentials: NewUsername = Body(...),
+    user_: User = Depends(authorize_request_depends),
+    session: AsyncSession = Depends(get_session_depends)
+) -> UserSchema:
+    user = await merge_model(postgres_session=session, model_obj=user_)
+    async with await MainServiceContextManager[MainServiceAuth].create(postgres_session=session, MainServiceType=MainServiceAuth) as social:
+        await social.change_username(user=user, credentials=credentials)

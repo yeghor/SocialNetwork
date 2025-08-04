@@ -161,14 +161,6 @@ async def unfollow(
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         await social.friendship_action(user=user, other_user_id=follow_to_id, follow=False)
 
-@social.patch("/users/my-profile/password")
-async def change_password() -> UserSchema:
-    pass
-
-@social.patch("/users/my-profile/username")
-async def change_username() -> UserSchema:
-    pass
-
 @social.get("/users/{user_id}")
 async def get_user_profile(
     user_id: str | None,
