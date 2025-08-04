@@ -4,6 +4,7 @@ from databases_manager.postgres_manager.database_utils import get_session
 from databases_manager.postgres_manager.models import User, Post, Base, PostActions, ActionType
 from post_popularity_rate_task.popularity_rate import POST_ACTIONS
 from databases_manager.postgres_manager.postgres_manager import PostgresService
+from databases_manager.chromaDB_manager.chroma_manager import ChromaService
 from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
 from databases_manager.main_managers.social_manager import MainServiceSocial
 from databases_manager.main_managers.auth_manager import MainServiceAuth

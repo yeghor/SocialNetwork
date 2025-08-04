@@ -12,7 +12,6 @@ from pydantic_schemas.pydantic_schemas_auth import (
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
-from typing import List        
 from uuid import uuid4
 
 
@@ -31,7 +30,7 @@ class MainServiceAuth(MainServiceBase):
         
         return None
 
-    async def register(self, credentials: RegisterSchema) -> RefreshAccesTokens:
+    async def register(self, credentials: RegisterSchema, avatar: bytes) -> RefreshAccesTokens:
         if await self._PostgresService.get_user_by_username_or_email(username=credentials.username, email=credentials.email):
             raise HTTPException(status_code=409, detail="Registered account with these credetials already exists")
 

@@ -62,7 +62,7 @@ class ChromaService:
 
     @classmethod
     @chromaDB_error_handler
-    async def connect(cls, mode: str = "prod") -> None:
+    async def connect(cls, mode: str = "prod") -> "ChromaService":
         if not mode in ("prod", "test"):
             raise ValueError("Invalid chromaDB database mode")
         

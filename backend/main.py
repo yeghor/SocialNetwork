@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncEngine
 from routes import auth_router, social_router
 from databases_manager.postgres_manager.models import *
@@ -11,7 +12,7 @@ from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 import redis.asyncio as async_redis
 import uvicorn
-from os import getenv
+from os import getenv, mkdir
 from dotenv import load_dotenv
 from post_popularity_rate_task.popularity_rate import update_post_rates
 
@@ -79,6 +80,13 @@ app.add_middleware(
 
 app.include_router(auth_router.auth)
 app.include_router(social_router.social)
+
+try:
+    mkdir("images")
+except FileExistsError:
+    pass
+
+app.mount("/images", StaticFiles(directory="images"), name="images")
 
 # for debug
 if __name__ == "__main__":

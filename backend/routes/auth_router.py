@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Body, Header
+from fastapi import APIRouter, Depends, Body, Header, File, UploadFile
 from databases_manager.postgres_manager.database_utils import get_session_depends
 from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
 from databases_manager.main_managers.auth_manager import MainServiceAuth
@@ -24,11 +24,13 @@ async def login(
 
 @auth.post("/register")
 async def register(
+    file: UploadFile,
     credentials: RegisterSchema = Body(...),
     session: AsyncSession = Depends(get_session_depends)
     ) -> RefreshAccesTokens:
+    byte_avatar = await file.read()
     async with await MainServiceContextManager[MainServiceAuth].create(MainServiceType=MainServiceAuth, postgres_session=session) as main_service:
-        response = await main_service.register(credentials=credentials)
+        response = await main_service.register(credentials=credentials, avatar=byte_avatar)
         return response
 
 

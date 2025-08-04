@@ -78,13 +78,17 @@ class Post(Base):
     # Add constraits!!!
     title: Mapped[str] = mapped_column()
     text: Mapped[str]
-    image_path: Mapped[str] = mapped_column(nullable=True)
     published: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     last_updated: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
 
     owner: Mapped["User"] = relationship(
         "User",
         back_populates="posts",
+        lazy="selectin"
+    )
+
+    image_paths: Mapped[List["PostPictures"]] = relationship(
+        "PostPictures",
         lazy="selectin"
     )
 
@@ -126,6 +130,13 @@ class Post(Base):
 
     def __repr__(self):
         return f"Post name: {self.title} | Rate: {self.popularity_rate}"
+
+class PostPictures(Base):
+    __tablename__ = "postpictures"
+    
+    picture_id: Mapped[str] = mapped_column(primary_key=True)
+    post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"))
+    image_path: Mapped[str]
 
 
 # Self referential m2m
