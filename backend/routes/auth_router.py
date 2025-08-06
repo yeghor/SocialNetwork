@@ -30,13 +30,13 @@ async def login(
 
 @auth.post("/register")
 async def register(
+    avatar: UploadFile,
     credentials: RegisterSchema = Body(...),
     session: AsyncSession = Depends(get_session_depends)
     ) -> RefreshAccesTokens:
     async with await MainServiceContextManager[MainServiceAuth].create(MainServiceType=MainServiceAuth, postgres_session=session) as main_service:
-        response = await main_service.register(credentials=credentials)
+        response = await main_service.register(credentials=credentials, avatar_contents=await avatar.read(), avatar_content_type=avatar.content_type)
         return response
-
 
 @auth.post("/logout")
 async def logout(
@@ -54,7 +54,6 @@ async def refresh_token(
 ) -> AccesTokenSchema:
     async with await MainServiceContextManager[MainServiceAuth].create(MainServiceType=MainServiceAuth, postgres_session=session) as main_service:
         response = await main_service.refresh_token(refresh_token=token)
-        print(response)
         return response
 
 @auth.patch("/users/my-profile/password")

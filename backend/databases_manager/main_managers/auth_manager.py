@@ -1,4 +1,5 @@
 from databases_manager.main_managers.main_manager_creator_abs import MainServiceBase, MainServiceContextManagerABS
+from main_managers.image_manager import ImageService
 
 from authorization import password_manager, jwt_manager
 from databases_manager.postgres_manager.models import User, Post
@@ -13,8 +14,12 @@ from pydantic_schemas.pydantic_schemas_auth import (
 )
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import UploadFile
 from fastapi import HTTPException
 from uuid import uuid4
+import os
+
+POST_IMAGE_MAX_SIZE_MB = int(os.getenv("POST_IMAGE_MAX_SIZE_MB", "25"))
 
 class MainServiceAuth(MainServiceBase):
     async def authorize_request(self, token: str, return_user: bool = True) -> User | None:
@@ -31,7 +36,10 @@ class MainServiceAuth(MainServiceBase):
         
         return None
 
-    async def register(self, credentials: RegisterSchema) -> RefreshAccesTokens:
+    async def register(self, credentials: RegisterSchema, avatar_content_type: str, avatar_contents: bytes) -> RefreshAccesTokens:
+        if not ImageService.validate_image(content_type=avatar_content_type, readed_data=avatar_contents):
+            raise HTTPException(status_code=400, detail=f"Bad image type or size. Up to {POST_IMAGE_MAX_SIZE_MB}")
+
         if await self._PostgresService.get_user_by_username_or_email(username=credentials.username, email=credentials.email):
             raise HTTPException(status_code=409, detail="Registered account with these credetials already exists")
 
@@ -43,6 +51,8 @@ class MainServiceAuth(MainServiceBase):
             password_hash=password_hash
         )
         await self._PostgresService.insert_models_and_flush(new_user)
+
+        await self._S3Service.upload_avatar_user(contents=avatar_contents, extension=avatar_content_type, user_id=new_user.user_id)
 
         return await self._JWT.generate_refresh_acces_token(user_id=new_user.user_id, redis=self._RedisService)
 

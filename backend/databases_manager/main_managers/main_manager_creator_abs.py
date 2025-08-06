@@ -1,8 +1,10 @@
 from databases_manager.postgres_manager.models import *
+from main_managers.s3_aws import S3Service
 from authorization import jwt_manager
 
+
 from abc import ABC, abstractmethod
-from typing import Type
+from typing import Type, Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import TypeVar, Generic
@@ -65,20 +67,22 @@ class MainServiceBase(MainServiceABC):
     Take into account that SQLalchemy AsyncSession requires outer close handling - THIS CLASS DOESN'T CLOSE SQLalhemy AsyncSession.
     """
 
-    def __init__(self, Chroma: ChromaService, Redis: RedisService, Postgres: PostgresService):
+    def __init__(self, Chroma: ChromaService, Redis: RedisService, Postgres: PostgresService, S3: S3Service):
         self._PostgresService = Postgres
         self._RedisService = Redis
         self._ChromaService = Chroma
+        self._S3Service = S3
 
         self._JWT = jwt_manager.JWTService
 
     @classmethod
-    async def create(cls, postgres_session: AsyncSession, mode: str = "prod") -> "MainServiceABC":
+    async def create(cls, postgres_session: AsyncSession, mode: Literal["prod", "test"] = "prod") -> "MainServiceABC":
         """Postgres AsyncSession needs to be closed manualy!"""
         Postgres = PostgresService(postgres_session=postgres_session)
         Redis = RedisService(db_pool=mode)
         ChromaDB = await ChromaService.connect(mode=mode)
-        return cls(Chroma=ChromaDB, Redis=Redis, Postgres=Postgres)
+        S3 = S3Service(mode=mode)
+        return cls(Chroma=ChromaDB, Redis=Redis, Postgres=Postgres, S3=S3)
     
     async def finish(self, commit_postgres: bool = True) -> None:
         # If i'm not mistaken, chromaDB doesn't require connection close
