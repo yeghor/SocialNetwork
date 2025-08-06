@@ -76,3 +76,4 @@ async def change_username(
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceAuth].create(postgres_session=session, MainServiceType=MainServiceAuth) as social:
         await social.change_username(user=user, credentials=credentials)
+ 
