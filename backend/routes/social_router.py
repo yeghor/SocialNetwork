@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Body, Query, HTTPException
 from databases_manager.postgres_manager.database_utils import get_session_depends, merge_model
-from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
+from databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
 from databases_manager.main_managers.social_manager import MainServiceSocial
 from authorization.authorization import authorize_request_depends
 from pydantic_schemas.pydantic_schemas_social import (

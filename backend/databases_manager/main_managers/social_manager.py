@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 
-from databases_manager.main_managers.main_manager_creator_abs import MainServiceBase
+from databases_manager.main_managers.services_creator_abstractions import MainServiceBase
 from databases_manager.postgres_manager.models import *
 from post_popularity_rate_task.popularity_rate import POST_ACTIONS
 from databases_manager.main_managers.mix_posts import MIX_FOLLOWING, MIX_UNRELEVANT, MIX_HISTORY_POSTS_RELATED
@@ -37,6 +37,7 @@ T = TypeVar("T", bound=Base)
 class IdsPostTuple(NamedTuple):
     ids: List[str]
     posts: List[Post]
+
 
 class MainServiceSocial(MainServiceBase):
     @staticmethod
@@ -126,7 +127,6 @@ class MainServiceSocial(MainServiceBase):
         if return_posts_too: return (ids, posts)
         else: return ids
 
-    # TODO: Implement post excluding
     async def get_followed_posts(self, user: User, exclude: bool) -> List[PostLiteSchema]:
         exclude_ids = []
         if exclude:
@@ -174,7 +174,6 @@ class MainServiceSocial(MainServiceBase):
             parent_post_id=data.parent_post_id,
             title=data.title,
             text=data.text,
-            image_path=None, # TODO: implement image uploads
             is_reply=bool(data.parent_post_id)
         )
 
@@ -193,7 +192,6 @@ class MainServiceSocial(MainServiceBase):
             owner=UserShortSchema.model_validate(user, from_attributes=True),
             title=post.title,
             text=post.text,
-            image_path=None, # TODO 
             last_updated=post.last_updated,
             published=post.published,
             parent_post=parent_post_validated,

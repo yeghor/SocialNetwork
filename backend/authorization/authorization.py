@@ -15,7 +15,7 @@ async def authorize_request_depends(token: str = Header(..., title="Authorizatio
     """User with fastAPI Depends()"""
 
     # To prevent circular import
-    from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
+    from backend.databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
     from databases_manager.main_managers.auth_manager import MainServiceAuth
 
     session = await get_session()

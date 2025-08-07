@@ -1,5 +1,5 @@
 from databases_manager.postgres_manager.models import *
-from main_managers.s3_aws import S3Service
+from databases_manager.main_managers.storage import S3Storage
 from authorization import jwt_manager
 
 
@@ -67,7 +67,7 @@ class MainServiceBase(MainServiceABC):
     Take into account that SQLalchemy AsyncSession requires outer close handling - THIS CLASS DOESN'T CLOSE SQLalhemy AsyncSession.
     """
 
-    def __init__(self, Chroma: ChromaService, Redis: RedisService, Postgres: PostgresService, S3: S3Service):
+    def __init__(self, Chroma: ChromaService, Redis: RedisService, Postgres: PostgresService, S3: S3Storage):
         self._PostgresService = Postgres
         self._RedisService = Redis
         self._ChromaService = Chroma
@@ -81,7 +81,7 @@ class MainServiceBase(MainServiceABC):
         Postgres = PostgresService(postgres_session=postgres_session)
         Redis = RedisService(db_pool=mode)
         ChromaDB = await ChromaService.connect(mode=mode)
-        S3 = S3Service(mode=mode)
+        S3 = S3Storage(mode=mode)
         return cls(Chroma=ChromaDB, Redis=Redis, Postgres=Postgres, S3=S3)
     
     async def finish(self, commit_postgres: bool = True) -> None:
@@ -112,3 +112,4 @@ class MainServiceContextManager(Generic[ServiceType], MainServiceContextManagerA
     
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         await self.main_service.finish(commit_postgres=not exc_type)
+        pass

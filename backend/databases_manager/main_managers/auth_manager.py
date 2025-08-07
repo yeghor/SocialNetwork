@@ -1,5 +1,4 @@
-from databases_manager.main_managers.main_manager_creator_abs import MainServiceBase, MainServiceContextManagerABS
-from main_managers.image_manager import ImageService
+from databases_manager.main_managers.services_creator_abstractions import MainServiceBase, MainServiceContextManagerABS
 
 from authorization import password_manager, jwt_manager
 from databases_manager.postgres_manager.models import User, Post
@@ -36,10 +35,7 @@ class MainServiceAuth(MainServiceBase):
         
         return None
 
-    async def register(self, credentials: RegisterSchema, avatar_content_type: str, avatar_contents: bytes) -> RefreshAccesTokens:
-        if not ImageService.validate_image(content_type=avatar_content_type, readed_data=avatar_contents):
-            raise HTTPException(status_code=400, detail=f"Bad image type or size. Up to {POST_IMAGE_MAX_SIZE_MB}")
-
+    async def register(self, credentials: RegisterSchema, avatar_mime_type: str, avatar_contents: bytes) -> RefreshAccesTokens:
         if await self._PostgresService.get_user_by_username_or_email(username=credentials.username, email=credentials.email):
             raise HTTPException(status_code=409, detail="Registered account with these credetials already exists")
 
@@ -52,7 +48,8 @@ class MainServiceAuth(MainServiceBase):
         )
         await self._PostgresService.insert_models_and_flush(new_user)
 
-        await self._S3Service.upload_avatar_user(contents=avatar_contents, extension=avatar_content_type, user_id=new_user.user_id)
+        if avatar_contents and avatar_mime_type:
+            await self._S3Service.upload_avatar_user(contents=avatar_contents, mime_type=avatar_mime_type, user_id=new_user.user_id)
 
         return await self._JWT.generate_refresh_acces_token(user_id=new_user.user_id, redis=self._RedisService)
 

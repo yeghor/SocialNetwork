@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, Body, Header, File, UploadFile
+from fastapi import APIRouter, Depends, Body, Header, File, UploadFile, Form
 from databases_manager.postgres_manager.database_utils import get_session_depends
-from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
+from databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
 from databases_manager.main_managers.auth_manager import MainServiceAuth
 from sqlalchemy.ext.asyncio import AsyncSession
 from authorization.authorization import authorize_request_depends
@@ -30,12 +30,20 @@ async def login(
 
 @auth.post("/register")
 async def register(
-    avatar: UploadFile,
-    credentials: RegisterSchema = Body(...),
+    file: UploadFile | None = File(default=None),
+    username = Form(...),
+    email = Form(...),
+    password = Form(...),
     session: AsyncSession = Depends(get_session_depends)
     ) -> RefreshAccesTokens:
+    credentials = RegisterSchema(username=username, email=email, password=password)
     async with await MainServiceContextManager[MainServiceAuth].create(MainServiceType=MainServiceAuth, postgres_session=session) as main_service:
-        response = await main_service.register(credentials=credentials, avatar_contents=await avatar.read(), avatar_content_type=avatar.content_type)
+        readed_image, content_type = None, None 
+        if file:
+            readed_image = await file.read()
+            content_type = file.content_type
+
+        response = await main_service.register(credentials=credentials, avatar_contents=readed_image, avatar_mime_type=content_type)
         return response
 
 @auth.post("/logout")

@@ -6,7 +6,7 @@ from databases_manager.postgres_manager.models import *
 from databases_manager.postgres_manager.database import engine, initialize_models, drop_all
 from databases_manager.postgres_manager.database_utils import get_session
 from databases_manager.main_managers.social_manager import MainServiceSocial
-from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
+from databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
 from databases_manager.chromaDB_manager.chroma_manager import EmptyPostsError
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
