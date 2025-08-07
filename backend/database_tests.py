@@ -5,7 +5,7 @@ from databases_manager.postgres_manager.models import User, Post, Base, PostActi
 from post_popularity_rate_task.popularity_rate import POST_ACTIONS
 from databases_manager.postgres_manager.postgres_manager import PostgresService
 from databases_manager.chromaDB_manager.chroma_manager import ChromaService
-from backend.databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
+from databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
 from databases_manager.main_managers.social_manager import MainServiceSocial
 from databases_manager.main_managers.auth_manager import MainServiceAuth
 from sqlalchemy.orm import close_all_sessions
