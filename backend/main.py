@@ -86,7 +86,7 @@ try:
 except FileExistsError:
     pass
 
-app.mount("/images", StaticFiles(directory="images"), name="images")
+app.mount("/media", StaticFiles(directory="media"), name="media")
 
 # for debug
 if __name__ == "__main__":

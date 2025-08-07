@@ -131,13 +131,6 @@ class Post(Base):
     def __repr__(self):
         return f"Post name: {self.title} | Rate: {self.popularity_rate}"
 
-class PostPictures(Base):
-    __tablename__ = "postpictures"
-    
-    picture_id: Mapped[str] = mapped_column(primary_key=True)
-    post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"))
-    image_path: Mapped[str]
-
 
 # Self referential m2m
 class Friendship(Base):

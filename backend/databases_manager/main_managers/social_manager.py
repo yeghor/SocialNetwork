@@ -163,7 +163,7 @@ class MainServiceSocial(MainServiceBase):
         users = await self._PostgresService.get_users_by_username(prompt=prompt)
         return [UserLiteSchema.model_validate(user, from_attributes=True) for user in users if user.user_id != request_user.user_id]
         
-    async def construct_and_flush_post(self, data: MakePostDataSchema, user: User) -> PostSchema:
+    async def make_post(self, data: MakePostDataSchema, user: User) -> PostSchema:
         if data.parent_post_id:
             if not await self._PostgresService.get_entry_by_id(id_=data.parent_post_id):
                 raise HTTPException(status_code=400, detail="Youre replying to post that dosen't exist")
@@ -333,3 +333,4 @@ class MainServiceSocial(MainServiceBase):
             replies=post.replies,
             last_updated=post.last_updated
         )
+    

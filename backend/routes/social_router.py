@@ -87,7 +87,7 @@ async def make_post(
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         print("Validated user data")
-        return await social.construct_and_flush_post(data=post_data, user=user)
+        return await social.make_post(data=post_data, user=user)
 
 @social.get("/posts/{post_id}")
 async def load_post(
