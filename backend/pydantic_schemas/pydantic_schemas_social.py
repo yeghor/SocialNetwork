@@ -46,7 +46,6 @@ class UserIDValidate(BaseModel):
 
 class PostBaseShort(PostIDValidate):
     title: str
-    image_path: str | None
     published: datetime
 
 class PostBase(PostBaseShort):
@@ -68,6 +67,8 @@ class PostSchema(PostBase):
 
     parent_post: PostBase | None
 
+    pictures_urls: List[str]
+
     # Owner stats. Private field: post_id == user_id
     viewed_by: List[UserShortSchema] | None = None
 
@@ -75,7 +76,6 @@ class PostSchema(PostBase):
 # =====================
 
 class UserShortSchema(UserIDValidate):
-    image_path: str | None
     username: str
 
 class UserLiteSchema(UserShortSchema):

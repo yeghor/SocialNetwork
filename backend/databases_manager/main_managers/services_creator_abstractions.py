@@ -1,5 +1,5 @@
 from databases_manager.postgres_manager.models import *
-from databases_manager.main_managers.storage import StorageABC, S3Storage, LocalStorage
+from databases_manager.main_managers.s3_image_storage import StorageABC, S3Storage, LocalStorage
 from authorization import jwt_manager
 
 
@@ -87,8 +87,8 @@ class MainServiceBase(MainServiceABC):
     
         prepared_env_use_s3 = USE_S3_BOOL_STRING.lower().strip()
 
-        if prepared_env_use_s3 == "true": Storage = S3Storage
-        elif prepared_env_use_s3 == "false": Storage = LocalStorage
+        if prepared_env_use_s3 == "true": Storage = S3Storage(mode=mode)
+        elif prepared_env_use_s3 == "false": Storage = LocalStorage(mode=mode)
         else: raise ValueError("Invalid USE_S3 dotenv variable value. Read comment #")
         
         return cls(Chroma=ChromaDB, Redis=Redis, Postgres=Postgres, ImageStorage=Storage)

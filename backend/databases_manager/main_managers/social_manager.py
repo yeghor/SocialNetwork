@@ -187,6 +187,9 @@ class MainServiceSocial(MainServiceBase):
         else:
             parent_post_validated = None
 
+        # TODO: Implement pictures adding!!!
+        urls = []
+
         return PostSchema(
             post_id=post.post_id,
             owner=UserShortSchema.model_validate(user, from_attributes=True),
@@ -195,7 +198,8 @@ class MainServiceSocial(MainServiceBase):
             last_updated=post.last_updated,
             published=post.published,
             parent_post=parent_post_validated,
-            replies=[]
+            replies=[],
+            pictures_urls=urls
         )
 
     async def _construct_and_flush_action(self, action_type: ActionType, user: User, post: Post = None) -> None:
@@ -318,6 +322,8 @@ class MainServiceSocial(MainServiceBase):
             viewed_by_validated = [UserShortSchema.model_validate(action.owner, from_attributes=True) for action in viewed_by if action]
         liked_by_validated = [UserShortSchema.model_validate(action.owner, from_attributes=True) for action in liked_by if action]
 
+        pictures_urls = await self._ImageStorage.get_post_image_urls(post_id=post_id)
+
         return PostSchema(
             post_id=post.post_id,
             title=post.title,
@@ -331,6 +337,7 @@ class MainServiceSocial(MainServiceBase):
             views=len(viewed_by),
             parent_post=post.parent_post,
             replies=post.replies,
-            last_updated=post.last_updated
+            last_updated=post.last_updated,
+            pictures_urls=pictures_urls
         )
     

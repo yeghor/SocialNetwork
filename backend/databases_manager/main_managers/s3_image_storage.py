@@ -6,13 +6,15 @@ from aiobotocore.session import get_session
 import os
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
-from typing import List, Literal
+from typing import List, Literal, Tuple, Dict
 
 
 load_dotenv()
 POST_IMAGE_MAX_SIZE_MB = int(os.getenv("POST_IMAGE_MAX_SIZE_MB", "25"))
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 S3_BUCKET_NAME_TEST = os.getenv("S3_BUCKET_NAME_TEST")
+IMAGE_VIEW_ACCES_SECONDS = int(os.getenv("IMAGE_VIEW_ACCES_SECONDS", "180"))
+MAX_NUMBER_POST_IMAGES = int(os.getenv("MAX_NUMBER_POST_IMAGES", "3"))
 
 ALLOWED_IMAGES_EXTENSIONS_MIME_RAW = os.getenv("ALLOWED_IMAGES_EXTENSIONS_MIME")
 ALLOWED_EXTENSIONS = ALLOWED_IMAGES_EXTENSIONS_MIME_RAW.split(",")
@@ -34,15 +36,15 @@ class StorageABC(ABC):
         """Use for uploading and image updating. \n S3 Has only PUT options."""
 
     @abstractmethod
-    async def delete_image_post(self, post_id: str, n_image: int) -> None:
+    async def delete_image_post(self, post_id: str) -> None:
         """Delete n's post image"""
 
     @abstractmethod
-    async def delete_avatar_user(self, user_id: str, n_image: int) -> None:
+    async def delete_avatar_user(self, user_id: str) -> None:
         pass
 
     @abstractmethod
-    async def get_temp_post_image_url(self, post_id: str, n_image: int) -> List[str]:
+    async def get_post_image_urls(self, post_id: str) -> List[str]:
         """Get temprorary n's post image URL with jwt token in URL including"""
 
     @abstractmethod
@@ -69,6 +71,7 @@ class S3Storage(StorageABC):
         return magic.from_buffer(buffer=file_bytes, mime=True)
 
     def _validate_image_mime(self, image_bytes: bytes, specified_mime: str) -> bool:    
+        #TODO: Could reject valid file
         extension_mime = self._guess_mime(file_bytes=image_bytes)
         splitted_mime = extension_mime.split("/")
 
@@ -98,24 +101,35 @@ class S3Storage(StorageABC):
         async with self._session.create_client("s3") as client:
             yield client
     
-    async def upload_image_post(self, contents: bytes, mime_type: str, post_id: str, n_image: int) -> None:
+    def _define_boto_Params(self, key: str) -> Dict[str, str]:
+        return {
+            "Bucket": self._bucket_name, "Key": key
+        }
+
+    async def upload_image_post(self, contents_list: List[bytes], mime_types: List[str], post_id: str) -> None:
         async with self._client() as s3:
-            image_name = self._define_image_name(post_id=post_id, n_image=n_image)
-            if not self._validate_image_mime(image_bytes=contents, specified_mime=mime_type):
-                raise ValueError(f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
-            
-            if not self._validate_file_size(bytes_obj=contents):
-                raise ValueError(f"Image is too big. Size up to {POST_IMAGE_MAX_SIZE_MB}mb")
-            
-            try:
-                await s3.put_object(
-                    Bucket=self._bucket_name,
-                    Key=image_name,
-                    Body=contents,
-                    ContentType=mime_type
-                )
-            except Exception as e:
-                raise Exception(f"Failed yo upload post image: {e}")
+            if len(contents_list) != len(mime_types):
+                raise ValueError("Length of content and mime types is not equal")
+
+            for i, contents in enumerate(contents_list):
+                image_name = self._define_image_name(post_id=post_id, n_image=i)
+                mime_type = mime_types[i]
+
+                if not self._validate_image_mime(image_bytes=contents, specified_mime=mime_type):
+                    raise ValueError(f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
+                
+                if not self._validate_file_size(bytes_obj=contents):
+                    raise ValueError(f"Image is too big. Size up to {POST_IMAGE_MAX_SIZE_MB}mb")
+                
+                try:
+                    await s3.put_object(
+                        Bucket=self._bucket_name,
+                        Key=image_name,
+                        Body=contents,
+                        ContentType=mime_type
+                    )
+                except Exception as e:
+                    raise Exception(f"Failed yo upload post image: {e}")
 
     async def upload_avatar_user(self, contents: bytes, mime_type: str, user_id: str) -> None:
         async with self._client() as s3:
@@ -136,22 +150,47 @@ class S3Storage(StorageABC):
             except Exception as e:
                 raise Exception(f"Failed yo upload user image: {e}")
             
-    async def delete_image_post(self, post_id: str, n_image: int) -> None:
+    async def delete_image_post(self, post_id: str) -> None:
         async with self._client as s3:
-            pass
+            for i in range(MAX_NUMBER_POST_IMAGES):
+                image_key = self._define_image_name(id_=post_id, type="post", n_image=i)
+                await s3.delete_object(
+                    Bucket=self._bucket_name,
+                    Key=image_key
+                )
 
-    async def delete_avatar_user(self, user_id: str, n_image: int) -> None:
+    async def delete_avatar_user(self, user_id: str) -> None:
         async with self._client as s3:
-            pass
+            image_key = self._define_image_name(id_=user_id, type="user")
+            await s3.delete_object(
+                Bucket=self._bucket_name,
+                Key=image_key
+            )
 
-    async def get_temp_post_image_url(self, post_id: str, n_image: int) -> List[str]:
+    async def get_post_image_urls(self, post_id: str) -> List[str]:
         async with self._client as s3:
-            pass
+            urls = []
+            for i in range(MAX_NUMBER_POST_IMAGES):
+                image_key = self._define_image_name(id_=post_id, type="post", n_image=i)
+                url = await s3.generate_presigned_url(
+                    "get_object",
+                    Params=self._define_boto_Params(key=image_key),
+                    ExpiresIn=IMAGE_VIEW_ACCES_SECONDS
+                )
+                if url:
+                    urls.append(url)
+            
+            return urls
 
-    async def get_user_avatar_url(self, post_id: str) -> List[str]:
+    async def get_user_avatar_url(self, user_id: str) -> str:
         async with self._client as s3:
-            pass
-
+            image_key = self._define_image_name(id_=user_id, type="user")
+            return await s3.generate_presigned_url(
+                "get_object",
+                Params=self._define_boto_Params(key=image_key),
+                ExpiresIn=IMAGE_VIEW_ACCES_SECONDS
+            )
+    
 
 class LocalStorage(StorageABC):
     pass

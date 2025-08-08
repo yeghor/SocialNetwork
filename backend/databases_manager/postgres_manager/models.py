@@ -87,10 +87,6 @@ class Post(Base):
         lazy="selectin"
     )
 
-    image_paths: Mapped[List["PostPictures"]] = relationship(
-        "PostPictures",
-        lazy="selectin"
-    )
 
     popularity_rate: Mapped[int] = mapped_column(default=0)
     last_rate_calculated: Mapped[datetime] = mapped_column(default=datetime.utcnow)

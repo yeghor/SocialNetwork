@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncEngine
-from routes import auth_router, social_router
+from routes import auth_router, social_router, media_router
 from databases_manager.postgres_manager.models import *
 from databases_manager.postgres_manager.database import engine, initialize_models, drop_all
 from databases_manager.postgres_manager.database_utils import get_session
@@ -80,6 +80,7 @@ app.add_middleware(
 
 app.include_router(auth_router.auth)
 app.include_router(social_router.social)
+app.include_router(media_router.media_router)
 
 try:
     mkdir("images")
