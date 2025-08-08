@@ -88,7 +88,7 @@ class MainServiceBase(MainServiceABC):
         prepared_env_use_s3 = USE_S3_BOOL_STRING.lower().strip()
 
         if prepared_env_use_s3 == "true": Storage = S3Storage(mode=mode)
-        elif prepared_env_use_s3 == "false": Storage = LocalStorage(mode=mode)
+        elif prepared_env_use_s3 == "false": Storage = LocalStorage(mode=mode, Redis=Redis)
         else: raise ValueError("Invalid USE_S3 dotenv variable value. Read comment #")
         
         return cls(Chroma=ChromaDB, Redis=Redis, Postgres=Postgres, ImageStorage=Storage)

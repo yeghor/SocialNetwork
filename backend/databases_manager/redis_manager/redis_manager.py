@@ -90,8 +90,12 @@ class RedisService:
             self.__exclude_posts_viewed_prefix_1 = "exclude-posts-viewed-user-"
 
             # ========
-            # Static files acces prefix
-            self.__image_access_prefix = "image_acces:"
+            # Image acces tokens prefix
+            self.__post_image_acces_prefix = "post-image-acces:"
+            self.__user_image_acces_prefix = "user-image-acces:"
+ 
+            # ========
+            self.__split_value_string_by = ","
 
         except redis_exceptions.RedisError:
             raise HTTPException(status_code=500, detail="Connection to redis failed")
@@ -216,17 +220,28 @@ class RedisService:
     # ==============
 
     @redis_error_handler
-    async def save_uri_image_id(self, uri_image_token: str, user_id: str) -> None:
-        pattern = f"{self.__image_access_prefix}{uri_image_token}"
-        await self.__client.setex(pattern, IMAGE_VIEW_ACCES_SECONDS, user_id)
+    async def save_uri_user_token(self, uri_image_token: str, user_id: str) -> None:
+        pattern = f"{self.__post_image_acces_prefix}{uri_image_token}"
+        await self.__client.setex(pattern, IMAGE_VIEW_ACCES_SECONDS, f"{user_id}")
 
     @redis_error_handler
-    async def check_image_acceess(self, uri_image_token: str, user_id: str) -> bool:
+    async def save_uri_post_token(self, uri_image_token: str, post_id: str, user_id: str, n_image: int) -> None:
+        pattern = f"{self.__user_image_acces_prefix}{uri_image_token}"
+        await self.__client.setex(pattern, IMAGE_VIEW_ACCES_SECONDS, f"{user_id}{self.__split_value_string_by}{post_id}{self.__split_value_string_by}{n_image}")
+
+    @redis_error_handler
+    async def check_image_acceess(self, uri_image_token: str, user_id: str, image_type: Literal["user", "post"], n_image: int) -> bool:
         """Returns True if acces permitted (URI token exists), else - False \n"""
         if not user_id or not uri_image_token:
             return False
 
-        pattern = f"{self.__image_access_prefix}{uri_image_token}"
-        owner_id = await self.__client.get(pattern)
+        if image_type == "post":
+            pattern = f"{self.__post_image_acces_prefix}{uri_image_token}"
+            value_string: str = await self.__client.get(pattern)
+            separated_values = value_string.split(self.__split_value_string_by)
+            return separated_values[0] == user_id and int(separated_values[2]) == n_image
 
-        return owner_id == user_id
+        elif image_type == "user":
+            pattern = f"{self.__user_image_acces_prefix}{uri_image_token}"
+            owner_id = await self.__client.get(pattern)
+            return owner_id == user_id

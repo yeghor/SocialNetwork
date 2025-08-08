@@ -3,6 +3,7 @@ import magic
 from abc import ABC, abstractmethod
 
 from databases_manager.main_managers.services_creator_abstractions import MainServiceBase
+from databases_manager.redis_manager.redis_manager import RedisService
 
 from aiobotocore.session import get_session
 import os
@@ -192,8 +193,33 @@ class S3Storage(StorageABC):
                 Params=self._define_boto_Params(key=image_key),
                 ExpiresIn=IMAGE_VIEW_ACCES_SECONDS
             )
-    
 
 
 class LocalStorage(StorageABC):
-    pass
+    @staticmethod
+    def generate_token() -> str:
+        pass
+
+    def __init__(self, Redis: RedisService):
+            self._Redis = Redis
+
+    def upload_image_post(self, contents: bytes, content_type: str, post_id: str, n_image: int):
+        pass
+
+    async def upload_avatar_user(self, contents: bytes, extension: str, user_id: str) -> None:
+        pass
+
+    async def delete_image_post(self, post_id: str) -> None:
+        pass
+
+    async def delete_avatar_user(self, user_id: str) -> None:
+        pass
+
+    async def get_post_image_urls(self, post_id: str, user_id: str) -> List[str]:
+        urls = []
+        token = self.generate_token()
+        await self._Redis.save_uri_image_id(uri_image_token=token, user_id=user_id)
+        
+
+    async def get_user_avatar_url(self, post_id: str) -> List[str]:
+        pass
