@@ -36,7 +36,7 @@ class MainServiceAuth(MainServiceBase):
         return None
 
     # TODO: Cover in try except! ALL OF THIS
-    async def register(self, credentials: RegisterSchema, avatar_mime_type: str, avatar_contents: bytes) -> RefreshAccesTokens:
+    async def register(self, credentials: RegisterSchema) -> RefreshAccesTokens:
         if await self._PostgresService.get_user_by_username_or_email(username=credentials.username, email=credentials.email):
             raise HTTPException(status_code=409, detail="Registered account with these credetials already exists")
 
@@ -48,9 +48,6 @@ class MainServiceAuth(MainServiceBase):
             password_hash=password_hash
         )
         await self._PostgresService.insert_models_and_flush(new_user)
-
-        if avatar_contents and avatar_mime_type:
-            await self._ImageStorage.upload_avatar_user(contents=avatar_contents, mime_type=avatar_mime_type, user_id=new_user.user_id)
 
         return await self._JWT.generate_refresh_acces_token(user_id=new_user.user_id, redis=self._RedisService)
 
