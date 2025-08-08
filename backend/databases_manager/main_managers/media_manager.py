@@ -5,7 +5,14 @@ class MainMediaService(MainServiceBase):
         if avatar_contents and avatar_mime_type:
             await self._ImageStorage.upload_avatar_user(contents=avatar_contents, mime_type=avatar_mime_type, user_id=user_id)
 
-    async def upload_post_images():
+    async def upload_post_image():
         pass
+
+    async def upload_user_avatar():
+        pass
+
+    async def get_image_by_token(token: str):
+        pass
+
 
     """..."""

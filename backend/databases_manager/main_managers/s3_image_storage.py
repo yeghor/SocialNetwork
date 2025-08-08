@@ -2,6 +2,8 @@ from fastapi import UploadFile
 import magic
 from abc import ABC, abstractmethod
 
+from databases_manager.main_managers.services_creator_abstractions import MainServiceBase
+
 from aiobotocore.session import get_session
 import os
 from dotenv import load_dotenv
@@ -23,7 +25,7 @@ for i, ext in enumerate(ALLOWED_EXTENSIONS):
 
 # ================================
 
-class StorageABC(ABC):
+class StorageABC():
     @abstractmethod
     def upload_image_post(self, contents: bytes, content_type: str, post_id: str, n_image: int):
         """
@@ -191,6 +193,7 @@ class S3Storage(StorageABC):
                 ExpiresIn=IMAGE_VIEW_ACCES_SECONDS
             )
     
+
 
 class LocalStorage(StorageABC):
     pass
