@@ -31,30 +31,30 @@ for i, ext in enumerate(ALLOWED_EXTENSIONS):
 
 class StorageABC():
     @abstractmethod
-    def upload_image_post(self, contents: bytes, content_type: str, post_id: str, n_image: int):
+    def upload_image_post(self, contents: bytes, content_type: str, image_name):
         """
         Use for uploading and image updating. \n S3 Has only PUT options. \n
         N_image indicates number of image uploaded.
         """
 
     @abstractmethod
-    async def upload_avatar_user(self, contents: bytes, specified_mime: str, user_id: str) -> None:
+    async def upload_avatar_user(self, contents: bytes, specified_mime: str, image_name: str) -> None:
         """Use for uploading and image updating. \n S3 Has only PUT options."""
 
     @abstractmethod
-    async def delete_image_post(self, post_id: str) -> None:
+    async def delete_image_post(self, image_name: str) -> None:
         """Delete n's post image"""
 
     @abstractmethod
-    async def delete_avatar_user(self, user_id: str) -> None:
+    async def delete_avatar_user(self, image_name: str) -> None:
         pass
 
     @abstractmethod
-    async def get_post_image_urls(self, post_id: str) -> List[str]:
+    async def get_post_image_urls(self, image_name: str) -> List[str]:
         """Get temprorary n's post image URL with jwt token in URL including"""
 
     @abstractmethod
-    async def get_user_avatar_url(self, post_id: str) -> List[str]:
+    async def get_user_avatar_url(self, image_name: str) -> List[str]:
         pass
 
 # =======================
@@ -63,15 +63,7 @@ class S3Storage(StorageABC):
     @staticmethod
     def _validate_file_size(bytes_obj: bytes) -> bool:
         return 0 < len(bytes_obj) / 1024 / 1024 < POST_IMAGE_MAX_SIZE_MB
-
-    @staticmethod
-    def _define_image_name(id_: str, type: Literal["post", "user"], n_image: int = None) -> str:
-        if type == "post":
-            if not n_image: raise ValueError("No post image number wasn't specified")
-            return f"post_id:{id_}___n_image:{n_image}"
-        if type == "user": return f"user_id:{id_}"
-        else: raise ValueError("Unsupported image type!")
-
+    
     @staticmethod
     def _guess_mime(file_bytes: bytes) -> str:
         return magic.from_buffer(buffer=file_bytes, mime=True)
@@ -112,13 +104,12 @@ class S3Storage(StorageABC):
             "Bucket": self._bucket_name, "Key": key
         }
 
-    async def upload_image_post(self, contents_list: List[bytes], mime_types: List[str], post_id: str) -> None:
+    async def upload_image_post(self, contents_list: List[bytes], mime_types: List[str], image_name: str) -> None:
         async with self._client() as s3:
             if len(contents_list) != len(mime_types):
                 raise ValueError("Length of content and mime types is not equal")
 
             for i, contents in enumerate(contents_list):
-                image_name = self._define_image_name(post_id=post_id, n_image=i)
                 mime_type = mime_types[i]
 
                 if not self._validate_image_mime(image_bytes=contents, specified_mime=mime_type):
@@ -137,9 +128,8 @@ class S3Storage(StorageABC):
                 except Exception as e:
                     raise Exception(f"Failed yo upload post image: {e}")
 
-    async def upload_avatar_user(self, contents: bytes, mime_type: str, user_id: str) -> None:
+    async def upload_avatar_user(self, contents: bytes, mime_type: str, image_name: str) -> None:
         async with self._client() as s3:
-            image_name = self._define_image_name(id_=user_id, type="user")
             if not self._validate_image_mime(image_bytes=contents, specified_mime=mime_type):
                 raise ValueError(f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
             
@@ -156,28 +146,26 @@ class S3Storage(StorageABC):
             except Exception as e:
                 raise Exception(f"Failed yo upload user image: {e}")
             
-    async def delete_image_post(self, post_id: str) -> None:
+    async def delete_image_post(self, image_name: str) -> None:
         async with self._client as s3:
             for i in range(MAX_NUMBER_POST_IMAGES):
-                image_key = self._define_image_name(id_=post_id, type="post", n_image=i)
                 await s3.delete_object(
                     Bucket=self._bucket_name,
-                    Key=image_key
+                    Key=image_name
                 )
 
-    async def delete_avatar_user(self, user_id: str) -> None:
+    async def delete_avatar_user(self, image_name: str) -> None:
         async with self._client as s3:
-            image_key = self._define_image_name(id_=user_id, type="user")
             await s3.delete_object(
                 Bucket=self._bucket_name,
-                Key=image_key
+                Key=image_name
             )
 
     async def get_post_image_urls(self, post_id: str) -> List[str]:
+        raise Exception("Is not implemented yet")
         async with self._client as s3:
             urls = []
             for i in range(MAX_NUMBER_POST_IMAGES):
-                image_key = self._define_image_name(id_=post_id, type="post", n_image=i)
                 url = await s3.generate_presigned_url(
                     "get_object",
                     Params=self._define_boto_Params(key=image_key),
@@ -188,12 +176,11 @@ class S3Storage(StorageABC):
             
             return urls
 
-    async def get_user_avatar_url(self, user_id: str) -> str:
+    async def get_user_avatar_url(self, image_name: str) -> str:
         async with self._client as s3:
-            image_key = self._define_image_name(id_=user_id, type="user")
             return await s3.generate_presigned_url(
                 "get_object",
-                Params=self._define_boto_Params(key=image_key),
+                Params=self._define_boto_Params(key=image_name),
                 ExpiresIn=IMAGE_VIEW_ACCES_SECONDS
             )
 
@@ -208,6 +195,7 @@ class LocalStorage(StorageABC):
     def __init__(self, Redis: RedisService):
             self._Redis = Redis
 
+    # TODO: Make compatible to abstract class
     def upload_image_post(self, contents: bytes, content_type: str, post_id: str, n_image: int):
         pass
 

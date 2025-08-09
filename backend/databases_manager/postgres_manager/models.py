@@ -26,6 +26,8 @@ class User(Base):
     password_hash: Mapped[str]
     joined: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
+    avatar_image_name: Mapped[""] = mapped_column(nullable=True)
+
     posts: Mapped[List["Post"]] = relationship(
         "Post",
         back_populates="owner",
@@ -81,12 +83,16 @@ class Post(Base):
     published: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     last_updated: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    images: Mapped["PostImage"] = relationship(
+        "PostImage",
+        lazy="selectin"
+    )
+
     owner: Mapped["User"] = relationship(
         "User",
         back_populates="posts",
         lazy="selectin"
     )
-
 
     popularity_rate: Mapped[int] = mapped_column(default=0)
     last_rate_calculated: Mapped[datetime] = mapped_column(default=datetime.utcnow)
@@ -127,6 +133,9 @@ class Post(Base):
     def __repr__(self):
         return f"Post name: {self.title} | Rate: {self.popularity_rate}"
 
+class PostImage(Base):
+    post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
+    image_name: Mapped[str]
 
 # Self referential m2m
 class Friendship(Base):
