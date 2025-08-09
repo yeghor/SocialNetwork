@@ -187,9 +187,6 @@ class MainServiceSocial(MainServiceBase):
         else:
             parent_post_validated = None
 
-        # TODO: Implement pictures adding!!!
-        urls = []
-
         return PostSchema(
             post_id=post.post_id,
             owner=UserShortSchema.model_validate(user, from_attributes=True),
@@ -199,7 +196,7 @@ class MainServiceSocial(MainServiceBase):
             published=post.published,
             parent_post=parent_post_validated,
             replies=[],
-            pictures_urls=urls
+            pictures_urls=[]
         )
 
     async def _construct_and_flush_action(self, action_type: ActionType, user: User, post: Post = None) -> None:

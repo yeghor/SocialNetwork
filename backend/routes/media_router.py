@@ -10,14 +10,24 @@ from databases_manager.postgres_manager.database_utils import get_session_depend
 media_router = APIRouter()
 
 # https://stackoverflow.com/questions/55873174/how-do-i-return-an-image-in-fastapi
-@media_router.get("/media/{token}", response_class=Response)
+@media_router.get("/media/users/{token}", response_class=Response)
 async def get_image(
     token: str,
     session: AsyncSession = Depends(get_session_depends)
 ):
     async with await MainServiceContextManager[MainMediaService].create(MainServiceType=MainMediaService, postgres_session=session) as media:  
-        file_ = await media.get_image_by_token(token=token)
-        return
+        file_contents = await media.get_user_avatar_by_token(token=token)
+        return Response(content=file_contents, media_type=)
+
+@media_router.get("/media/posts/{token}/{number}", response_class=Response)
+async def get_image(
+    token: str,
+    number: int,
+    session: AsyncSession = Depends(get_session_depends)
+):
+    async with await MainServiceContextManager[MainMediaService].create(MainServiceType=MainMediaService, postgres_session=session) as media:  
+        file_contents = await media.get_user_avatar_by_token(token=token)
+        return Response(content=file_contents, media_type=)
 
 # TODO: Implement file passing.
 @media_router.post("/media/posts/{post_id}/{number}")

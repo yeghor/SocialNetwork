@@ -17,6 +17,7 @@ VIEW_TIMEOUT = int(getenv("VIEW_TIMEOUT"))
 IMAGE_VIEW_ACCES_SECONDS = int(getenv("IMAGE_VIEW_ACCES_SECONDS", "5"))
 
 ExcludeType = Literal["search", "feed", "viewed"] # TODO: Change "viewed" to "view"
+ImageType = Literal["post", "user"]
 
 def redis_error_handler(func):
     @wraps(func)
@@ -222,7 +223,7 @@ class RedisService:
     @redis_error_handler
     async def save_uri_user_token(self, uri_image_token: str, user_id: str) -> None:
         pattern = f"{self.__post_image_acces_prefix}{uri_image_token}"
-        await self.__client.setex(pattern, IMAGE_VIEW_ACCES_SECONDS, f"{user_id}")
+        await self.__client.setex(pattern, IMAGE_VIEW_ACCES_SECONDS, user_id)
 
     @redis_error_handler
     async def save_uri_post_token(self, uri_image_token: str, post_id: str, user_id: str, n_image: int) -> None:
@@ -230,18 +231,22 @@ class RedisService:
         await self.__client.setex(pattern, IMAGE_VIEW_ACCES_SECONDS, f"{user_id}{self.__split_value_string_by}{post_id}{self.__split_value_string_by}{n_image}")
 
     @redis_error_handler
-    async def check_image_acceess(self, uri_image_token: str, user_id: str, image_type: Literal["user", "post"], n_image: int) -> bool:
-        """Returns True if acces permitted (URI token exists), else - False \n"""
-        if not user_id or not uri_image_token:
+    async def check_image_access(self, url_image_token: str, image_type: ImageType, n_image: int | None) -> str | None:
+        """
+        Returns image name (read ReadMe-dev.md). If acces not granted or token value corrupted - returns None \n
+        Pass `n_image` if `image_type` set to "post"
+        """
+        if not url_image_token:
             return False
 
         if image_type == "post":
-            pattern = f"{self.__post_image_acces_prefix}{uri_image_token}"
+            pattern = f"{self.__post_image_acces_prefix}{url_image_token}"
             value_string: str = await self.__client.get(pattern)
             separated_values = value_string.split(self.__split_value_string_by)
-            return separated_values[0] == user_id and int(separated_values[2]) == n_image
-
+            if separated_values:
+                return f"{separated_values[1]}{separated_values[2]}"
+            return None
+        
         elif image_type == "user":
-            pattern = f"{self.__user_image_acces_prefix}{uri_image_token}"
-            owner_id = await self.__client.get(pattern)
-            return owner_id == user_id
+            pattern = f"{self.__user_image_acces_prefix}{url_image_token}"
+            return await self.__client.get(pattern)

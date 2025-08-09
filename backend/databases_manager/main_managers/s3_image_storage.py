@@ -19,6 +19,9 @@ S3_BUCKET_NAME_TEST = os.getenv("S3_BUCKET_NAME_TEST")
 IMAGE_VIEW_ACCES_SECONDS = int(os.getenv("IMAGE_VIEW_ACCES_SECONDS", "180"))
 MAX_NUMBER_POST_IMAGES = int(os.getenv("MAX_NUMBER_POST_IMAGES", "3"))
 
+MEDIA_AVATAR_PATH = os.getenv("MEDIA_AVATAR_PATH", "media/users/")
+MEDIA_POST_IMAGE_PATH = os.getenv("MEDIA_POST_IMAGE_PATH", "media/posts/")
+
 ALLOWED_IMAGES_EXTENSIONS_MIME_RAW = os.getenv("ALLOWED_IMAGES_EXTENSIONS_MIME")
 ALLOWED_EXTENSIONS = ALLOWED_IMAGES_EXTENSIONS_MIME_RAW.split(",")
 for i, ext in enumerate(ALLOWED_EXTENSIONS):
@@ -35,7 +38,7 @@ class StorageABC():
         """
 
     @abstractmethod
-    async def upload_avatar_user(self, contents: bytes, extension: str, user_id: str) -> None:
+    async def upload_avatar_user(self, contents: bytes, specified_mime: str, user_id: str) -> None:
         """Use for uploading and image updating. \n S3 Has only PUT options."""
 
     @abstractmethod
@@ -194,11 +197,13 @@ class S3Storage(StorageABC):
                 ExpiresIn=IMAGE_VIEW_ACCES_SECONDS
             )
 
+import secrets
+import random
 
 class LocalStorage(StorageABC):
     @staticmethod
-    def generate_token() -> str:
-        pass
+    def generate_url_token() -> str:
+        return secrets.token_urlsafe()
 
     def __init__(self, Redis: RedisService):
             self._Redis = Redis
@@ -215,11 +220,8 @@ class LocalStorage(StorageABC):
     async def delete_avatar_user(self, user_id: str) -> None:
         pass
 
-    async def get_post_image_urls(self, post_id: str, user_id: str) -> List[str]:
+    async def get_post_image_urls(self, post_id: str, user_id: str, number: int) -> List[str]:
         urls = []
-        token = self.generate_token()
-        await self._Redis.save_uri_image_id(uri_image_token=token, user_id=user_id)
-        
 
     async def get_user_avatar_url(self, post_id: str) -> List[str]:
         pass
