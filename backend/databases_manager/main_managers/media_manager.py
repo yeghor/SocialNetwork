@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 
-from main_managers.services_creator_abstractions import MainServiceBase
+from databases_manager.main_managers.services_creator_abstractions import MainServiceBase
 from databases_manager.postgres_manager.models import User, Post, PostImage
 from databases_manager.redis_manager.redis_manager import ImageType
 from databases_manager.redis_manager.redis_manager import ImageType

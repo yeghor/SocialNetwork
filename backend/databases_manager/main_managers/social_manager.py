@@ -319,7 +319,8 @@ class MainServiceSocial(MainServiceBase):
             viewed_by_validated = [UserShortSchema.model_validate(action.owner, from_attributes=True) for action in viewed_by if action]
         liked_by_validated = [UserShortSchema.model_validate(action.owner, from_attributes=True) for action in liked_by if action]
 
-        pictures_urls = await self._ImageStorage.get_post_image_urls(post_id=post_id)
+        filenames = [filename.image_name for filename in post.images]
+        images_temp_urls = await self._ImageStorage.get_post_image_urls(post_id=post_id, filenames=filenames)
 
         return PostSchema(
             post_id=post.post_id,
@@ -335,6 +336,6 @@ class MainServiceSocial(MainServiceBase):
             parent_post=post.parent_post,
             replies=post.replies,
             last_updated=post.last_updated,
-            pictures_urls=pictures_urls
+            pictures_urls=images_temp_urls
         )
     

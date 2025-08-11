@@ -26,7 +26,7 @@ class User(Base):
     password_hash: Mapped[str]
     joined: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
-    avatar_image_name: Mapped[""] = mapped_column(nullable=True)
+    avatar_image_name: Mapped[str] = mapped_column(nullable=True)
 
     posts: Mapped[List["Post"]] = relationship(
         "Post",
@@ -134,6 +134,8 @@ class Post(Base):
         return f"Post name: {self.title} | Rate: {self.popularity_rate}"
 
 class PostImage(Base):
+    __tablename__ = "postimages"
+
     post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
     image_name: Mapped[str]
 

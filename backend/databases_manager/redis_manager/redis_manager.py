@@ -96,7 +96,7 @@ class RedisService:
             self.__user_image_acces_prefix = "user-image-acces:"
  
             # ========
-            self.__split_value_string_by = ","
+            self.__split_value_string_by = "-"
 
         except redis_exceptions.RedisError:
             raise HTTPException(status_code=500, detail="Connection to redis failed")
@@ -221,14 +221,14 @@ class RedisService:
     # ==============
 
     @redis_error_handler
-    async def save_uri_user_token(self, uri_image_token: str, user_id: str) -> None:
-        pattern = f"{self.__post_image_acces_prefix}{uri_image_token}"
+    async def save_uri_user_token(self, image_token: str, user_id: str) -> None:
+        pattern = f"{self.__post_image_acces_prefix}{image_token}"
         await self.__client.setex(pattern, IMAGE_VIEW_ACCES_SECONDS, user_id)
 
     @redis_error_handler
-    async def save_uri_post_token(self, uri_image_token: str, post_id: str, user_id: str, n_image: int) -> None:
-        pattern = f"{self.__user_image_acces_prefix}{uri_image_token}"
-        await self.__client.setex(pattern, IMAGE_VIEW_ACCES_SECONDS, f"{user_id}{self.__split_value_string_by}{post_id}{self.__split_value_string_by}{n_image}")
+    async def save_uri_post_token(self, image_token: str, post_id: str, n_image: int) -> None:
+        pattern = f"{self.__user_image_acces_prefix}{image_token}"
+        await self.__client.setex(pattern, IMAGE_VIEW_ACCES_SECONDS, f"{post_id}{self.__split_value_string_by}{n_image}")
 
     @redis_error_handler
     async def check_image_access(self, url_image_token: str, image_type: ImageType, n_image: int | None) -> str | None:

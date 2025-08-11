@@ -1,16 +1,18 @@
-from fastapi import UploadFile
 import magic
+import mimetypes
 from abc import ABC, abstractmethod
 
-from databases_manager.main_managers.services_creator_abstractions import MainServiceBase
 from databases_manager.redis_manager.redis_manager import RedisService
 
 from aiobotocore.session import get_session
 import os
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
-from typing import List, Literal, Tuple, Dict
+from typing import List, Literal, Dict
+import glob
 
+# LocalStorage service can't be async. So I use aiofiles's run_in_executor() wrap
+import aiofiles
 
 load_dotenv()
 POST_IMAGE_MAX_SIZE_MB = int(os.getenv("POST_IMAGE_MAX_SIZE_MB", "25"))
@@ -21,6 +23,10 @@ MAX_NUMBER_POST_IMAGES = int(os.getenv("MAX_NUMBER_POST_IMAGES", "3"))
 
 MEDIA_AVATAR_PATH = os.getenv("MEDIA_AVATAR_PATH", "media/users/")
 MEDIA_POST_IMAGE_PATH = os.getenv("MEDIA_POST_IMAGE_PATH", "media/posts/")
+MEDIA_AVATAR_PATH_TEST = os.getenv("MEDIA_AVATAR_PATH_TEST", "media/testing_media/users")
+MEDIA_POST_IMAGE_PATH_TEST = os.getenv("MEDIA_POST_IMAGE_PATH_TEST", "media/testing_media/posts")
+
+
 
 ALLOWED_IMAGES_EXTENSIONS_MIME_RAW = os.getenv("ALLOWED_IMAGES_EXTENSIONS_MIME")
 ALLOWED_EXTENSIONS = ALLOWED_IMAGES_EXTENSIONS_MIME_RAW.split(",")
@@ -29,13 +35,17 @@ for i, ext in enumerate(ALLOWED_EXTENSIONS):
 
 # ================================
 
-class StorageABC():
+class StorageABC(ABC):
     @abstractmethod
     def upload_image_post(self, contents: bytes, content_type: str, image_name):
         """
         Use for uploading and image updating. \n S3 Has only PUT options. \n
         N_image indicates number of image uploaded.
         """
+
+    @abstractmethod
+    def _validate_image_mime(self, image_bytes: bytes, specified_mime: str) -> bool:
+        """Validate specified mime_type"""
 
     @abstractmethod
     async def upload_avatar_user(self, contents: bytes, specified_mime: str, image_name: str) -> None:
@@ -144,10 +154,10 @@ class S3Storage(StorageABC):
                     ContentType=mime_type
                 )
             except Exception as e:
-                raise Exception(f"Failed yo upload user image: {e}")
+                raise Exception(f"Failed to upload user image: {e}")
             
     async def delete_image_post(self, image_name: str) -> None:
-        async with self._client as s3:
+        async with self._client() as s3:
             for i in range(MAX_NUMBER_POST_IMAGES):
                 await s3.delete_object(
                     Bucket=self._bucket_name,
@@ -155,15 +165,15 @@ class S3Storage(StorageABC):
                 )
 
     async def delete_avatar_user(self, image_name: str) -> None:
-        async with self._client as s3:
+        async with self._client() as s3:
             await s3.delete_object(
                 Bucket=self._bucket_name,
                 Key=image_name
             )
 
-    async def get_post_image_urls(self, post_id: str) -> List[str]:
+    async def get_post_image_urls(self, image_name: str) -> List[str]:
         raise Exception("Is not implemented yet")
-        async with self._client as s3:
+        async with self._client() as s3:
             urls = []
             for i in range(MAX_NUMBER_POST_IMAGES):
                 url = await s3.generate_presigned_url(
@@ -177,7 +187,7 @@ class S3Storage(StorageABC):
             return urls
 
     async def get_user_avatar_url(self, image_name: str) -> str:
-        async with self._client as s3:
+        async with self._client() as s3:
             return await s3.generate_presigned_url(
                 "get_object",
                 Params=self._define_boto_Params(key=image_name),
@@ -189,27 +199,80 @@ import random
 
 class LocalStorage(StorageABC):
     @staticmethod
-    def generate_url_token() -> str:
+    def _generate_url_token() -> str:
         return secrets.token_urlsafe()
 
-    def __init__(self, Redis: RedisService):
-            self._Redis = Redis
+    def __init__(self, mode: Literal["prod", "test"], Redis: RedisService):
+        self._Redis = Redis
 
-    # TODO: Make compatible to abstract class
-    def upload_image_post(self, contents: bytes, content_type: str, post_id: str, n_image: int):
-        pass
+        if mode == "prod":
+            self.__media_avatar_path = MEDIA_AVATAR_PATH
+            self.__media_post_path = MEDIA_POST_IMAGE_PATH
+        elif mode == "test":
+            self.__media_avatar_path = MEDIA_AVATAR_PATH_TEST
+            self.__media_post_path = MEDIA_POST_IMAGE_PATH_TEST
 
-    async def upload_avatar_user(self, contents: bytes, extension: str, user_id: str) -> None:
-        pass
+    async def upload_image_post(self, contents: bytes, content_type: str, image_name: str) -> None:
+        if not self._validate_image_mime(image_bytes=contents, specified_mime=content_type):
+            raise ValueError(f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
 
-    async def delete_image_post(self, post_id: str) -> None:
-        pass
+        extension = mimetypes.guess_extension(type=content_type)
+        if not extension:
+            raise ValueError("Invalid content type")
+        
+        # Return value is a string giving a filename extension, including the leading dot ('.') / mimetypes.guess_extension()
+        try:
+            async with aiofiles.open(file=f"{self.__media_post_path}/{image_name}{extension}", mode="wb") as file_:
+                await file_.write(contents)
+        except Exception as e:
+            raise Exception("Uknown error occured when trying to write image locally")
 
-    async def delete_avatar_user(self, user_id: str) -> None:
-        pass
+    async def upload_avatar_user(self, contents: bytes, content_type: str, image_name: str) -> None:
+        if not self._validate_image_mime(image_bytes=contents, specified_mime=content_type):
+            raise ValueError(f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
 
-    async def get_post_image_urls(self, post_id: str, user_id: str, number: int) -> List[str]:
+        extension = mimetypes.guess_extension(type=content_type)
+        if not extension:
+            raise ValueError("Invalid content type")
+        
+        # Return value is a string giving a filename extension, including the leading dot ('.') / mimetypes.guess_extension()
+        try:
+            async with aiofiles.open(file=f"{self.__media_avatar_path}/{image_name}{extension}", mode="wb") as file_:
+                await file_.write(contents)
+        except Exception as e:
+            raise Exception("Uknown error occured when trying to write image locally")
+    
+    async def delete_image_post(self, image_name: str) -> None:
+        # Whe don't know file extension. So we need to find it using glob and image_name*
+        filenames = glob.glob(f"{image_name}*", root_dir=self.__media_post_path)
+        filename = filenames[0]
+        filepath = f"{self.__media_post_path}{filename}"
+
+        if os.path.exists(path=filepath):
+            os.remove(path=filepath)
+        else:
+            raise FileNotFoundError("Post image not found")
+
+    
+    async def delete_avatar_user(self, image_name: str) -> None:
+        # Whe don't know file extension. So we need to find it using glob and image_name*
+        filenames = glob.glob(f"{image_name}*", root_dir=self.__media_avatar_path)
+        filename = filenames[0]
+        filepath = f"{self.__media_avatar_path}{filename}"
+
+        if os.path.exists(path=filepath):
+            os.remove(path=filepath)
+        else:
+            raise FileNotFoundError("Avatar image not found")
+
+    async def get_post_image_urls(self, post_id: str, filenames: List[str]) -> List[str]:
         urls = []
+        for i, filename in enumerate(filenames):
+            urfsafe_token = self._generate_url_token()
+            await self._Redis.save_uri_post_token(image_token=urfsafe_token, post_id=post_id, n_image=i)
+            urls.append(urfsafe_token)
+        return urls
 
-    async def get_user_avatar_url(self, post_id: str) -> List[str]:
-        pass
+    async def get_user_avatar_url(self, user_id: str) -> List[str]:
+        urlsafe_token = self._generate_url_token()
+        await self._Redis.save_uri_user_token(image_token=urlsafe_token, user_id=user_id)

@@ -5,3 +5,4 @@ This application suport choice using between S3 and Local storage to store image
 - Post: {PostId}-{ImageNumber}.png/jpg
 - User: {UserId}.png/jpg
 
+Filenames **must** be unique
