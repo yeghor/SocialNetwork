@@ -48,7 +48,7 @@ async def upload_user_avatar(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
 ) -> None:
-    user = await merge_model(postgres_session=session, user_=user_)
+    user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainMediaService].create(MainServiceType=MainMediaService, postgres_session=session) as media:
         file_contents = await file.read()
         await media.upload_user_avatar(user=user, image_contents=file_contents, specified_mime=file.content_type)

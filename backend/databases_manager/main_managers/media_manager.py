@@ -7,6 +7,7 @@ from databases_manager.redis_manager.redis_manager import ImageType
 from typing import Tuple
 import mimetypes
 import os
+from databases_manager.main_managers.s3_image_storage import ImageDoesNotLocalyExist
 
 MEDIA_AVATAR_PATH = os.getenv("MEDIA_AVATAR_PATH", "media/users/")
 MEDIA_POST_IMAGE_PATH = os.getenv("MEDIA_POST_IMAGE_PATH", "media/posts/")
@@ -18,8 +19,8 @@ class MainMediaService(MainServiceBase):
         """Pass `n_image` only if `image_type` set to `'post'`"""
         if image_type == "post":
             if not n_image: raise ValueError("No post image number wasn't specified")
-            return f"post_id:{id_}___n_image:{n_image}"
-        if image_type == "user": return f"user_id:{id_}"
+            return f"post_id-{id_}___n_image:{n_image}"
+        if image_type == "user": return f"user_id-{id_}"
         else: raise ValueError("Unsupported image type!")
 
     @staticmethod
@@ -63,19 +64,23 @@ class MainMediaService(MainServiceBase):
             if post.owner_id != user.user_id:
                 raise HTTPException(status_code=401, detail="You are not the owner of this post")
 
-            await self._ImageStorage.upload_image_post(contents=image_contents, content_type=specified_mime, image_name=image_name)
+            await self._ImageStorage.upload_images_post(contents=image_contents, content_type=specified_mime, image_name=image_name)
         else: raise HTTPException(status_code=400, detail="Image type or contents missing")
 
-    async def upload_user_avatar(self, user: User, image_content: bytes, specified_mime: str):
-        if image_content and specified_mime:
+    async def upload_user_avatar(self, user: User, image_contents: bytes, specified_mime: str):
+        if image_contents and specified_mime:
             image_name = self._define_image_name(id_=user.user_id, image_type="user")
             if user.avatar_image_name:
-                await self._ImageStorage.delete_avatar_user(image_name=image_name)
+                try:
+                    await self._ImageStorage.delete_avatar_user(image_name=image_name)
+                except ImageDoesNotLocalyExist:
+                    raise HTTPException(status_code=500, detail="Old user avatar not found. PLease, contact us.")
             
+            await self._ImageStorage.upload_avatar_user(contents=image_contents, content_type=specified_mime, image_name=image_name)
+
             user.avatar_image_name = image_name
             await self._PostgresService.flush()
-            
-            await self._ImageStorage.upload_avatar_user(contents=image_content, specified_mime=specified_mime, image_name=image_name)
+
         else: raise HTTPException(status_code=400, detail="Image type or contents missing")        
 
     async def get_user_avatar_by_token(self, token: str) -> Tuple[bytes, str]:
