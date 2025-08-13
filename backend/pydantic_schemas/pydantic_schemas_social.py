@@ -78,7 +78,6 @@ class PostSchema(PostBase):
 
 class UserShortSchema(UserIDValidate):
     username: str
-    avatar_token: str
 
 class UserLiteSchema(UserShortSchema):
     """Pass to the followers field List[User]!"""
@@ -88,6 +87,7 @@ class UserLiteSchema(UserShortSchema):
 class UserSchema(UserLiteSchema):
     followed: List[UserShortSchema]
     posts: List[PostLiteSchema]
+    avatar_token: str
 
 # =================
 # Body data structure

@@ -9,6 +9,7 @@ import mimetypes
 import os
 from databases_manager.main_managers.s3_image_storage import ImageDoesNotLocalyExist
 import aiofiles
+from uuid import uuid4
 
 MEDIA_AVATAR_PATH = os.getenv("MEDIA_AVATAR_PATH", "media/users/")
 MEDIA_POST_IMAGE_PATH = os.getenv("MEDIA_POST_IMAGE_PATH", "media/posts/")
@@ -19,7 +20,7 @@ class MainMediaService(MainServiceBase):
     def _define_image_name(id_: str, image_type: ImageType, n_image: int = None) -> str:
         """Pass `n_image` only if `image_type` set to `'post'`"""
         if image_type == "post":
-            if not n_image: raise ValueError("No post image number wasn't specified")
+            if not isinstance(n_image, int): raise ValueError("No valid post image number wasn't specified")
             return f"{id_}-{n_image}"
         if image_type == "user": return id_
         else: raise ValueError("Unsupported image type!")
@@ -55,15 +56,18 @@ class MainMediaService(MainServiceBase):
         if image_contents and specified_mime:
             post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
+            if not post: 
+                raise HTTPException(status_code=404, detail="Post with this id not found")
+
+            if post.owner_id != user.user_id:
+                raise HTTPException(status_code=401, detail="You are not the owner of this post")
+
             if len(post.images) >= MAX_NUMBER_POST_IMAGES:
                 raise HTTPException(status_code=400, detail="Max number of post images reached")
 
             image_name = self._define_image_name(id_=post_id, image_type="post", n_image=len(post.images))
-            image_entry = PostImage(post_id=post_id, image_name=image_name)
+            image_entry = PostImage(image_id=str(uuid4), post_id=post_id, image_name=image_name)
             await self._PostgresService.insert_models_and_flush(image_entry)
-
-            if post.owner_id != user.user_id:
-                raise HTTPException(status_code=401, detail="You are not the owner of this post")
 
             await self._ImageStorage.upload_images_post(contents=image_contents, content_type=specified_mime, image_name=image_name)
         else: raise HTTPException(status_code=400, detail="Image type or contents missing")

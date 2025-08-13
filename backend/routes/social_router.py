@@ -86,7 +86,6 @@ async def make_post(
     ) -> PostSchema:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        print("Validated user data")
         return await social.make_post(data=post_data, user=user)
 
 @social.get("/posts/{post_id}")

@@ -48,7 +48,7 @@ class StorageABC(ABC):
         return magic.from_buffer(buffer=file_bytes, mime=True)
 
     @abstractmethod
-    def upload_images_post(self, contents_list: List[bytes], content_types: List[str], image_names: List[str]):
+    def upload_images_post(self, contents: bytes, content_type: str, image_name: str):
         """
         Use for uploading and image updating. \n S3 Has only PUT options. \n
         N_image indicates number of image uploaded.
@@ -122,14 +122,9 @@ class S3Storage(StorageABC):
             "Bucket": self._bucket_name, "Key": key
         }
 
-    async def upload_images_post(self, contents_list: List[bytes], content_types: List[str], image_names: List[str]) -> None:
+    async def upload_images_post(self, contents: bytes, content_type: str, image_name: str) -> None:
         async with self._client() as s3:
-            if len(contents_list) != len(content_types):
-                raise ValueError("Length of content and mime types is not equal")
-
-            for i, contents in enumerate(contents_list):
-                mime_type = content_types[i]
-                image_name = image_names[i]
+                mime_type = content_type
 
                 if not self._validate_image_mime(image_bytes=contents, specified_mime=mime_type):
                     raise ValueError(f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
@@ -167,11 +162,10 @@ class S3Storage(StorageABC):
             
     async def delete_image_post(self, image_name: str) -> None:
         async with self._client() as s3:
-            for i in range(MAX_NUMBER_POST_IMAGES):
-                await s3.delete_object(
-                    Bucket=self._bucket_name,
-                    Key=image_name
-                )
+            await s3.delete_object(
+                Bucket=self._bucket_name,
+                Key=image_name
+            )
 
     async def delete_avatar_user(self, user_id: str) -> None:
         async with self._client() as s3:
@@ -203,7 +197,6 @@ class S3Storage(StorageABC):
             )
 
 import secrets
-import random
 
 class LocalStorage(StorageABC):
     def _validate_image_mime(self, image_bytes: bytes, specified_mime: str) -> bool:    
@@ -240,27 +233,22 @@ class LocalStorage(StorageABC):
             self.__media_avatar_path = MEDIA_AVATAR_PATH_TEST
             self.__media_post_path = MEDIA_POST_IMAGE_PATH_TEST
 
-    async def upload_images_post(self, contents_list: List[bytes], content_types: List[str], image_names: List[str]) -> None:
-        if len(contents_list) != len(content_types):
-            raise ValueError("Length of content and mime types is not equal")
+    async def upload_images_post(self, contents: bytes, content_type: str, image_name: str) -> None:
+        if not self._validate_image_mime(image_bytes=contents, specified_mime=content_type):
+            raise ValueError(f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
 
-        for i, contents in enumerate(contents_list):
-            mime_type = content_types[i]
-            image_name = image_names[i]
+        extension = mimetypes.guess_extension(type=content_type)
+        if not extension:
+            raise ValueError("Invalid content type")
+        
+        print(f"{self.__media_post_path}/{image_name}{extension}")
 
-            if not self._validate_image_mime(image_bytes=contents, specified_mime=mime_type):
-                raise ValueError(f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
-
-            extension = mimetypes.guess_extension(type=mime_type)
-            if not extension:
-                raise ValueError("Invalid content type")
-            
-            # Return value is a string giving a filename extension, including the leading dot ('.') / mimetypes.guess_extension()
-            try:
-                async with aiofiles.open(file=f"{self.__media_post_path}/{image_name}{extension}", mode="wb") as file_:
-                    await file_.write(contents)
-            except Exception as e:
-                raise Exception("Uknown error occured when trying to write image locally")
+        # Return value is a string giving a filename extension, including the leading dot ('.') / mimetypes.guess_extension()
+        try:
+            async with aiofiles.open(file=f"{self.__media_post_path}/{image_name}{extension}", mode="wb") as file_:
+                await file_.write(contents)
+        except Exception as e:
+            raise Exception(f"Uknown error occured when trying to write image locally: {e}")
 
     async def upload_avatar_user(self, contents: bytes, content_type: str, image_name: str) -> None:
         if not self._validate_image_mime(image_bytes=contents, specified_mime=content_type):

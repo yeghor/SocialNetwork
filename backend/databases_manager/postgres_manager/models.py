@@ -83,7 +83,7 @@ class Post(Base):
     published: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     last_updated: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    images: Mapped["PostImage"] = relationship(
+    images: Mapped[List["PostImage"]] = relationship(
         "PostImage",
         lazy="selectin"
     )
@@ -135,6 +135,8 @@ class Post(Base):
 
 class PostImage(Base):
     __tablename__ = "postimages"
+
+    image_id: Mapped[str] = mapped_column(primary_key=True)
 
     post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
     image_name: Mapped[str]
