@@ -8,6 +8,7 @@ from typing import Tuple
 import mimetypes
 import os
 from databases_manager.main_managers.s3_image_storage import ImageDoesNotLocalyExist
+import aiofiles
 
 MEDIA_AVATAR_PATH = os.getenv("MEDIA_AVATAR_PATH", "media/users/")
 MEDIA_POST_IMAGE_PATH = os.getenv("MEDIA_POST_IMAGE_PATH", "media/posts/")
@@ -19,14 +20,14 @@ class MainMediaService(MainServiceBase):
         """Pass `n_image` only if `image_type` set to `'post'`"""
         if image_type == "post":
             if not n_image: raise ValueError("No post image number wasn't specified")
-            return f"post_id-{id_}___n_image:{n_image}"
-        if image_type == "user": return f"user_id-{id_}"
+            return f"{id_}-{n_image}"
+        if image_type == "user": return id_
         else: raise ValueError("Unsupported image type!")
 
     @staticmethod
     async def _read_contents_and_mimetype_by_filepath(filepath: str) -> Tuple[bytes, str]:
         """Returns (`bytes`, `str`) where `bytes` - image contents, `str` - mimetype"""
-        async with open(file=filepath, mode="rb") as f:
+        async with aiofiles.open(file=filepath, mode="rb") as f:
             contents = await f.read()
         
         # Return value is a tuple (type, encoding) where type is None if the type can't be guessed
@@ -37,7 +38,7 @@ class MainMediaService(MainServiceBase):
 
         return (contents, content_type)
 
-    async def get_name_and_check_token(self, token: str, image_type: ImageType, number: int | None):
+    async def get_name_and_check_token(self, token: str, image_type: ImageType, number: int | None = None):
         """
         Get image name from Redis. If it's not exist - raises HTTPexception 401 \n
         Pass `number` only if `image_type` set to "post"
@@ -69,16 +70,15 @@ class MainMediaService(MainServiceBase):
 
     async def upload_user_avatar(self, user: User, image_contents: bytes, specified_mime: str):
         if image_contents and specified_mime:
-            image_name = self._define_image_name(id_=user.user_id, image_type="user")
             if user.avatar_image_name:
                 try:
-                    await self._ImageStorage.delete_avatar_user(image_name=image_name)
+                    await self._ImageStorage.delete_avatar_user(user_id=user.user_id)
                 except ImageDoesNotLocalyExist:
                     raise HTTPException(status_code=500, detail="Old user avatar not found. PLease, contact us.")
             
-            await self._ImageStorage.upload_avatar_user(contents=image_contents, content_type=specified_mime, image_name=image_name)
+            await self._ImageStorage.upload_avatar_user(contents=image_contents, content_type=specified_mime, image_name=user.user_id)
 
-            user.avatar_image_name = image_name
+            user.avatar_image_name = user.user_id
             await self._PostgresService.flush()
 
         else: raise HTTPException(status_code=400, detail="Image type or contents missing")        
@@ -86,7 +86,7 @@ class MainMediaService(MainServiceBase):
     async def get_user_avatar_by_token(self, token: str) -> Tuple[bytes, str]:
         """Returns single image (contents, mime_type) from granted token"""
         avatar_name = await self.get_name_and_check_token(token=token, image_type="user")
-
+        print(avatar_name)
         filepath = f"{MEDIA_AVATAR_PATH}{avatar_name}"
         return await self._read_contents_and_mimetype_by_filepath(filepath=filepath)
 

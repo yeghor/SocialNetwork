@@ -161,6 +161,15 @@ async def unfollow(
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         await social.friendship_action(user=user, other_user_id=follow_to_id, follow=False)
 
+@social.get("/users/my-profile")
+async def get_my_profile(
+    user_: User = Depends(authorize_request_depends),
+    session: AsyncSession = Depends(get_session_depends),
+    ) -> UserSchema:
+    user = await merge_model(postgres_session=session, model_obj=user_)
+    async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
+        return await social.get_my_profile(user=user)
+
 @social.get("/users/{user_id}")
 async def get_user_profile(
     user_id: str | None,
@@ -169,16 +178,7 @@ async def get_user_profile(
     )-> UserSchema:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        return await social.get_user_profile(request_user=user, other_user_id=user_id)
-
-@social.get("/users/my-profile")
-async def get_my_profile(
-    user_: User = Depends(authorize_request_depends),
-    session: AsyncSession = Depends(get_session_depends),
-    ) -> UserSchema:
-    user = await merge_model(postgres_session=session, model_obj=user_)
-    async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        return await social.get_user_profile(request_user=user, other_user_id=user.user_id)
+        return await social.get_user_profile(other_user_id=user_id)
 
 @social.delete("/users/my-profile")
 async def delete_user_account() -> None:

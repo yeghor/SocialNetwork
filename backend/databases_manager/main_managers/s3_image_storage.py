@@ -40,6 +40,7 @@ class ImageDoesNotLocalyExist(Exception):
 
 #TODO: Remove _validate_image_mime duplicates
 #TODO: webp format not working
+#TODO: Redis must save full image name with extension
 
 class StorageABC(ABC):
     @staticmethod
@@ -62,7 +63,7 @@ class StorageABC(ABC):
         """Delete n's post image"""
 
     @abstractmethod
-    async def delete_avatar_user(self, image_name: str) -> None:
+    async def delete_avatar_user(self, user_id: str) -> None:
         pass
 
     @abstractmethod
@@ -70,7 +71,7 @@ class StorageABC(ABC):
         """Get temprorary n's post image URL with jwt token in URL including"""
 
     @abstractmethod
-    async def get_user_avatar_url(self, image_name: str) -> List[str]:
+    async def get_user_avatar_url(self, user_id: str) -> str:
         pass
 
 # =======================
@@ -172,11 +173,11 @@ class S3Storage(StorageABC):
                     Key=image_name
                 )
 
-    async def delete_avatar_user(self, image_name: str) -> None:
+    async def delete_avatar_user(self, user_id: str) -> None:
         async with self._client() as s3:
             await s3.delete_object(
                 Bucket=self._bucket_name,
-                Key=image_name
+                Key=user_id
             )
 
     async def get_post_image_urls(self, image_names: List[str]) -> List[str]:
@@ -193,11 +194,11 @@ class S3Storage(StorageABC):
             
             return urls
 
-    async def get_user_avatar_url(self, image_name: str) -> str:
+    async def get_user_avatar_url(self, user_id: str) -> str:
         async with self._client() as s3:
             return await s3.generate_presigned_url(
                 "get_object",
-                Params=self._define_boto_Params(key=image_name),
+                Params=self._define_boto_Params(key=user_id),
                 ExpiresIn=IMAGE_VIEW_ACCES_SECONDS
             )
 
@@ -289,12 +290,13 @@ class LocalStorage(StorageABC):
             raise FileNotFoundError("Post image not found")
 
     
-    async def delete_avatar_user(self, image_name: str) -> None:
+    async def delete_avatar_user(self, user_id: str) -> None:
         # Whe don't know file extension. So we need to find it using glob and image_name*
-        filenames = glob.glob(f"{image_name}*", root_dir=self.__media_avatar_path)
-        if not filenames:
-            raise ImageDoesNotLocalyExist("Local image not found.")
+        filenames = glob.glob(f"{user_id}*", root_dir=self.__media_avatar_path)
         filename = filenames[0]
+        if not filename:
+            raise ImageDoesNotLocalyExist("Local image not found.")
+        
         filepath = f"{self.__media_avatar_path}{filename}"
 
         # TODO: try-except
@@ -307,10 +309,18 @@ class LocalStorage(StorageABC):
         urls = []
         for i, filename in enumerate(filenames):
             urfsafe_token = self._generate_url_token()
-            await self._Redis.save_uri_post_token(image_token=urfsafe_token, post_id=post_id, n_image=i)
+            await self._Redis.save_url_post_token(image_token=urfsafe_token, post_id=post_id, n_image=i)
             urls.append(urfsafe_token)
         return urls
 
-    async def get_user_avatar_url(self, user_id: str) -> List[str]:
+    async def get_user_avatar_url(self, user_id: str) -> str:
         urlsafe_token = self._generate_url_token()
-        await self._Redis.save_uri_user_token(image_token=urlsafe_token, user_id=user_id)
+
+        filenames = glob.glob(f"{user_id}*", root_dir=self.__media_avatar_path)
+        filename = filenames[0]
+
+        if not filename:
+            raise ValueError("No image found by this user id")
+
+        await self._Redis.save_url_user_token(image_token=urlsafe_token, image_name=filename)
+        return urlsafe_token

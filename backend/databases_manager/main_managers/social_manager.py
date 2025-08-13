@@ -166,7 +166,7 @@ class MainServiceSocial(MainServiceBase):
     async def make_post(self, data: MakePostDataSchema, user: User) -> PostSchema:
         if data.parent_post_id:
             if not await self._PostgresService.get_entry_by_id(id_=data.parent_post_id):
-                raise HTTPException(status_code=400, detail="Youre replying to post that dosen't exist")
+                raise HTTPException(status_code=404, detail="Youre replying to post that dosen't exist")
 
         post = Post(
             post_id=str(uuid4()),
@@ -262,7 +262,7 @@ class MainServiceSocial(MainServiceBase):
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
         if not post:
-            raise HTTPException(status_code=400, detail="Post with this id doesn't exist")
+            raise HTTPException(status_code=404, detail="Post with this id doesn't exist")
 
         self.check_post_user_id(post=post, user=user)
         
@@ -288,25 +288,51 @@ class MainServiceSocial(MainServiceBase):
                 raise HTTPException(status_code=400, detail="You are not following this user")
             fresh_user.followed.remove(other_user)
     
-    # FIX THIS!!!!
-    async def get_user_profile(self, request_user: User, other_user_id: str) -> UserSchema:
-        # Getting request_user to add feature that doesn't allow see profile of user if you're not in his followers list
 
-        print(request_user.user_id)
+    async def get_user_profile(self, other_user_id: str) -> UserSchema:
 
-        # Just to reuse this method
-        if request_user.user_id == other_user_id:
-            other_user = await self._PostgresService.get_entry_by_id(id_=other_user_id, ModelType=User)
-        else:
-            other_user = await self._PostgresService.get_entry_by_id(id_=other_user_id, ModelType=User)
+        print(other_user_id)
 
-        return UserSchema.model_validate(other_user, from_attributes=True)
+        other_user = await self._PostgresService.get_entry_by_id(id_=other_user_id, ModelType=User)
+
+        if not other_user: 
+            raise HTTPException(status_code=404, detail="User with this id not found")
+
+        # TODO: Define image name by universal method
+        avatar_token = await self._ImageStorage.get_user_avatar_url(user_id=other_user.user_id)
+
+        return UserSchema(
+            user_id=other_user.user_id,
+            username=other_user.username,
+            followers=other_user.followers,
+            followed=other_user.followed,
+            posts=other_user.posts,
+            avatar_token=avatar_token
+        )
     
+    async def get_my_profile(self, user: User) -> UserSchema:
+        """To use this method you firstly need to get User instance by Bearer token"""
+
+        # To prever SQLalechemy missing greenlet_spawn error. Cause merged model loses relationships
+        user = await self._PostgresService.get_entry_by_id(id_=user.user_id, ModelType=User)
+
+        avatar_token = await self._ImageStorage.get_user_avatar_url(user_id=user.user_id)
+
+        return UserSchema(
+            user_id=user.user_id,
+            username=user.username,
+            followers=user.followers,
+            followed=user.followed,
+            posts=user.posts,
+            avatar_token=avatar_token
+        )
+
+
     async def load_post(self, user: User, post_id: str) -> PostSchema:
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
         if not post:
-            raise HTTPException(status_code=400, detail="Post with this id doesn't exist")
+            raise HTTPException(status_code=404, detail="Post with this id doesn't exist")
 
         await self._construct_and_flush_action(action_type=ActionType.view, post=post, user=user)
 

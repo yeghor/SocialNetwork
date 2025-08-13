@@ -78,6 +78,7 @@ class PostSchema(PostBase):
 
 class UserShortSchema(UserIDValidate):
     username: str
+    avatar_token: str
 
 class UserLiteSchema(UserShortSchema):
     """Pass to the followers field List[User]!"""
