@@ -66,7 +66,7 @@ class MainMediaService(MainServiceBase):
                 raise HTTPException(status_code=400, detail="Max number of post images reached")
 
             image_name = self._define_image_name(id_=post_id, image_type="post", n_image=len(post.images))
-            image_entry = PostImage(image_id=str(uuid4), post_id=post_id, image_name=image_name)
+            image_entry = PostImage(image_id=str(uuid4()), post_id=post_id, image_name=image_name)
             await self._PostgresService.insert_models_and_flush(image_entry)
 
             await self._ImageStorage.upload_images_post(contents=image_contents, content_type=specified_mime, image_name=image_name)
