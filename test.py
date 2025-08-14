@@ -1,23 +1,10 @@
-import mimetypes
+from typing import List
 
-# Example MIME types
-mime_type_text = "text/plain"
-mime_type_jpeg = "image/jpeg"
-mime_type_pdf = "application/pdf"
-mime_type_unknown = "application/x-some-custom-type"
+def binary_search(arr: List, target: int) -> int | None:
+    pass
 
-# Guess extensions
-extension_text = mimetypes.guess_extension(mime_type_text)
-extension_jpeg = mimetypes.guess_extension(mime_type_jpeg)
-extension_pdf = mimetypes.guess_extension(mime_type_pdf)
-extension_unknown = mimetypes.guess_extension(mime_type_unknown)
+import magic
 
-print(f"Extension for '{mime_type_text}': {extension_text}")
-print(f"Extension for '{mime_type_jpeg}': {extension_jpeg}")
-print(f"Extension for '{mime_type_pdf}': {extension_pdf}")
-print(f"Extension for '{mime_type_unknown}': {extension_unknown}")
+print(magic.__version__)
 
-import glob
-
-
-print(glob.glob("test*", root_dir="backend/media/prod_media/posts"))
+import aiofiles

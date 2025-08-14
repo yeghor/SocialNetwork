@@ -44,21 +44,18 @@ async def test_postgres_service():
 
         user1 = User(
             user_id=uid1,
-            image_path=None,
             username="user1",
             email="user1@example.com",
             password_hash=hash_password("password1"),
         )
         user2 = User(
             user_id=uid2,
-            image_path=None,
             username="user2",
             email="user2@example.com",
             password_hash=hash_password("password2"),
         )
         user3 = User(
             user_id=uid3,
-            image_path=None,
             username="ggg",
             email="user3@example.com",
             password_hash=hash_password("password3"),
@@ -78,7 +75,6 @@ async def test_postgres_service():
             is_reply=False,
             title="First Post",
             text="This is the first post by user1.",
-            image_path=None,
             popularity_rate=5,
         )
 
@@ -89,7 +85,6 @@ async def test_postgres_service():
             is_reply=True,
             title="Reply to First Post",
             text="This is a reply to the first post by user2.",
-            image_path=None,
             popularity_rate=0,
         )
 
@@ -100,7 +95,6 @@ async def test_postgres_service():
             is_reply=False,
             title="Another Post",
             text="This is another post by user3.",
-            image_path=None,
             popularity_rate=450,
         )
 
@@ -138,7 +132,6 @@ async def test_postgres_service():
             is_reply=False,
             title="Post to delete",
             text="This is another post by user2.",
-            image_path=None,
             popularity_rate=423,
         )
         await ps.insert_models_and_flush(post4)
@@ -149,7 +142,7 @@ async def test_postgres_service():
         assert await ps.get_user_by_username_or_email(email=user1.email) == user1
         assert await ps.get_user_by_username_or_email(username=user1.username) == user1
 
-        followed_posts = await ps.get_followed_posts(user=user1)
+        followed_posts = await ps.get_followed_posts(user=user1, n=10)
         assert post2 in followed_posts
         assert post3 in followed_posts
         assert post1 not in followed_posts
