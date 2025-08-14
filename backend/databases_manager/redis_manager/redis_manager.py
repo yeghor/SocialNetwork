@@ -231,7 +231,7 @@ class RedisService:
         await self.__client.setex(pattern, IMAGE_VIEW_ACCES_SECONDS, image_name)
         
     @redis_error_handler
-    async def check_image_access(self, url_image_token: str, image_type: ImageType, n_image: int | None = None) -> str | None:
+    async def check_image_access(self, url_image_token: str, image_type: ImageType) -> str | None:
         """
         Returns image name (read ReadMe-dev.md). If acces not granted or token value corrupted - returns None \n
         Pass `n_image` if `image_type` set to "post"
@@ -240,13 +240,8 @@ class RedisService:
             return False
 
         if image_type == "post":
-            pattern = f"{self.__post_image_acces_prefix}{url_image_token}"
-            value_string: str = await self.__client.get(pattern)
-            separated_values = value_string.split(self.__split_value_string_by)
-            if separated_values:
-                return f"{separated_values[1]}{separated_values[2]}"
-            return None
-        
+            pattern = f"{self.__post_image_acces_prefix}{url_image_token}"    
         elif image_type == "user":
             pattern = f"{self.__user_image_acces_prefix}{url_image_token}"
-            return await self.__client.get(pattern)
+
+        return await self.__client.get(pattern)

@@ -36,6 +36,9 @@ for i, ext in enumerate(ALLOWED_EXTENSIONS):
 class ImageDoesNotLocalyExist(Exception):
     pass
 
+class DuplicateImagesExists(Exception):
+    pass
+
 # ================================
 
 #TODO: Remove _validate_image_mime duplicates
@@ -293,11 +296,11 @@ class LocalStorage(StorageABC):
         else:
             raise FileNotFoundError("Avatar image not found")
 
-    async def get_post_image_urls(self, post_id: str, filenames: List[str]) -> List[str]:
+    async def get_post_image_urls(self, image_names: List[str]) -> List[str]:
         urls = []
-        for i, filename in enumerate(filenames):
+        for filename in image_names:
             urfsafe_token = self._generate_url_token()
-            await self._Redis.save_url_post_token(image_token=urfsafe_token, post_id=post_id, n_image=i)
+            await self._Redis.save_url_post_token(image_token=urfsafe_token, image_name=filename)
             urls.append(urfsafe_token)
         return urls
 
@@ -312,3 +315,18 @@ class LocalStorage(StorageABC):
 
         await self._Redis.save_url_user_token(image_token=urlsafe_token, image_name=filename)
         return urlsafe_token
+
+    def get_full_path_by_partial_path_without_extension(self, filepath: str) -> str:
+        """If no"""
+        # TODO: What does glob returnds>???
+        filenames = glob.glob(f"{filepath}*")
+
+        if len(filenames) > 1:
+            raise DuplicateImagesExists
+
+        full_filepath = filenames[0]
+
+        if not full_filepath:
+            raise ValueError("No image found by this user id")
+        
+        return full_filepath

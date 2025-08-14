@@ -4,16 +4,23 @@ from databases_manager.main_managers.services_creator_abstractions import MainSe
 from databases_manager.postgres_manager.models import User, Post, PostImage
 from databases_manager.redis_manager.redis_manager import ImageType
 from databases_manager.redis_manager.redis_manager import ImageType
-from typing import Tuple
+from typing import Tuple, Literal
 import mimetypes
 import os
 from databases_manager.main_managers.s3_image_storage import ImageDoesNotLocalyExist
 import aiofiles
 from uuid import uuid4
 
+
 MEDIA_AVATAR_PATH = os.getenv("MEDIA_AVATAR_PATH", "media/users/")
 MEDIA_POST_IMAGE_PATH = os.getenv("MEDIA_POST_IMAGE_PATH", "media/posts/")
 MAX_NUMBER_POST_IMAGES = int(os.getenv("MAX_NUMBER_POST_IMAGES", "3"))
+
+MEDIA_AVATAR_PATH = os.getenv("MEDIA_AVATAR_PATH", "media/users/")
+MEDIA_POST_IMAGE_PATH = os.getenv("MEDIA_POST_IMAGE_PATH", "media/posts/")
+MEDIA_AVATAR_PATH_TEST = os.getenv("MEDIA_AVATAR_PATH_TEST", "media/testing_media/users")
+MEDIA_POST_IMAGE_PATH_TEST = os.getenv("MEDIA_POST_IMAGE_PATH_TEST", "media/testing_media/posts")
+
 
 class MainMediaService(MainServiceBase):
     @staticmethod
@@ -28,8 +35,8 @@ class MainMediaService(MainServiceBase):
     @staticmethod
     async def _read_contents_and_mimetype_by_filepath(filepath: str) -> Tuple[bytes, str]:
         """Returns (`bytes`, `str`) where `bytes` - image contents, `str` - mimetype"""
-        async with aiofiles.open(file=filepath, mode="rb") as f:
-            contents = await f.read()
+        async with aiofiles.open(file=filepath, mode="rb") as file_:
+            contents = await file_.read()
         
         # Return value is a tuple (type, encoding) where type is None if the type can't be guessed
         content_type = mimetypes.guess_type(filepath)[0]
@@ -39,15 +46,12 @@ class MainMediaService(MainServiceBase):
 
         return (contents, content_type)
 
-    async def get_name_and_check_token(self, token: str, image_type: ImageType, number: int | None = None):
+
+    async def get_name_and_check_token(self, token: str, image_type: ImageType):
         """
         Get image name from Redis. If it's not exist - raises HTTPexception 401 \n
-        Pass `number` only if `image_type` set to "post"
         """
-        if image_type == "post":
-            image_name = await self._RedisService.check_image_access(url_image_token=token, image_type=image_type, n_image=number)
-        elif image_type == "user":
-            image_name = await self._RedisService.check_image_access(url_image_token=token, image_type=image_type)
+        image_name = await self._RedisService.check_image_access(url_image_token=token, image_type=image_type)
 
         if image_name: return image_name
         raise HTTPException(status_code=401, detail="Expired or invalid token")
@@ -94,10 +98,13 @@ class MainMediaService(MainServiceBase):
         filepath = f"{MEDIA_AVATAR_PATH}{avatar_name}"
         return await self._read_contents_and_mimetype_by_filepath(filepath=filepath)
 
-    async def get_post_image_by_token(self, token: str, user: User, number: int) -> Tuple[bytes, str]:
+    async def get_post_image_by_token(self, token: str) -> Tuple[bytes, str]:
         """Returns single image (contents, mime_type) from granted token"""
 
-        post_image_name = await self._RedisService.check_image_access(url_image_token=token, image_type="post", number=number)
-
-        filepath = f"{MEDIA_POST_IMAGE_PATH}{post_image_name}{number}"
-        return await self._read_contents_and_mimetype_by_filepath(filepath=filepath)
+        image_name = await self.get_name_and_check_token(token=token, image_type="post")
+        print(image_name)
+        filepath = f"{MEDIA_POST_IMAGE_PATH}{image_name}"
+        print(filepath)
+        filepath_full = self._ImageStorage.get_full_path_by_partial_path_without_extension(filepath=filepath)
+        return await self._read_contents_and_mimetype_by_filepath(filepath=filepath_full)
+    

@@ -11,7 +11,7 @@ media_router = APIRouter()
 
 # https://stackoverflow.com/questions/55873174/how-do-i-return-an-image-in-fastapi
 @media_router.get("/media/users/{token}", response_class=Response)
-async def get_image(
+async def get_image_user(
     token: str,
     session: AsyncSession = Depends(get_session_depends)
 ):
@@ -20,12 +20,12 @@ async def get_image(
         return Response(content=file_contents, media_type=mime_type)
 
 @media_router.get("/media/posts/{token}", response_class=Response)
-async def get_image(
+async def get_image_post(
     token: str,
     session: AsyncSession = Depends(get_session_depends)
 ):
     async with await MainServiceContextManager[MainMediaService].create(MainServiceType=MainMediaService, postgres_session=session) as media:  
-        file_contents, mime_type = await media.get_user_avatar_by_token(token=token)
+        file_contents, mime_type = await media.get_post_image_by_token(token=token)
         return Response(content=file_contents, media_type=mime_type)
 
 # TODO: Implement file passing.
