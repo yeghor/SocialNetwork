@@ -12,5 +12,5 @@ asyncpg==0.30.0
 chromadb==1.0.15
 asgiref==3.8.1
 apscheduler==3.11.0
-magic==0.4.14
+python-magic==0.4.14
 aiofiles==24.1.0
