@@ -7,4 +7,3 @@ import magic
 
 print(magic.__version__)
 
-import aiofiles

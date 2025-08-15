@@ -11,3 +11,6 @@ If libmagic module not found - pip install python-magic-bin==0.4.14
 
 Required pips:
 pip install python-magic-bin==0.4.14
+
+If this error: The AWS Access Key Id you provided does not exist in our records.
+Update your AWS CLI
