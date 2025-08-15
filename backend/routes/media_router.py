@@ -9,12 +9,16 @@ from databases_manager.main_managers.media_manager import MainMediaService
 from databases_manager.postgres_manager.database_utils import get_session_depends, merge_model
 media_router = APIRouter()
 
+"""
+This router is only for case when the application use Local image storage.
+"""
+
 # https://stackoverflow.com/questions/55873174/how-do-i-return-an-image-in-fastapi
 @media_router.get("/media/users/{token}", response_class=Response)
 async def get_image_user(
     token: str,
     session: AsyncSession = Depends(get_session_depends)
-):
+) -> str:
     async with await MainServiceContextManager[MainMediaService].create(MainServiceType=MainMediaService, postgres_session=session) as media:  
         file_contents, mime_type = await media.get_user_avatar_by_token(token=token)
         return Response(content=file_contents, media_type=mime_type)
@@ -23,7 +27,7 @@ async def get_image_user(
 async def get_image_post(
     token: str,
     session: AsyncSession = Depends(get_session_depends)
-):
+) -> str:
     async with await MainServiceContextManager[MainMediaService].create(MainServiceType=MainMediaService, postgres_session=session) as media:  
         file_contents, mime_type = await media.get_post_image_by_token(token=token)
         return Response(content=file_contents, media_type=mime_type)

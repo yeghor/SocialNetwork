@@ -94,7 +94,7 @@ class MainMediaService(MainServiceBase):
     async def get_user_avatar_by_token(self, token: str) -> Tuple[bytes, str]:
         """Returns single image (contents, mime_type) from granted token"""
         avatar_name = await self.get_name_and_check_token(token=token, image_type="user")
-        print(avatar_name)
+
         filepath = f"{MEDIA_AVATAR_PATH}{avatar_name}"
         return await self._read_contents_and_mimetype_by_filepath(filepath=filepath)
 
@@ -102,9 +102,9 @@ class MainMediaService(MainServiceBase):
         """Returns single image (contents, mime_type) from granted token"""
 
         image_name = await self.get_name_and_check_token(token=token, image_type="post")
-        print(image_name)
+
         filepath = f"{MEDIA_POST_IMAGE_PATH}{image_name}"
-        print(filepath)
+
         filepath_full = self._ImageStorage.get_full_path_by_partial_path_without_extension(filepath=filepath)
         return await self._read_contents_and_mimetype_by_filepath(filepath=filepath_full)
     

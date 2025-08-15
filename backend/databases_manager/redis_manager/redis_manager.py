@@ -245,3 +245,5 @@ class RedisService:
             pattern = f"{self.__user_image_acces_prefix}{url_image_token}"
 
         return await self.__client.get(pattern)
+    
+    

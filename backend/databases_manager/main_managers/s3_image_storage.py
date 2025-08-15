@@ -27,6 +27,10 @@ MEDIA_AVATAR_PATH_TEST = os.getenv("MEDIA_AVATAR_PATH_TEST", "media/testing_medi
 MEDIA_POST_IMAGE_PATH_TEST = os.getenv("MEDIA_POST_IMAGE_PATH_TEST", "media/testing_media/posts")
 
 
+BASE_URL = os.getenv("LOCAL_BASE_URL", "http://127.0.0.1:8000")
+MEDIA_POST_IMAGE_URI = os.getenv("MEDIA_POST_IMAGE_URI", "/media/posts/")
+USER_AVATAR_URI = os.getenv("USER_AVATAR_URI", "media/users/")
+
 
 ALLOWED_IMAGES_EXTENSIONS_MIME_RAW = os.getenv("ALLOWED_IMAGES_EXTENSIONS_MIME")
 ALLOWED_EXTENSIONS = ALLOWED_IMAGES_EXTENSIONS_MIME_RAW.split(",")
@@ -301,7 +305,8 @@ class LocalStorage(StorageABC):
         for filename in image_names:
             urfsafe_token = self._generate_url_token()
             await self._Redis.save_url_post_token(image_token=urfsafe_token, image_name=filename)
-            urls.append(urfsafe_token)
+            url = f"{BASE_URL}{MEDIA_POST_IMAGE_URI}{urfsafe_token}"
+            urls.append(url)
         return urls
 
     async def get_user_avatar_url(self, user_id: str) -> str:
@@ -314,11 +319,11 @@ class LocalStorage(StorageABC):
             raise ValueError("No image found by this user id")
 
         await self._Redis.save_url_user_token(image_token=urlsafe_token, image_name=filename)
-        return urlsafe_token
+        return f"{BASE_URL}{USER_AVATAR_URI}{urlsafe_token}"
 
     def get_full_path_by_partial_path_without_extension(self, filepath: str) -> str:
-        """If no"""
-        # TODO: What does glob returnds>???
+        """If no full filepath found - raise ValueError"""
+
         filenames = glob.glob(f"{filepath}*")
 
         if len(filenames) > 1:
