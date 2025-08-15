@@ -10,3 +10,7 @@ print(magic.__version__)
 import aiobotocore
 
 print(aiobotocore.__version__)
+
+import multipart
+
+print(multipart.__version__)
