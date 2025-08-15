@@ -246,6 +246,7 @@ class MainServiceSocial(MainServiceBase):
         self.check_post_user_id(post=post, user=user)
 
         await self._PostgresService.delete_post_by_id(id_=post.post_id)
+        await self._ImageStorage.delete_post_images(base_name=post.post_id)
         await self._ChromaService.delete_by_ids(ids=[post.post_id])
 
 

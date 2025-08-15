@@ -66,7 +66,7 @@ class StorageABC(ABC):
         """Use for uploading and image updating. \n S3 Has only PUT options."""
 
     @abstractmethod
-    async def delete_image_post(self, image_name: str) -> None:
+    async def delete_post_images(self, image_name: str) -> None:
         """Delete n's post image"""
 
     @abstractmethod
@@ -167,7 +167,7 @@ class S3Storage(StorageABC):
             except Exception as e:
                 raise Exception(f"Failed to upload user image: {e}")
             
-    async def delete_image_post(self, image_name: str) -> None:
+    async def delete_post_images(self, image_name: str) -> None:
         async with self._client() as s3:
             await s3.delete_object(
                 Bucket=self._bucket_name,
@@ -273,16 +273,22 @@ class LocalStorage(StorageABC):
         except Exception as e:
             raise Exception("Uknown error occured when trying to write image locally")
     
-    async def delete_image_post(self, image_name: str) -> None:
+    async def delete_post_images(self, base_name: str) -> None:
+        """Pass to `base_name` image name that includes іфьу part, like post_id without image ordinal number"""
         # Whe don't know file extension. So we need to find it using glob and image_name*
-        filenames = glob.glob(f"{image_name}*", root_dir=self.__media_post_path)
-        filename = filenames[0]
-        filepath = f"{self.__media_post_path}{filename}"
 
-        if os.path.exists(path=filepath):
-            os.remove(path=filepath)
-        else:
-            raise FileNotFoundError("Post image not found")
+        filenames = glob.glob(f"{base_name}*", root_dir=self.__media_post_path)
+        for filename in filenames:
+            filepath = f"{self.__media_post_path}{filename}"
+
+            if os.path.exists(path=filepath):
+                print(filepath)
+                try:
+                    os.remove(path=filepath)
+                except Exception:
+                    raise Exception(f"Failed to remove image: {filename}")
+            else:
+                raise FileNotFoundError("Post image not found")
 
     
     async def delete_avatar_user(self, user_id: str) -> None:
