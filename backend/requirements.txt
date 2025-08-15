@@ -14,3 +14,4 @@ asgiref==3.8.1
 apscheduler==3.11.0
 python-magic==0.4.27
 aiofiles==24.1.0
+aiobotocore==2.23.2

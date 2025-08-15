@@ -7,3 +7,6 @@ import magic
 
 print(magic.__version__)
 
+import aiobotocore
+
+print(aiobotocore.__version__)
