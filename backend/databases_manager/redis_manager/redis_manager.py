@@ -106,30 +106,30 @@ class RedisService:
     # ==============
 
     @redis_error_handler
-    async def save_acces_jwt(self, jwt_token: str, user_id: str | UUID) -> str:
+    async def save_acces_jwt(self, jwt_token: str, user_id: str) -> str:
         await self.__client.setex(
             name=f"{self.__jwt_acces_prefix}{str(jwt_token)}",
             time=ACCES_JWT_EXPIRY_SECONDS,
-            value=str(user_id)
+            value=user_id
         )
         return self._get_expiry(ACCES_JWT_EXPIRY_SECONDS)
     
     @redis_error_handler
-    async def save_refresh_jwt(self, jwt_token: str, user_id: str | UUID) -> str:
+    async def save_refresh_jwt(self, jwt_token: str, user_id: str) -> str:
         await self.__client.setex(
             name=f"{(self.__jwt_refresh_prefix)}{jwt_token}",
             time=REFRESH_JWT_EXPIRY_SECONDS,
-            value=str(user_id)
+            value=user_id
         )
         return self._get_expiry(REFRESH_JWT_EXPIRY_SECONDS)
 
     @redis_error_handler
-    async def refresh_acces_token(self, old_token, new_token: str, user_id: str | UUID) -> str:
+    async def refresh_acces_token(self, old_token, new_token: str, user_id: str) -> str:
         await self.delete_jwt(jwt_token=old_token, token_type="acces")
         await self.__client.setex(
             name=f"{self.__jwt_acces_prefix}{new_token}",
             time=ACCES_JWT_EXPIRY_SECONDS,
-            value=str(user_id)
+            value=user_id
         )
         return new_token
 
@@ -162,7 +162,7 @@ class RedisService:
         return bool(potential_token)
     
     @redis_error_handler
-    async def get_token_by_user_id(self, user_id: UUID | str, token_type: str) -> str | None:
+    async def get_token_by_user_id(self, user_id: str, token_type: str) -> str | None:
         if not user_id or not token_type:
             raise ValueError("user_id or toket_type is None!")
 
@@ -175,6 +175,13 @@ class RedisService:
             value = await self.__client.get(key)
             if value == str(user_id):
                 return key.removeprefix(prefix)
+
+    @redis_error_handler
+    async def deactivate_tokens_by_id(self, user_id: str) -> None:
+        access_pattern = f"{self.__jwt_acces_prefix}{user_id}"
+        refresh_pattern = f"{self.__jwt_refresh_prefix}{user_id}"
+
+        await self.__client.delete(access_pattern, refresh_pattern)
 
     # ===============
     # Post excluding logic

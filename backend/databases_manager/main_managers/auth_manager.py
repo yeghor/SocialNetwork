@@ -31,7 +31,9 @@ class MainServiceAuth(MainServiceBase):
         
         if return_user:
             payload = self._JWT.extract_jwt_payload(jwt_token=valid_token)
-            return await self._PostgresService.get_user_by_id(payload.user_id)
+            user = await self._PostgresService.get_user_by_id(payload.user_id)
+            if not user:
+                raise HTTPException(status_code=401, detail="Invalid user id specified in token. Try to logout and then login again")
         
         return None
 
@@ -104,3 +106,12 @@ class MainServiceAuth(MainServiceBase):
             raise HTTPException(status_code=400, detail="New username can't be the same with an old one")
 
         await self._PostgresService.change_field_and_flush(Model=User, username=new_username)
+
+    async def delete_user(self, password: str, user: User) -> None:
+        if not password_manager.check_password(entered_pass=password, hashed_pass=user.password_hash):
+            raise HTTPException(status_code=401, detail="Password didn't match")
+        
+        await self._PostgresService.delete_models_and_flush(user)
+        await self._RedisService.deactivate_tokens_by_id(user_id=user.user_id)
+        await self._ImageStorage.delete_avatar_user(user_id=user.user_id)
+       

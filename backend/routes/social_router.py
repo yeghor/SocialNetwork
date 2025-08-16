@@ -178,7 +178,3 @@ async def get_user_profile(
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.get_user_profile(other_user_id=user_id)
-
-@social.delete("/users/my-profile")
-async def delete_user_account() -> None:
-    pass
