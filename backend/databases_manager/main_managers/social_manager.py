@@ -178,6 +178,7 @@ class MainServiceSocial(MainServiceBase):
         )
 
         await self._PostgresService.insert_models_and_flush(post)
+
         await self._PostgresService.refresh_model(post)
 
         await self._ChromaService.add_posts_data(posts=[post])

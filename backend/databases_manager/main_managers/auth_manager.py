@@ -34,6 +34,7 @@ class MainServiceAuth(MainServiceBase):
             user = await self._PostgresService.get_user_by_id(payload.user_id)
             if not user:
                 raise HTTPException(status_code=401, detail="Invalid user id specified in token. Try to logout and then login again")
+            return user
         
         return None
 
