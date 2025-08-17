@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Body, Query, HTTPException
 from databases_manager.postgres_manager.database_utils import get_session_depends, merge_model
-from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
+from databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
 from databases_manager.main_managers.social_manager import MainServiceSocial
 from authorization.authorization import authorize_request_depends
 from pydantic_schemas.pydantic_schemas_social import (
@@ -86,8 +86,7 @@ async def make_post(
     ) -> PostSchema:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        print("Validated user data")
-        return await social.construct_and_flush_post(data=post_data, user=user)
+        return await social.make_post(data=post_data, user=user)
 
 @social.get("/posts/{post_id}")
 async def load_post(
@@ -161,6 +160,15 @@ async def unfollow(
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         await social.friendship_action(user=user, other_user_id=follow_to_id, follow=False)
 
+@social.get("/users/my-profile")
+async def get_my_profile(
+    user_: User = Depends(authorize_request_depends),
+    session: AsyncSession = Depends(get_session_depends),
+    ) -> UserSchema:
+    user = await merge_model(postgres_session=session, model_obj=user_)
+    async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
+        return await social.get_my_profile(user=user)
+
 @social.get("/users/{user_id}")
 async def get_user_profile(
     user_id: str | None,
@@ -169,17 +177,4 @@ async def get_user_profile(
     )-> UserSchema:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        return await social.get_user_profile(request_user=user, other_user_id=user_id)
-
-@social.get("/users/my-profile")
-async def get_my_profile(
-    user_: User = Depends(authorize_request_depends),
-    session: AsyncSession = Depends(get_session_depends),
-    ) -> UserSchema:
-    user = await merge_model(postgres_session=session, model_obj=user_)
-    async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        return await social.get_user_profile(request_user=user, other_user_id=user.user_id)
-
-@social.delete("/users/my-profile")
-async def delete_user_account() -> None:
-    pass
+        return await social.get_user_profile(other_user_id=user_id)

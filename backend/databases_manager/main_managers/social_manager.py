@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 
-from databases_manager.main_managers.main_manager_creator_abs import MainServiceBase
+from databases_manager.main_managers.services_creator_abstractions import MainServiceBase
 from databases_manager.postgres_manager.models import *
 from post_popularity_rate_task.popularity_rate import POST_ACTIONS
 from databases_manager.main_managers.mix_posts import MIX_FOLLOWING, MIX_UNRELEVANT, MIX_HISTORY_POSTS_RELATED
@@ -37,6 +37,7 @@ T = TypeVar("T", bound=Base)
 class IdsPostTuple(NamedTuple):
     ids: List[str]
     posts: List[Post]
+
 
 class MainServiceSocial(MainServiceBase):
     @staticmethod
@@ -126,7 +127,6 @@ class MainServiceSocial(MainServiceBase):
         if return_posts_too: return (ids, posts)
         else: return ids
 
-    # TODO: Implement post excluding
     async def get_followed_posts(self, user: User, exclude: bool) -> List[PostLiteSchema]:
         exclude_ids = []
         if exclude:
@@ -163,10 +163,10 @@ class MainServiceSocial(MainServiceBase):
         users = await self._PostgresService.get_users_by_username(prompt=prompt)
         return [UserLiteSchema.model_validate(user, from_attributes=True) for user in users if user.user_id != request_user.user_id]
         
-    async def construct_and_flush_post(self, data: MakePostDataSchema, user: User) -> PostSchema:
+    async def make_post(self, data: MakePostDataSchema, user: User) -> PostSchema:
         if data.parent_post_id:
             if not await self._PostgresService.get_entry_by_id(id_=data.parent_post_id):
-                raise HTTPException(status_code=400, detail="Youre replying to post that dosen't exist")
+                raise HTTPException(status_code=404, detail="Youre replying to post that dosen't exist")
 
         post = Post(
             post_id=str(uuid4()),
@@ -174,11 +174,11 @@ class MainServiceSocial(MainServiceBase):
             parent_post_id=data.parent_post_id,
             title=data.title,
             text=data.text,
-            image_path=None, # TODO: implement image uploads
             is_reply=bool(data.parent_post_id)
         )
 
         await self._PostgresService.insert_models_and_flush(post)
+
         await self._PostgresService.refresh_model(post)
 
         await self._ChromaService.add_posts_data(posts=[post])
@@ -193,11 +193,11 @@ class MainServiceSocial(MainServiceBase):
             owner=UserShortSchema.model_validate(user, from_attributes=True),
             title=post.title,
             text=post.text,
-            image_path=None, # TODO 
             last_updated=post.last_updated,
             published=post.published,
             parent_post=parent_post_validated,
-            replies=[]
+            replies=[],
+            pictures_urls=[]
         )
 
     async def _construct_and_flush_action(self, action_type: ActionType, user: User, post: Post = None) -> None:
@@ -247,6 +247,7 @@ class MainServiceSocial(MainServiceBase):
         self.check_post_user_id(post=post, user=user)
 
         await self._PostgresService.delete_post_by_id(id_=post.post_id)
+        await self._ImageStorage.delete_post_images(base_name=post.post_id)
         await self._ChromaService.delete_by_ids(ids=[post.post_id])
 
 
@@ -263,7 +264,7 @@ class MainServiceSocial(MainServiceBase):
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
         if not post:
-            raise HTTPException(status_code=400, detail="Post with this id doesn't exist")
+            raise HTTPException(status_code=404, detail="Post with this id doesn't exist")
 
         self.check_post_user_id(post=post, user=user)
         
@@ -289,25 +290,51 @@ class MainServiceSocial(MainServiceBase):
                 raise HTTPException(status_code=400, detail="You are not following this user")
             fresh_user.followed.remove(other_user)
     
-    # FIX THIS!!!!
-    async def get_user_profile(self, request_user: User, other_user_id: str) -> UserSchema:
-        # Getting request_user to add feature that doesn't allow see profile of user if you're not in his followers list
 
-        print(request_user.user_id)
+    async def get_user_profile(self, other_user_id: str) -> UserSchema:
 
-        # Just to reuse this method
-        if request_user.user_id == other_user_id:
-            other_user = await self._PostgresService.get_entry_by_id(id_=other_user_id, ModelType=User)
-        else:
-            other_user = await self._PostgresService.get_entry_by_id(id_=other_user_id, ModelType=User)
+        print(other_user_id)
 
-        return UserSchema.model_validate(other_user, from_attributes=True)
+        other_user = await self._PostgresService.get_entry_by_id(id_=other_user_id, ModelType=User)
+
+        if not other_user: 
+            raise HTTPException(status_code=404, detail="User with this id not found")
+
+        # TODO: Define image name by universal method
+        avatar_token = await self._ImageStorage.get_user_avatar_url(user_id=other_user.user_id)
+
+        return UserSchema(
+            user_id=other_user.user_id,
+            username=other_user.username,
+            followers=other_user.followers,
+            followed=other_user.followed,
+            posts=other_user.posts,
+            avatar_token=avatar_token
+        )
     
+    async def get_my_profile(self, user: User) -> UserSchema:
+        """To use this method you firstly need to get User instance by Bearer token"""
+
+        # To prever SQLalechemy missing greenlet_spawn error. Cause merged model loses relationships
+        user = await self._PostgresService.get_entry_by_id(id_=user.user_id, ModelType=User)
+
+        avatar_token = await self._ImageStorage.get_user_avatar_url(user_id=user.user_id)
+
+        return UserSchema(
+            user_id=user.user_id,
+            username=user.username,
+            followers=user.followers,
+            followed=user.followed,
+            posts=user.posts,
+            avatar_token=avatar_token
+        )
+
+
     async def load_post(self, user: User, post_id: str) -> PostSchema:
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
         if not post:
-            raise HTTPException(status_code=400, detail="Post with this id doesn't exist")
+            raise HTTPException(status_code=404, detail="Post with this id doesn't exist")
 
         await self._construct_and_flush_action(action_type=ActionType.view, post=post, user=user)
 
@@ -320,6 +347,8 @@ class MainServiceSocial(MainServiceBase):
             viewed_by_validated = [UserShortSchema.model_validate(action.owner, from_attributes=True) for action in viewed_by if action]
         liked_by_validated = [UserShortSchema.model_validate(action.owner, from_attributes=True) for action in liked_by if action]
 
+        filenames = [filename.image_name for filename in post.images]
+        images_temp_urls = await self._ImageStorage.get_post_image_urls(image_names=filenames)
         return PostSchema(
             post_id=post.post_id,
             title=post.title,
@@ -333,5 +362,7 @@ class MainServiceSocial(MainServiceBase):
             views=len(viewed_by),
             parent_post=post.parent_post,
             replies=post.replies,
-            last_updated=post.last_updated
+            last_updated=post.last_updated,
+            pictures_urls=images_temp_urls
         )
+    

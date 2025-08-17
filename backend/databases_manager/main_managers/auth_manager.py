@@ -1,5 +1,4 @@
-from databases_manager.main_managers.main_manager_creator_abs import MainServiceBase, MainServiceContextManagerABS
-from main_managers.image_manager import ImageService
+from databases_manager.main_managers.services_creator_abstractions import MainServiceBase, MainServiceContextManagerABS
 
 from authorization import password_manager, jwt_manager
 from databases_manager.postgres_manager.models import User, Post
@@ -32,14 +31,15 @@ class MainServiceAuth(MainServiceBase):
         
         if return_user:
             payload = self._JWT.extract_jwt_payload(jwt_token=valid_token)
-            return await self._PostgresService.get_user_by_id(payload.user_id)
+            user = await self._PostgresService.get_user_by_id(payload.user_id)
+            if not user:
+                raise HTTPException(status_code=401, detail="Invalid user id specified in token. Try to logout and then login again")
+            return user
         
         return None
 
-    async def register(self, credentials: RegisterSchema, avatar_content_type: str, avatar_contents: bytes) -> RefreshAccesTokens:
-        if not ImageService.validate_image(content_type=avatar_content_type, readed_data=avatar_contents):
-            raise HTTPException(status_code=400, detail=f"Bad image type or size. Up to {POST_IMAGE_MAX_SIZE_MB}")
-
+    # TODO: Cover in try except! ALL OF THIS
+    async def register(self, credentials: RegisterSchema) -> RefreshAccesTokens:
         if await self._PostgresService.get_user_by_username_or_email(username=credentials.username, email=credentials.email):
             raise HTTPException(status_code=409, detail="Registered account with these credetials already exists")
 
@@ -51,8 +51,6 @@ class MainServiceAuth(MainServiceBase):
             password_hash=password_hash
         )
         await self._PostgresService.insert_models_and_flush(new_user)
-
-        await self._S3Service.upload_avatar_user(contents=avatar_contents, extension=avatar_content_type, user_id=new_user.user_id)
 
         return await self._JWT.generate_refresh_acces_token(user_id=new_user.user_id, redis=self._RedisService)
 
@@ -109,3 +107,12 @@ class MainServiceAuth(MainServiceBase):
             raise HTTPException(status_code=400, detail="New username can't be the same with an old one")
 
         await self._PostgresService.change_field_and_flush(Model=User, username=new_username)
+
+    async def delete_user(self, password: str, user: User) -> None:
+        if not password_manager.check_password(entered_pass=password, hashed_pass=user.password_hash):
+            raise HTTPException(status_code=401, detail="Password didn't match")
+        
+        await self._PostgresService.delete_models_and_flush(user)
+        await self._RedisService.deactivate_tokens_by_id(user_id=user.user_id)
+        await self._ImageStorage.delete_avatar_user(user_id=user.user_id)
+       

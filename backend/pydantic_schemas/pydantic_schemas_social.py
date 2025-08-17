@@ -46,7 +46,6 @@ class UserIDValidate(BaseModel):
 
 class PostBaseShort(PostIDValidate):
     title: str
-    image_path: str | None
     published: datetime
 
 class PostBase(PostBaseShort):
@@ -55,6 +54,7 @@ class PostBase(PostBaseShort):
 class PostLiteSchema(PostBase):
     parent_post: PostBase | None
 
+# TODO: Separate urls field to diferent models
 class PostSchema(PostBase):
     text: str
 
@@ -68,6 +68,8 @@ class PostSchema(PostBase):
 
     parent_post: PostBase | None
 
+    pictures_urls: List[str]
+
     # Owner stats. Private field: post_id == user_id
     viewed_by: List[UserShortSchema] | None = None
 
@@ -75,7 +77,6 @@ class PostSchema(PostBase):
 # =====================
 
 class UserShortSchema(UserIDValidate):
-    image_path: str | None
     username: str
 
 class UserLiteSchema(UserShortSchema):
@@ -86,6 +87,7 @@ class UserLiteSchema(UserShortSchema):
 class UserSchema(UserLiteSchema):
     followed: List[UserShortSchema]
     posts: List[PostLiteSchema]
+    avatar_token: str
 
 # =================
 # Body data structure

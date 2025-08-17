@@ -57,7 +57,7 @@ class RegisterSchema(LoginSchema):
         
     @field_validator("password", mode="before")
     @classmethod
-    def validate_password(cls, value: Any) -> str:
+    def validate_password_pydantic_validator(cls, value: Any) -> str:
         if not isinstance(value, str):
             raise HTTPException(status_code=400, detail="Invalid password data type")
         validate_password(value)
@@ -68,7 +68,7 @@ class OldNewPassword(BaseModel):
     new_password: str = Field(..., min_length=PASSWORD_MIN_L, max_length=PASSWORD_MAX_L)
 
 
-    @model_validator
+    @model_validator(mode="after")
     def match_passwords(self) -> Self:
         if self.old_password == self.new_password:
             raise ValueError("Old password can not match the new one!")

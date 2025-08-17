@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncEngine
-from routes import auth_router, social_router
+from routes import auth_router, social_router, media_router
 from databases_manager.postgres_manager.models import *
 from databases_manager.postgres_manager.database import engine, initialize_models, drop_all
 from databases_manager.postgres_manager.database_utils import get_session
 from databases_manager.main_managers.social_manager import MainServiceSocial
-from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
+from databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
 from databases_manager.chromaDB_manager.chroma_manager import EmptyPostsError
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
@@ -80,13 +80,14 @@ app.add_middleware(
 
 app.include_router(auth_router.auth)
 app.include_router(social_router.social)
+app.include_router(media_router.media_router)
 
 try:
     mkdir("images")
 except FileExistsError:
     pass
 
-app.mount("/images", StaticFiles(directory="images"), name="images")
+app.mount("/media", StaticFiles(directory="media"), name="media")
 
 # for debug
 if __name__ == "__main__":

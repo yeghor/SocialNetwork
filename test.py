@@ -1,5 +1,16 @@
-import asgiref
-import apscheduler
+from typing import List
 
-print(asgiref.__version__)
-print(apscheduler.__version__)
+def binary_search(arr: List, target: int) -> int | None:
+    pass
+
+import magic
+
+print(magic.__version__)
+
+import aiobotocore
+
+print(aiobotocore.__version__)
+
+import multipart
+
+print(multipart.__version__)
