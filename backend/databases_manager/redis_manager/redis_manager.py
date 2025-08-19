@@ -14,6 +14,7 @@ REFRESH_JWT_EXPIRY_SECONDS = int(getenv("REFRESH_JWT_EXPIRY_SECONDS"))
 DATETIME_BASE_FORMAT = getenv("DATETIME_BASE_FORMAT")
 EXCLUDE_TIMEOUT = int(getenv("EXCLUDE_TIMEOUT"))
 VIEW_TIMEOUT = int(getenv("VIEW_TIMEOUT"))
+IMAGE_VIEW_ACCES_SECONDS = int(getenv("IMAGE_VIEW_ACCES_SECONDS"))
 
 ExcludeType = Literal["search", "feed", "viewed"] # TODO: Change "viewed" to "view"
 ImageType = Literal["post", "user"]
