@@ -18,7 +18,6 @@ IMAGE_VIEW_ACCES_SECONDS = int(getenv("IMAGE_VIEW_ACCES_SECONDS"))
 
 ExcludeType = Literal["search", "feed", "viewed"] # TODO: Change "viewed" to "view"
 ImageType = Literal["post", "user"]
-ImageType = Literal["post", "user"]
 
 def redis_error_handler(func):
     @wraps(func)
