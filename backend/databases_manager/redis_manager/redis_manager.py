@@ -12,10 +12,11 @@ load_dotenv()
 ACCES_JWT_EXPIRY_SECONDS = int(getenv("ACCES_JWT_EXPIRY_SECONDS"))
 REFRESH_JWT_EXPIRY_SECONDS = int(getenv("REFRESH_JWT_EXPIRY_SECONDS"))
 DATETIME_BASE_FORMAT = getenv("DATETIME_BASE_FORMAT")
-RECOMMEND_POST_AGAING_IN = int(getenv("RECOMMEND_POST_AGAING_IN"))
+EXCLUDE_TIMEOUT = int(getenv("EXCLUDE_TIMEOUT"))
 VIEW_TIMEOUT = int(getenv("VIEW_TIMEOUT"))
 
 ExcludeType = Literal["search", "feed", "viewed"] # TODO: Change "viewed" to "view"
+ImageType = Literal["post", "user"]
 
 def redis_error_handler(func):
     @wraps(func)
@@ -35,8 +36,10 @@ class RedisService:
             return self.__exclude_posts_feed_prefix_1
         elif exclude_type == 'search':
             return self.__exclude_posts_search_prefix_1
-        elif exclude_type == 'viewed':
+        elif exclude_type == 'view':
             return self.__exclude_posts_viewed_prefix_1
+        elif exclude_type == "reply-list":
+            return self.__exclude_replies_prefix_1
         else:
             raise ValueError("Invalid exclude_type provided")
 
@@ -86,6 +89,7 @@ class RedisService:
             self.__exclude_posts_feed_prefix_1 = "exclude-posts-feed-user-"
             self.__exclude_posts_search_prefix_1 = "exclude-posts-search-user-"
             self.__exclude_posts_viewed_prefix_1 = "exclude-posts-viewed-user-"
+            self.__exclude_replies_prefix_1 = "exclude-replies-viewed-user-"
 
         except redis_exceptions.RedisError:
             raise HTTPException(status_code=500, detail="Connection to redis failed")
@@ -162,6 +166,17 @@ class RedisService:
                 return key.removeprefix(prefix)
 
     @redis_error_handler
+    async def deactivate_tokens_by_id(self, user_id: str) -> None:
+        access_pattern = f"{self.__jwt_acces_prefix}{user_id}"
+        refresh_pattern = f"{self.__jwt_refresh_prefix}{user_id}"
+
+        await self.__client.delete(access_pattern, refresh_pattern)
+
+    # ===============
+    # Post excluding logic
+    # ==============
+
+    @redis_error_handler
     async def clear_exclude(self, exclude_type: ExcludeType, user_id: str) -> None:
         # https://stackoverflow.com/questions/21975228/redis-python-how-to-delete-all-keys-according-to-a-specific-pattern-in-python
         first_prefix = self.get_right_first_prefix(exclude_type=exclude_type)
@@ -177,8 +192,7 @@ class RedisService:
     async def add_exclude_post_ids(self, post_ids: List[str], user_id: str, exclude_type: ExcludeType) -> None:
         for id_ in post_ids:
             pattern = self.exclude_post_key_pattern(user_id=user_id, post_id=id_, exclude_type=exclude_type)
-            print(pattern)
-            await self.__client.setex(pattern, RECOMMEND_POST_AGAING_IN, id_)
+            await self.__client.setex(pattern, EXCLUDE_TIMEOUT, id_)
 
     @redis_error_handler
     async def get_exclude_post_ids(self, user_id: str, exclude_type: ExcludeType) -> List[str]:
@@ -188,11 +202,43 @@ class RedisService:
 
     @redis_error_handler
     async def add_view(self, id_: str, user_id: str) -> None:
-        pattern = self.exclude_post_key_pattern(user_id=user_id, post_id=id_, exclude_type="viewed")
+        pattern = self.exclude_post_key_pattern(user_id=user_id, post_id=id_, exclude_type="view")
         await self.__client.setex(pattern, VIEW_TIMEOUT, id_)
 
     @redis_error_handler
     async def check_view_timeout(self, id_: str, user_id:str) -> bool:
         "Returns True - if view from user timeouted, it means that the view can be counted."
-        pattern = self.exclude_post_key_pattern(user_id=user_id, post_id=id_, exclude_type="viewed")
+        pattern = self.exclude_post_key_pattern(user_id=user_id, post_id=id_, exclude_type="view")
         return not bool(await self.__client.exists(pattern))
+    
+    # ===============
+    # LocalStorage images token acces
+    # ==============
+
+    @redis_error_handler
+    async def save_url_user_token(self, image_token: str, image_name: str) -> None:
+        pattern = f"{self.__user_image_acces_prefix}{image_token}"
+        await self.__client.setex(pattern, IMAGE_VIEW_ACCES_SECONDS, image_name)
+
+    @redis_error_handler
+    async def save_url_post_token(self, image_token: str, image_name: str) -> None:
+        pattern = f"{self.__post_image_acces_prefix}{image_token}"
+        await self.__client.setex(pattern, IMAGE_VIEW_ACCES_SECONDS, image_name)
+        
+    @redis_error_handler
+    async def check_image_access(self, url_image_token: str, image_type: ImageType) -> str | None:
+        """
+        Returns image name (read ReadMe-dev.md). If acces not granted or token value corrupted - returns None \n
+        Pass `n_image` if `image_type` set to "post"
+        """
+        if not url_image_token:
+            return False
+
+        if image_type == "post":
+            pattern = f"{self.__post_image_acces_prefix}{url_image_token}"    
+        elif image_type == "user":
+            pattern = f"{self.__user_image_acces_prefix}{url_image_token}"
+
+        return await self.__client.get(pattern)
+    
+    

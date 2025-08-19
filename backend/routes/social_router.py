@@ -99,6 +99,17 @@ async def load_post(
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.load_post(user=user, post_id=post_id)
 
+@social.get("/posts/{post_id}/comments")
+async def load_comments(
+    post_id: str,
+    exclude: bool = Depends(query_exclude_required),
+    user_: User = Depends(authorize_request_depends),
+    session: AsyncSession = Depends(get_session_depends)
+) -> List[PostBase]:
+    user = await merge_model(postgres_session=session, model_obj=user_)
+    async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
+        return await social.load_comments(post_id=post_id, user_id=user.user_id, exclude=exclude)
+
 @social.patch("/posts/{post_id}")
 async def change_post(
     post_id: str,

@@ -15,6 +15,7 @@ Models = TypeVar("Models", bound=Base)
 FEED_MAX_POSTS_LOAD = int(getenv("FEED_MAX_POSTS_LOAD"))
 
 MAX_FOLLOWED_POSTS_TO_SHOW = int(getenv("MAX_FOLLOWED_POSTS_TO_SHOW"))
+RETURN_REPLIES = int(getenv("RETURN_REPLIES"))
 
 class PostgresService:
     def __init__(self, postgres_session: AsyncSession):
@@ -243,3 +244,12 @@ class PostgresService:
 
         if return_posts: return [action.post for action in actions]
         else: return actions
+
+    @postgres_error_handler(action="Get post replies")
+    async def get_post_replies(self, post_id: str, n: int = RETURN_REPLIES, exclude_ids: List[str] = []) -> List[Post]:
+        result = await self.__session.execute(
+            select(Post)
+            .where(and_(Post.parent_post_id == post_id, Post.post_id.not_in(exclude_ids)))
+            .limit(n)
+        )
+        return result.scalars().all()
