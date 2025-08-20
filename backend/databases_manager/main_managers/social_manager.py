@@ -25,6 +25,7 @@ class NotImplementedError(Exception):
 load_dotenv()
 
 HISTORY_POSTS_TO_TAKE_INTO_RELATED = int(getenv("HISTORY_POSTS_TO_TAKE_INTO_RELATED", 30))
+LIKED_POSTS_TO_TAKE_INTO_RELATED = int(getenv("LIKED_POSTS_TO_TAKE_INTO_RELATED", 10))
 REPLY_COST_DEVALUATION = float(getenv("REPLY_COST_DEVALUATION")) # TODO: Devaluate multiple replies cost. To prevent popularity rate abuse
 FEED_MAX_POSTS_LOAD = int(getenv("FEED_MAX_POSTS_LOAD"))
 MINIMUM_USER_HISTORY_LENGTH = int(getenv("MINIMUM_USER_HISTORY_LENGTH"))
@@ -77,7 +78,7 @@ class MainServiceSocial(MainServiceBase):
         return await self._PostgresService.get_all_from_model(ModelType=ModelType)
 
     async def get_feed(self, user: User, exclude: bool) -> List[PostLiteSchema]:
-        """
+        """`
         Returns related posts to provided User table object view history \n
         It mixes history rated with most popular posts, and newest ones.
         Caution! If `exclude` set to True. It means that user clicked on `Load more` button and we need to update Redis exclude ids with fresh loaded. And ensure that we load non repeating posts \n
@@ -89,11 +90,13 @@ class MainServiceSocial(MainServiceBase):
             await self._RedisService.clear_exclude(exclude_type="feed", user_id=user.user_id)
 
         views_history = await self._PostgresService.get_user_actions(user_id=user.user_id, action_type=ActionType.view, n_most_fresh=HISTORY_POSTS_TO_TAKE_INTO_RELATED, return_posts=True)
+        liked_history = await self._PostgresService.get_user_actions(user_id=user.user_id, action_type=ActionType.like, n_most_fresh=LIKED_POSTS_TO_TAKE_INTO_RELATED, return_posts=True)
+        history_posts_relation = views_history + liked_history
 
         # History related mix
         related_ids = []
         if len(views_history) > MINIMUM_USER_HISTORY_LENGTH:
-            related_ids = await self._ChromaService.get_n_related_posts_ids(user=user, exclude_ids=exclude_ids, views_history=views_history)
+            related_ids = await self._ChromaService.get_n_related_posts_ids(user=user, exclude_ids=exclude_ids, post_relation=history_posts_relation)
         
         if not related_ids:
             related_ids = await self._get_ids_by_query_type(exclude_ids=exclude_ids, user=user, n=MIX_HISTORY_POSTS_RELATED, id_type="fresh")
