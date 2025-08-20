@@ -1,28 +1,25 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncEngine
-from routes import auth_router, social_router
+from routes import auth_router, social_router, media_router
 from databases_manager.postgres_manager.models import *
-from databases_manager.postgres_manager.database import engine
+from databases_manager.postgres_manager.database import engine, initialize_models, drop_all
 from databases_manager.postgres_manager.database_utils import get_session
 from databases_manager.main_managers.social_manager import MainServiceSocial
-from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
+from databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
 from databases_manager.chromaDB_manager.chroma_manager import EmptyPostsError
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 import redis.asyncio as async_redis
 import uvicorn
-from os import getenv
+from os import getenv, mkdir
 from dotenv import load_dotenv
+from post_popularity_rate_task.popularity_rate import update_post_rates
+
+from post_popularity_rate_task.popularity_rate import scheduler
 
 load_dotenv()
-
-async def drop_all(engine: AsyncEngine, Base: Base) -> None:
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-
-async def initialize_models(engine: AsyncEngine, Base: Base) -> None:
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+POST_RATING_EXPIRATION = int(getenv("POST_RATING_EXPIRATION"))
 
 async def drop_redis() -> None:
     client = async_redis.Redis(
@@ -33,11 +30,12 @@ async def drop_redis() -> None:
     await client.flushall()
     await client.aclose()
 
+# To be deleted
 async def sync_chroma_postgres_data() -> None:
     try:
         session = await get_session()
         async with await MainServiceContextManager[MainServiceSocial].create(MainServiceType=MainServiceSocial, postgres_session=session, mode="prod") as social_service:
-            await social_service.sync_data()
+            await social_service.sync_postgres_chroma_DEV_METHOD()
     except EmptyPostsError:
         pass
     finally:
@@ -46,10 +44,22 @@ async def sync_chroma_postgres_data() -> None:
 # On app startup. https://fastapi.tiangolo.com/advanced/events/#lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+
     # await drop_all(engine=engine, Base=Base)    
     await initialize_models(engine=engine, Base=Base)
     await sync_chroma_postgres_data()
     # await drop_redis()
+
+    try:
+        scheduler.add_job(
+            update_post_rates,
+            "interval",
+            seconds=POST_RATING_EXPIRATION
+        )
+        scheduler.start()
+    except Exception as e:
+        scheduler.shutdown()
+        raise e("Scheduler initializtion failed")
     yield
 
 
@@ -68,9 +78,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 app.include_router(auth_router.auth)
 app.include_router(social_router.social)
+app.include_router(media_router.media_router)
+
+try:
+    mkdir("images")
+except FileExistsError:
+    pass
+
+app.mount("/media", StaticFiles(directory="media"), name="media")
 
 # for debug
 if __name__ == "__main__":

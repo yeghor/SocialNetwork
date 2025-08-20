@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, Body, Query, HTTPException
 from databases_manager.postgres_manager.database_utils import get_session_depends, merge_model
-from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
+from databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
 from databases_manager.main_managers.social_manager import MainServiceSocial
 from authorization.authorization import authorize_request_depends
 from pydantic_schemas.pydantic_schemas_social import (
     UserLiteSchema,
     PostBase,
-    PostLiteShortSchema,
+    PostLiteSchema,
     PostSchema,
     MakePostDataSchema,
     PostDataSchemaBase,
@@ -14,6 +14,7 @@ from pydantic_schemas.pydantic_schemas_social import (
 )
 from databases_manager.postgres_manager.models import User
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import inspect
 
 from typing import Annotated, List
 from dotenv import load_dotenv
@@ -30,34 +31,41 @@ def query_prompt_required(prompt: Annotated[str, Query(..., max_length=QUERY_PAR
         raise HTTPException(status_code=400, detail="Prompt can't be empty!")
     return prompt
 
+def query_exclude_required(exclude_viewed: bool = Query(..., description="Exclude viewed post. Set to True if user pressed 'load more' button")):
+    if not isinstance(exclude_viewed, bool):
+        raise HTTPException(status_code=400, detail="Exclude posts wasn't specified correctly")
+    return exclude_viewed
 
-@social.get("/posts/history-related")
-async def get_related_to_history_posts(
+@social.get("/posts/feed")
+async def get_feed(
+    exclude_viewed: bool = Depends(query_exclude_required),
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends),
-    ) -> List[PostLiteShortSchema]:
+    ) -> List[PostLiteSchema]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        return await social.get_related_posts(user=user)
+        return await social.get_feed(user=user, exclude=exclude_viewed)
 
 @social.get("/posts/following")
 async def get_followed_posts(
+    exclude_viewed: bool = Depends(query_exclude_required),
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
-    ) -> List[PostLiteShortSchema]:
+    ) -> List[PostLiteSchema]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        return await social.get_followed_posts(user=user)
+        return await social.get_followed_posts(user=user, exclude=exclude_viewed)
 
 @social.get("/search/posts")
-async def search_posts(
+async def search_posts( # TODO: Exclude self posts
+    exclude: bool = Depends(query_exclude_required),
     prompt: str = Depends(query_prompt_required),
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
-    ) -> List[PostLiteShortSchema]:
+    ) -> List[PostLiteSchema]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        return await social.search_posts(prompt=prompt, user=user)
+        return await social.search_posts(prompt=prompt, user=user, exclude=exclude)
 
 @social.get("/search/users")
 async def search_users(
@@ -78,9 +86,28 @@ async def make_post(
     ) -> PostSchema:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        print("Validated user data")
-        return await social.construct_and_flush_post(data=post_data, user=user)
+        return await social.make_post(data=post_data, user=user)
 
+@social.get("/posts/{post_id}")
+async def load_post(
+    post_id: str,
+    user_: User = Depends(authorize_request_depends),
+    session: AsyncSession = Depends(get_session_depends)
+) -> PostSchema:
+    user = await merge_model(postgres_session=session, model_obj=user_)
+    async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
+        return await social.load_post(user=user, post_id=post_id)
+
+@social.get("/posts/{post_id}/comments")
+async def load_comments(
+    post_id: str,
+    exclude: bool = Depends(query_exclude_required),
+    user_: User = Depends(authorize_request_depends),
+    session: AsyncSession = Depends(get_session_depends)
+) -> List[PostBase]:
+    user = await merge_model(postgres_session=session, model_obj=user_)
+    async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
+        return await social.load_comments(post_id=post_id, user_id=user.user_id, exclude=exclude)
 
 @social.patch("/posts/{post_id}")
 async def change_post(
@@ -101,6 +128,7 @@ async def delete_post(
 ) -> None:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
+        print(post_id)
         await social.delete_post(post_id=post_id, user=user)
 
 @social.post("/posts/{post_id}/like")
@@ -143,13 +171,14 @@ async def unfollow(
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         await social.friendship_action(user=user, other_user_id=follow_to_id, follow=False)
 
-@social.patch("/users/my-profile/password")
-async def change_password() -> UserSchema:
-    pass
-
-@social.patch("/users/my-profile/username")
-async def change_username() -> UserSchema:
-    pass
+@social.get("/users/my-profile")
+async def get_my_profile(
+    user_: User = Depends(authorize_request_depends),
+    session: AsyncSession = Depends(get_session_depends),
+    ) -> UserSchema:
+    user = await merge_model(postgres_session=session, model_obj=user_)
+    async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
+        return await social.get_my_profile(user=user)
 
 @social.get("/users/{user_id}")
 async def get_user_profile(
@@ -159,17 +188,4 @@ async def get_user_profile(
     )-> UserSchema:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        return await social.get_user_profile(request_user=user, other_user_id=user_id)
-
-@social.get("/users/my-profile")
-async def get_my_profile(
-    user_: User = Depends(authorize_request_depends),
-    session: AsyncSession = Depends(get_session_depends),
-    ) -> UserSchema:
-    user = await merge_model(postgres_session=session, model_obj=user_)
-    async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        return await social.get_user_profile(request_user=user, other_user_id=user.user_id)
-
-@social.delete("/users/my-profile")
-async def delete_user_account() -> None:
-    pass
+        return await social.get_user_profile(other_user_id=user_id)

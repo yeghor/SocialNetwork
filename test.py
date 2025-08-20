@@ -1,7 +1,16 @@
-class Test:
-    def __init__(self, var):
-        self.var = var
+from typing import List
 
-ins = Test(5)
+def binary_search(arr: List, target: int) -> int | None:
+    pass
 
-print(type(ins))
+import magic
+
+print(magic.__version__)
+
+import aiobotocore
+
+print(aiobotocore.__version__)
+
+import multipart
+
+print(multipart.__version__)

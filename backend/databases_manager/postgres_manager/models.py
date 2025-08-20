@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List
 from dotenv import load_dotenv
 from os import getenv
+import enum
 
 
 load_dotenv()
@@ -18,12 +19,14 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
 
-    user_id: Mapped[str] = mapped_column(primary_key=True, default=uuid4)
+    user_id: Mapped[str] = mapped_column(primary_key=True)
     image_path: Mapped[str] = mapped_column(nullable=True)
     username: Mapped[str] = mapped_column(unique=True)
     email: Mapped[str] = mapped_column(unique=True)
     password_hash: Mapped[str]
-    joined: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
+    joined: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+    avatar_image_name: Mapped[str] = mapped_column(nullable=True)
 
     posts: Mapped[List["Post"]] = relationship(
         "Post",
@@ -31,17 +34,9 @@ class User(Base):
         lazy="selectin"
     )
 
-    liked: Mapped[List["Post"]] = relationship(
-        "Post",
-        secondary="likesrelationship",
-        back_populates="liked_by",
-        lazy="selectin"
-    )
-
-    views_history: Mapped[List["Post"]] = relationship(
-        "Post",
-        secondary="viewsrelationship",
-        back_populates="viewed_by",
+    actions: Mapped[List["PostActions"]] = relationship(
+        "PostActions",
+        back_populates="owner",
         lazy="selectin"
     )
 
@@ -78,16 +73,20 @@ class Post(Base):
 
     post_id: Mapped[str] = mapped_column(primary_key=True)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
-    parent_post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="SET NULL"), nullable=True)
+    parent_post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="SET NULL"), nullable=True)    
 
     is_reply: Mapped[bool] = mapped_column(default=False)
 
     # Add constraits!!!
     title: Mapped[str] = mapped_column()
     text: Mapped[str]
-    image_path: Mapped[str] = mapped_column(nullable=True)
-    published: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
-    last_updated: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"), onupdate=text("TIMEZONE('utc', now())"))
+    published: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    last_updated: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    images: Mapped[List["PostImage"]] = relationship(
+        "PostImage",
+        lazy="selectin"
+    )
 
     owner: Mapped["User"] = relationship(
         "User",
@@ -95,19 +94,14 @@ class Post(Base):
         lazy="selectin"
     )
 
-    liked_by: Mapped[List["User"]] = relationship(
-        "User",
-        secondary="likesrelationship",
-        back_populates="liked",
+    popularity_rate: Mapped[int] = mapped_column(default=0)
+    last_rate_calculated: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    actions: Mapped[List["PostActions"]] = relationship(
+        "PostActions",
+        back_populates="post",
         lazy="selectin"
     )
 
-    viewed_by: Mapped[List["User"]] = relationship(
-        "User",
-        secondary="viewsrelationship",
-        back_populates="views_history",
-        lazy="selectin"
-    )
 
     # Self referable one-2-many relationship https://docs.sqlalchemy.org/en/20/orm/self_referential.html
     parent_post: Mapped["Post"] = relationship(
@@ -116,6 +110,7 @@ class Post(Base):
         remote_side=[post_id],
         lazy="selectin"
     )
+
     replies: Mapped[List["Post"]] = relationship(
         "Post",
         back_populates="parent_post",
@@ -136,22 +131,15 @@ class Post(Base):
         return text
 
     def __repr__(self):
-        return f"Post name: {self.title}"
+        return f"Post name: {self.title} | Rate: {self.popularity_rate}"
 
-# For m2m
+class PostImage(Base):
+    __tablename__ = "postimages"
 
-class ViewsRelationship(Base):
-    __tablename__ = "viewsrelationship"
-
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
-    post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
-
-    
-class LikeRelationship(Base):
-    __tablename__ = "likesrelationship"
+    image_id: Mapped[str] = mapped_column(primary_key=True)
 
     post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+    image_name: Mapped[str]
 
 # Self referential m2m
 class Friendship(Base):
@@ -159,3 +147,33 @@ class Friendship(Base):
 
     follower_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
     followed_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+
+
+class ActionType(enum.Enum):
+    view = "view"
+    like = "like"
+    reply = "reply"
+    repost = "repost"
+
+
+class PostActions(Base):
+    __tablename__ = "postactions"
+
+    action_id: Mapped[str] = mapped_column(primary_key=True)
+
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+    post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
+    action: Mapped[ActionType]
+    date: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+    post: Mapped[Post] = relationship(
+        "Post",
+        back_populates="actions",
+        lazy="selectin"
+    )
+
+    owner: Mapped[User] = relationship(
+        "User",
+        back_populates="actions",
+        lazy="selectin"
+    )
