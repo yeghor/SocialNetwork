@@ -311,10 +311,23 @@ class MainServiceSocial(MainServiceBase):
             username=other_user.username,
             followers=other_user.followers,
             followed=other_user.followed,
-            posts=other_user.posts,
             avatar_token=avatar_token
         )
     
+    async def get_users_posts(self, user_id: str, exclude: bool) -> PostLiteSchema:
+        if exclude:
+            exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user_id, exclude_type="")
+        else:
+            await self._RedisService.clear_exclude(user_id=user_id, exclude_type="")
+            exclude_ids = []
+
+        posts = await self._PostgresService.get_user_posts(user_id=user_id, exclude_ids=exclude_ids)
+
+        await self._RedisService.add_exclude_post_ids(post_ids=[post.post_id for post in posts], user_id=user_id, exclude_type="")
+
+        return [PostLiteSchema.model_validate(post, from_attributes=True) for post in posts]
+    
+
     async def get_my_profile(self, user: User) -> UserSchema:
         """To use this method you firstly need to get User instance by Bearer token"""
 

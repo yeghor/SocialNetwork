@@ -16,6 +16,7 @@ FEED_MAX_POSTS_LOAD = int(getenv("FEED_MAX_POSTS_LOAD"))
 
 MAX_FOLLOWED_POSTS_TO_SHOW = int(getenv("MAX_FOLLOWED_POSTS_TO_SHOW"))
 RETURN_REPLIES = int(getenv("RETURN_REPLIES"))
+LOAD_MAX_USERS_POST = int(getenv("LOAD_MAX_USERS_POST"))
 
 class PostgresService:
     def __init__(self, postgres_session: AsyncSession):
@@ -258,4 +259,15 @@ class PostgresService:
             .order_by(Post.published.desc(), Post.popularity_rate.desc(), likes_subq.desc())
             .limit(n)
         )
+        return result.scalars().all()
+    
+    async def get_user_posts(self, user_id: str, n: int = LOAD_MAX_USERS_POST, exclude_ids: List[str] = []):
+        result = await self.__session.execute(
+            select(Post)
+            .where(and_(Post.owner_id == user_id, Post.post_id.not_in(exclude_ids)))
+            .limit(LOAD_MAX_USERS_POST)
+            .order_by(Post.published.desc())
+            .options(selectinload(Post.parent_post))
+        )
+
         return result.scalars().all()
