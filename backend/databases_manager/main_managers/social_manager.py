@@ -149,10 +149,10 @@ class MainServiceSocial(MainServiceBase):
         Search posts that similar with meaning with prompt
         """
 
-        exclude_ids = []
         if exclude:
             exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user.user_id, exclude_type="search")
         else:
+            exclude_ids = []
             await self._RedisService.clear_exclude(exclude_type="search", user_id=user.user_id)
         
         post_ids = await self._ChromaService.search_posts_by_prompt(prompt=prompt, exclude_ids=exclude_ids)
@@ -368,4 +368,16 @@ class MainServiceSocial(MainServiceBase):
             last_updated=post.last_updated,
             pictures_urls=images_temp_urls
         )
-    
+
+    async def load_comments(self, post_id: str, user_id: str, exclude: bool):
+        if exclude:
+            exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user_id, exclude_type="reply-list")
+        else:
+            await self._RedisService.clear_exclude(user_id=user_id, exclude_type="reply-list")
+            exclude_ids = []
+
+        replies = await self._PostgresService.get_post_replies(post_id=post_id, exclude_ids=exclude_ids)
+
+        await self._RedisService.add_exclude_post_ids(post_ids=[reply.post_id for reply in replies], user_id=user_id, exclude_type="reply-list")
+
+        return [PostBase.model_validate(reply, from_attributes=True) for reply in replies]        

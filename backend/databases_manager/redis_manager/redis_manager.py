@@ -16,7 +16,7 @@ EXCLUDE_TIMEOUT = int(getenv("EXCLUDE_TIMEOUT"))
 VIEW_TIMEOUT = int(getenv("VIEW_TIMEOUT"))
 IMAGE_VIEW_ACCES_SECONDS = int(getenv("IMAGE_VIEW_ACCES_SECONDS"))
 
-ExcludeType = Literal["search", "feed", "viewed"] # TODO: Change "viewed" to "view"
+ExcludeType = Literal["search", "feed", "viewed", "reply-list"] # TODO: Change "viewed" to "view"
 ImageType = Literal["post", "user"]
 
 def redis_error_handler(func):
