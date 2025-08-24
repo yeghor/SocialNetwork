@@ -77,6 +77,7 @@ S3_BUCKET_NAME = "socialnetwork2025"
 S3_BUCKET_NAME_TEST = "socialnetwork2025test"
 ```
 Then you have to configure your AWS credentials _(secret key)_ through AWS CLI. Follow steps: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-quickstart.html
+
 ---
 **Run Redis, ChromaDB, PostgresSQL using docker:**
 ```bash
