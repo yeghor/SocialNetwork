@@ -163,13 +163,13 @@ async def follow(
 
 @social.delete("/users/{follow_to_id}/follow")
 async def unfollow(
-    follow_to_id: str,
+    unfollow_from_id: str,
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends),
 ) -> None:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        await social.friendship_action(user=user, other_user_id=follow_to_id, follow=False)
+        await social.friendship_action(user=user, other_user_id=unfollow_from_id, follow=False)
 
 @social.get("/users/my-profile")
 async def get_my_profile(

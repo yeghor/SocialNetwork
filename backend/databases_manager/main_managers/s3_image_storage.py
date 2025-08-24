@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from databases_manager.redis_manager.redis_manager import RedisService
 
 from aiobotocore.session import get_session
+from botocore.exceptions import HTTPClientError
 import os
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
@@ -67,19 +68,19 @@ class StorageABC(ABC):
 
     @abstractmethod
     async def delete_post_images(self, image_name: str) -> None:
-        """Delete n's post image"""
+        """Delete n's post image. If no image - pass"""
 
     @abstractmethod
     async def delete_avatar_user(self, user_id: str) -> None:
-        pass
+        """Deletes user avatar. If not image - pass"""
 
     @abstractmethod
     async def get_post_image_urls(self, image_name: str) -> List[str]:
-        """Get temprorary n's post image URL with jwt token in URL including"""
+        """Get temprorary n's post image URL with jwt token in URL including. Returns None, if not post image"""
 
     @abstractmethod
-    async def get_user_avatar_url(self, user_id: str) -> str:
-        pass
+    async def get_user_avatar_url(self, user_id: str) -> str | None:
+        """Returns temprorary user avatar URL. Returns None, if no user avatar"""
 
 # =======================
 
@@ -166,17 +167,18 @@ class S3Storage(StorageABC):
                 )
             except Exception as e:
                 raise Exception(f"Failed to upload user image: {e}")
-            
+
+    # TODO: DRY this below    
     async def delete_post_images(self, image_name: str) -> None:
         async with self._client() as s3:
-            await s3.delete_object(
+            response = await s3.delete_object(
                 Bucket=self._bucket_name,
                 Key=image_name
             )
 
     async def delete_avatar_user(self, user_id: str) -> None:
         async with self._client() as s3:
-            await s3.delete_object(
+            response = await s3.delete_object(
                 Bucket=self._bucket_name,
                 Key=user_id
             )
@@ -288,23 +290,27 @@ class LocalStorage(StorageABC):
                 except Exception:
                     raise Exception(f"Failed to remove image: {filename}")
             else:
-                raise FileNotFoundError("Post image not found")
+                return
 
     
     async def delete_avatar_user(self, user_id: str) -> None:
-        # Whe don't know file extension. So we need to find it using glob and image_name*
+        # Program does not know the file extension. So we need to find it using glob and image_name*
         filenames = glob.glob(f"{user_id}*", root_dir=self.__media_avatar_path)
-        filename = filenames[0]
-        if not filename:
-            raise ImageDoesNotLocalyExist("Local image not found.")
+
+        if not filenames:
+            return
         
+        if len(filenames) > 1:
+            raise ValueError("Multiple images was found. Aborting.")
+
+        filename = filenames[0]
         filepath = f"{self.__media_avatar_path}{filename}"
 
         # TODO: try-except
         if os.path.exists(path=filepath):
             os.remove(path=filepath)
         else:
-            raise FileNotFoundError("Avatar image not found")
+            return
 
     async def get_post_image_urls(self, image_names: List[str]) -> List[str]:
         urls = []
@@ -318,17 +324,17 @@ class LocalStorage(StorageABC):
     async def get_user_avatar_url(self, user_id: str) -> str:
         urlsafe_token = self._generate_url_token()
 
+        # Searching for potential 
         filenames = glob.glob(f"{user_id}*", root_dir=self.__media_avatar_path)
+        if not filenames:
+            return None
         filename = filenames[0]
-
-        if not filename:
-            raise ValueError("No image found by this user id")
 
         await self._Redis.save_url_user_token(image_token=urlsafe_token, image_name=filename)
         return f"{BASE_URL}{USER_AVATAR_URI}{urlsafe_token}"
 
     def get_full_path_by_partial_path_without_extension(self, filepath: str) -> str:
-        """If no full filepath found - raise ValueError"""
+        """If no full filepath found - raise FileNotFoundError"""
 
         filenames = glob.glob(f"{filepath}*")
 
@@ -338,6 +344,6 @@ class LocalStorage(StorageABC):
         full_filepath = filenames[0]
 
         if not full_filepath:
-            raise ValueError("No image found by this user id")
+            raise FileNotFoundError("Avatar image not found")
         
         return full_filepath

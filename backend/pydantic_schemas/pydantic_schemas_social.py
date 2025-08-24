@@ -47,6 +47,7 @@ class UserIDValidate(BaseModel):
 class PostBaseShort(PostIDValidate):
     title: str
     published: datetime
+    is_reply: bool
 
 class PostBase(PostBaseShort):
     owner: UserShortSchema | None
@@ -84,7 +85,7 @@ class UserLiteSchema(UserShortSchema):
 
 class UserSchema(UserLiteSchema):
     followed: List[UserShortSchema]
-    avatar_token: str
+    avatar_url: str | None
 
 # =================
 # Body data structure

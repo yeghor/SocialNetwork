@@ -108,7 +108,7 @@ class Post(Base):
         "Post",
         back_populates="replies",
         remote_side=[post_id],
-        lazy="selectin"
+        lazy="selectin",
     )
 
     replies: Mapped[List["Post"]] = relationship(

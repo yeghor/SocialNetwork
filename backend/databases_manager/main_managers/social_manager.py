@@ -200,7 +200,8 @@ class MainServiceSocial(MainServiceBase):
             published=post.published,
             parent_post=parent_post_validated,
             replies=[],
-            pictures_urls=[]
+            pictures_urls=[],
+            is_reply=post.is_reply
         )
 
     async def _construct_and_flush_action(self, action_type: ActionType, user: User, post: Post = None) -> None:
@@ -245,6 +246,9 @@ class MainServiceSocial(MainServiceBase):
     async def delete_post(self, post_id: str, user: User) -> None:
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
+        if not post:
+            raise HTTPException(status_code=404, detail="Post with this id does not exist")
+
         self.check_post_user_id(post=post, user=user)
 
         await self._PostgresService.delete_post_by_id(id_=post.post_id)
@@ -277,6 +281,10 @@ class MainServiceSocial(MainServiceBase):
 
     async def friendship_action(self, user: User, other_user_id: str, follow: bool) -> None:
         """To follow user - set follow to True. To unfollow - False"""
+
+        if user.user_id == other_user_id:
+            raise HTTPException(status_code=400, detail="You can't follow or unfollow yourself")
+
         other_user = await self._PostgresService.get_entry_by_id(id_=other_user_id, ModelType=User)
         
         # Getting fresh user. Because merged Model often lose it's relationships loads
@@ -302,13 +310,13 @@ class MainServiceSocial(MainServiceBase):
             raise HTTPException(status_code=404, detail="User with this id not found")
 
         avatar_token = await self._ImageStorage.get_user_avatar_url(user_id=other_user.user_id)
-
+        print(other_user.followed)
         return UserSchema(
             user_id=other_user.user_id,
             username=other_user.username,
-            followers=other_user.followers,
-            followed=other_user.followed,
-            avatar_token=avatar_token
+            followers=[UserShortSchema.model_validate(follower, from_attributes=True) for follower in other_user.followers],
+            followed=[UserShortSchema.model_validate(followed, from_attributes=True) for followed in other_user.followed],
+            avatar_url=avatar_token
         )
     
     async def get_users_posts(self, user_id: str, exclude: bool) -> PostLiteSchema:
@@ -339,7 +347,7 @@ class MainServiceSocial(MainServiceBase):
             followers=user.followers,
             followed=user.followed,
             posts=user.posts,
-            avatar_token=avatar_token
+            avatar_url=avatar_token
         )
 
 
@@ -383,7 +391,8 @@ class MainServiceSocial(MainServiceBase):
             views=len(viewed_by),
             parent_post=parent_post,
             last_updated=post.last_updated,
-            pictures_urls=images_temp_urls
+            pictures_urls=images_temp_urls,
+            is_reply=post.is_reply
         )
 
     async def load_comments(self, post_id: str, user_id: str, exclude: bool):

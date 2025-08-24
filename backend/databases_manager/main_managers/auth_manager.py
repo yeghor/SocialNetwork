@@ -33,7 +33,7 @@ class MainServiceAuth(MainServiceBase):
             payload = self._JWT.extract_jwt_payload(jwt_token=valid_token)
             user = await self._PostgresService.get_user_by_id(payload.user_id)
             if not user:
-                raise HTTPException(status_code=401, detail="Invalid user id specified in token. Try to logout and then login again")
+                raise HTTPException(status_code=401, detail="Invalid user id specified in token or this profile does not exist. Try to logout and then login again")
             return user
         
         return None
@@ -51,7 +51,7 @@ class MainServiceAuth(MainServiceBase):
             password_hash=password_hash
         )
         await self._PostgresService.insert_models_and_flush(new_user)
-
+        print(new_user.user_id)
         return await self._JWT.generate_refresh_acces_token(user_id=new_user.user_id, redis=self._RedisService)
 
             
