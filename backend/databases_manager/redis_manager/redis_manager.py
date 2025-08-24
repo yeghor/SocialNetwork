@@ -82,6 +82,9 @@ class RedisService:
             self.__jwt_acces_prefix = "acces-jwt-token:"
             self.__jwt_refresh_prefix = "refresh-jwt-token:"
 
+            self.__post_view_timeout_prefix_1 = "post-view-timeout-user-"
+            self.__post_view_timeout_prefix_2 = "post:"
+
             # ========
 
             # Exclude posts
@@ -216,13 +219,13 @@ class RedisService:
 
     @redis_error_handler
     async def add_view(self, id_: str, user_id: str) -> None:
-        pattern = self.exclude_post_key_pattern(user_id=user_id, post_id=id_, exclude_type="view")
+        pattern = f"{self.__post_view_timeout_prefix_1}{user_id}{self.__post_view_timeout_prefix_2}{id_}"
         await self.__client.setex(pattern, VIEW_TIMEOUT, id_)
 
     @redis_error_handler
     async def check_view_timeout(self, id_: str, user_id:str) -> bool:
         "Returns True - if view from user timeouted, it means that the view can be counted."
-        pattern = self.exclude_post_key_pattern(user_id=user_id, post_id=id_, exclude_type="view")
+        pattern = f"{self.__post_view_timeout_prefix_1}{user_id}{self.__post_view_timeout_prefix_2}{id_}"
         return not bool(await self.__client.exists(pattern))
     
     # ===============

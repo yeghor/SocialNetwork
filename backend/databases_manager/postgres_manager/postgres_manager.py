@@ -217,10 +217,11 @@ class PostgresService:
 
     @postgres_error_handler(action="Get action")
     async def get_actions(self, user_id: str, post_id: str, action_type: ActionType) -> List[PostActions]:
-        """Return **list** of actions. Even if you specified `action_type` as single action"""
+        """Return **list** of actions ordered by date in descending order. Even if you specified `action_type` as single action"""
         result = await self.__session.execute(
             select(PostActions)
             .where(and_(PostActions.owner_id == user_id, PostActions.action == action_type, PostActions.post_id == post_id))
+            .order_by(PostActions.date.desc())
         )
         return result.scalars().all()
 

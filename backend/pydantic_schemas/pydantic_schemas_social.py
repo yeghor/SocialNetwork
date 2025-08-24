@@ -64,8 +64,6 @@ class PostSchema(PostBase):
 
     last_updated: datetime
 
-    replies: List[PostLiteSchema]
-
     parent_post: PostBase | None
 
     pictures_urls: List[str]

@@ -206,26 +206,24 @@ class MainServiceSocial(MainServiceBase):
     async def _construct_and_flush_action(self, action_type: ActionType, user: User, post: Post = None) -> None:
         """Do NOT call this method outside the class"""
 
-        # if user.user_id == post.owner_id:
-        #     # To prevent self popularity abuse
-        #     return
-
-        change_rate: bool = True
-
         if await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=action_type):
+            print("actions here")
             if action_type == ActionType.view:
-                change_rate = False
+                print("view type")
                 if not await self._RedisService.check_view_timeout(id_=post.post_id, user_id=user.user_id):
+                    print("not timeouted")
                     return
-                await self._RedisService.add_view(user_id=user.user_id, id_=post.post_id)
+                print("adding view")
             elif action_type == ActionType.reply:
                 # TODO: Reply populatiry rate evaluation
                 pass
             else:
                 raise HTTPException(status_code=400, detail=f"Action: '{action_type}' is already given on this post")
 
-        if change_rate:
-            self.change_post_rate(post=post, action_type=action_type, add=True)
+        if action_type == ActionType.view:
+            await self._RedisService.add_view(user_id=user.user_id, id_=post.post_id)
+
+        self.change_post_rate(post=post, action_type=action_type, add=True)
 
         action = PostActions(
             action_id=str(uuid4()),
@@ -351,7 +349,12 @@ class MainServiceSocial(MainServiceBase):
         if not post:
             raise HTTPException(status_code=404, detail="Post with this id doesn't exist")
 
+        if post.parent_post: parent_post = PostBase.model_validate(post.parent_post, from_attributes=True)
+        else: parent_post = None
+
         await self._construct_and_flush_action(action_type=ActionType.view, post=post, user=user)
+
+        await self._PostgresService.refresh_model(model_obj=post)
 
         liked_by = await self._PostgresService.get_post_action_by_type(post_id=post.post_id, action_type=ActionType.like) 
         viewed_by = await self._PostgresService.get_post_action_by_type(post_id=post.post_id, action_type=ActionType.view) 
@@ -364,6 +367,9 @@ class MainServiceSocial(MainServiceBase):
 
         filenames = [filename.image_name for filename in post.images]
         images_temp_urls = await self._ImageStorage.get_post_image_urls(image_names=filenames)
+
+        print(post)
+
         return PostSchema(
             post_id=post.post_id,
             title=post.title,
@@ -375,8 +381,7 @@ class MainServiceSocial(MainServiceBase):
             likes=len(liked_by),
             viewed_by=viewed_by_validated,
             views=len(viewed_by),
-            parent_post=PostBase.model_validate(post.parent_post, from_attributes=True),
-            replies=post.replies,
+            parent_post=parent_post,
             last_updated=post.last_updated,
             pictures_urls=images_temp_urls
         )
