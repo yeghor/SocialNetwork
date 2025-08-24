@@ -86,7 +86,6 @@ class UserLiteSchema(UserShortSchema):
 
 class UserSchema(UserLiteSchema):
     followed: List[UserShortSchema]
-    posts: List[PostLiteSchema]
     avatar_token: str
 
 # =================

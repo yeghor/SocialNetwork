@@ -1,4 +1,4 @@
-from sqlalchemy import select, delete, update, or_, inspect, and_
+from sqlalchemy import select, delete, update, or_, inspect, and_, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from databases_manager.postgres_manager.models import User, Post, Base, PostActions, ActionType
@@ -16,6 +16,7 @@ FEED_MAX_POSTS_LOAD = int(getenv("FEED_MAX_POSTS_LOAD"))
 
 MAX_FOLLOWED_POSTS_TO_SHOW = int(getenv("MAX_FOLLOWED_POSTS_TO_SHOW"))
 RETURN_REPLIES = int(getenv("RETURN_REPLIES"))
+LOAD_MAX_USERS_POST = int(getenv("LOAD_MAX_USERS_POST"))
 
 class PostgresService:
     def __init__(self, postgres_session: AsyncSession):
@@ -245,11 +246,28 @@ class PostgresService:
         if return_posts: return [action.post for action in actions]
         else: return actions
 
-    @postgres_error_handler(action="Get post replies")
+
     async def get_post_replies(self, post_id: str, n: int = RETURN_REPLIES, exclude_ids: List[str] = []) -> List[Post]:
+        likes_subq = (
+            select(func.count(PostActions.action_id))
+            .where(and_(PostActions.post_id == post_id, PostActions.action == "like"))
+            .scalar_subquery()
+        )
         result = await self.__session.execute(
-            select(Post)
+            select(Post, likes_subq)
             .where(and_(Post.parent_post_id == post_id, Post.post_id.not_in(exclude_ids)))
+            .order_by(Post.published.desc(), Post.popularity_rate.desc(), likes_subq.desc())
             .limit(n)
         )
+        return result.scalars().all()
+    
+    async def get_user_posts(self, user_id: str, n: int = LOAD_MAX_USERS_POST, exclude_ids: List[str] = []):
+        result = await self.__session.execute(
+            select(Post)
+            .where(and_(Post.owner_id == user_id, Post.post_id.not_in(exclude_ids)))
+            .limit(LOAD_MAX_USERS_POST)
+            .order_by(Post.published.desc())
+            .options(selectinload(Post.parent_post))
+        )
+
         return result.scalars().all()
