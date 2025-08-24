@@ -303,7 +303,6 @@ class MainServiceSocial(MainServiceBase):
         if not other_user: 
             raise HTTPException(status_code=404, detail="User with this id not found")
 
-        # TODO: Define image name by universal method
         avatar_token = await self._ImageStorage.get_user_avatar_url(user_id=other_user.user_id)
 
         return UserSchema(
@@ -363,7 +362,7 @@ class MainServiceSocial(MainServiceBase):
             likes=len(liked_by),
             viewed_by=viewed_by_validated,
             views=len(viewed_by),
-            parent_post=post.parent_post,
+            parent_post=PostBase.model_validate(post.parent_post, from_attributes=True),
             replies=post.replies,
             last_updated=post.last_updated,
             pictures_urls=images_temp_urls

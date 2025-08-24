@@ -19,7 +19,7 @@ from post_popularity_rate_task.popularity_rate import update_post_rates
 from post_popularity_rate_task.popularity_rate import scheduler
 
 load_dotenv()
-POST_RATING_EXPIRATION = int(getenv("POST_RATING_EXPIRATION"))
+POST_RATING_EXPIRATION = int(getenv("POST_RATING_EXPIRATION_SECONDS"))
 
 async def drop_redis() -> None:
     client = async_redis.Redis(
