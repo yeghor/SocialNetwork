@@ -5,15 +5,17 @@ from fastapi import Header, HTTPException
 
 from dotenv import load_dotenv
 from os import getenv
+from typing import Callable
 
 PASSWORD_MIN_L = int(getenv("PASSWORD_MIN_L"))
 PASSWORD_MAX_L = int(getenv("PASSWORD_MAX_L"))
 
-async def authrorize_request_depends(token: str = Header(..., title="Authorization acces token", examples="Bearer (token)")):
+
+async def authorize_request_depends(token: str = Header(..., title="Authorization acces token", examples="Bearer (token)")) -> User | None:
     """User with fastAPI Depends()"""
 
     # To prevent circular import
-    from databases_manager.main_managers.main_manager_creator_abs import MainServiceContextManager
+    from databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
     from databases_manager.main_managers.auth_manager import MainServiceAuth
 
     session = await get_session()

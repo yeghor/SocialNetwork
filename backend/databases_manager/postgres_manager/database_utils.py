@@ -19,24 +19,24 @@ import random
 
 MAX_FOLLOWED_POSTS_TO_SHOW = int(getenv("MAX_FOLLOWED_POSTS_TO_SHOW"))
 
-Models = TypeVar("Models", bound=Base)
+ModelT = TypeVar("Models", bound=Base)
 
-def validate_ids_type_to_UUID(func):
-    @wraps(func)
-    async def wrapper(ids: List[UUID | str],  *args, **kwargs):
-        if not ids: 
-            raise ValueError(f"Empty ids list")
-        ids_validated = []
-        for id in ids:
-            if isinstance(id, str):
-                id = UUID(id)
-            elif isinstance(id, UUID):
-                pass
-            else:
-                raise ValueError(f"Invalid id type: {type(id)}")
-            ids_validated.append(id)
-        return await func(ids_validated, *args, **kwargs)
-    return wrapper
+# def validate_ids_type_to_UUID(func):
+#     @wraps(func)
+#     async def wrapper(ids: List[UUID | str],  *args, **kwargs):
+#         if not ids: 
+#             return []
+#         ids_validated = []
+#         for id in ids:
+#             if isinstance(id, str):
+#                 id = UUID(id)
+#             elif isinstance(id, UUID):
+#                 pass
+#             else:
+#                 raise ValueError(f"Invalid id type: {type(id)}")
+#             ids_validated.append(id)
+#         return await func(ids_validated, *args, **kwargs)
+#     return wrapper
 
 async def get_session_depends():
     """
@@ -71,12 +71,8 @@ def postgres_error_handler(action: str = "Unknown action with the database"):
     return decorator
 
 async def get_session() -> AsyncSession:
-    try:
-        session = SessionLocal()
-        return SessionLocal()
-    finally:
-        await session.aclose()
+    return SessionLocal()
 
-@postgres_error_handler(action="Refresh model")
-async def refresh_model(session: AsyncSession, model_object: Models) -> Models:
-    return await session.refresh(model_object)
+async def merge_model(postgres_session: AsyncSession, model_obj: ModelT) -> ModelT:
+    """Caution! When merging old model. It can clear all loaded relationsghips!"""
+    return await postgres_session.merge(model_obj)

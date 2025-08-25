@@ -2,6 +2,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngin
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 from os import getenv    
+from databases_manager.postgres_manager.models import Base
 
 load_dotenv()
 
@@ -27,6 +28,15 @@ def create_sessionmaker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]
         autocommit=False,
         bind=engine,
     )
+
+async def drop_all(engine: AsyncEngine, Base: Base) -> None:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+async def initialize_models(engine: AsyncEngine, Base: Base) -> None:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
 
 engine = create_engine(mode="prod")
 SessionLocal = create_sessionmaker(engine)

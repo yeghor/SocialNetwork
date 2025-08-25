@@ -1,16 +1,21 @@
-from databases_manager.postgres_manager.models import Post
+from databases_manager.postgres_manager.models import *
+from databases_manager.main_managers.s3_image_storage import StorageABC, S3Storage, LocalStorage
 from authorization import jwt_manager
 
+
 from abc import ABC, abstractmethod
-from typing import Type
+from typing import Type, Literal
+from dotenv import load_dotenv
+from os import getenv
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, TypeVar, Generic
+from typing import TypeVar, Generic
 
 # To follow the open closed principle with annotations
 ServiceType = TypeVar("Services", bound="MainServiceBase")
 
-
+load_dotenv()
+USE_S3_BOOL_STRING = getenv("USE_S3", "True")
 
 class MainServiceABC(ABC):
     @classmethod
@@ -65,27 +70,35 @@ class MainServiceBase(MainServiceABC):
     Take into account that SQLalchemy AsyncSession requires outer close handling - THIS CLASS DOESN'T CLOSE SQLalhemy AsyncSession.
     """
 
-    def __init__(self, Chroma: ChromaService, Redis: RedisService, Postgres: PostgresService):
+    def __init__(self, Chroma: ChromaService, Redis: RedisService, Postgres: PostgresService, ImageStorage: StorageABC):
         self._PostgresService = Postgres
         self._RedisService = Redis
         self._ChromaService = Chroma
+        self._ImageStorage = ImageStorage
 
         self._JWT = jwt_manager.JWTService
 
     @classmethod
-    async def create(cls, postgres_session: AsyncSession, mode: str = "prod") -> "MainServiceABC":
+    async def create(cls, postgres_session: AsyncSession, mode: Literal["prod", "test"] = "prod") -> "MainServiceABC":
         """Postgres AsyncSession needs to be closed manualy!"""
-        Postgres = PostgresService(session=postgres_session)
+        Postgres = PostgresService(postgres_session=postgres_session)
         Redis = RedisService(db_pool=mode)
         ChromaDB = await ChromaService.connect(mode=mode)
+    
+        prepared_env_use_s3 = USE_S3_BOOL_STRING.lower().strip()
 
-        return cls(Chroma=ChromaDB, Redis=Redis, Postgres=Postgres)
+        if prepared_env_use_s3 == "true": Storage = S3Storage(mode=mode)
+        elif prepared_env_use_s3 == "false": Storage = LocalStorage(mode=mode, Redis=Redis)
+        else: raise ValueError("Invalid USE_S3 dotenv variable value. Read comment #")
+        
+        return cls(Chroma=ChromaDB, Redis=Redis, Postgres=Postgres, ImageStorage=Storage)
     
     async def finish(self, commit_postgres: bool = True) -> None:
         # If i'm not mistaken, chromaDB doesn't require connection close
-        # Class assume that provided session is handling it's close
         await self._RedisService.finish()
         if commit_postgres: await self._PostgresService.commit_changes()
+        else: await self._PostgresService.rollback()
+        await self._PostgresService.close()
 
     
 class MainServiceContextManager(Generic[ServiceType], MainServiceContextManagerABS):
@@ -108,3 +121,4 @@ class MainServiceContextManager(Generic[ServiceType], MainServiceContextManagerA
     
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         await self.main_service.finish(commit_postgres=not exc_type)
+        pass
