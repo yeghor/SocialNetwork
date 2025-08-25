@@ -1,10 +1,12 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, validates, mapped_column, relationship
 from sqlalchemy import ForeignKey, text
-from uuid import UUID, uuid4
+from uuid import uuid4
 from datetime import datetime
 from typing import List
 from dotenv import load_dotenv
 from os import getenv
+import enum
+
 
 load_dotenv()
 
@@ -14,22 +16,17 @@ def validate_field_range():
 class Base(DeclarativeBase):
     pass
 
-
-class Friendship(Base):
-    __tablename__ = "friendship"
-
-    follower_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id"), primary_key=True)
-    followed_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id"), primary_key=True)
-
-
 class User(Base):
     __tablename__ = "users"
 
-    user_id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    user_id: Mapped[str] = mapped_column(primary_key=True)
+    image_path: Mapped[str] = mapped_column(nullable=True)
     username: Mapped[str] = mapped_column(unique=True)
     email: Mapped[str] = mapped_column(unique=True)
     password_hash: Mapped[str]
-    joined: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
+    joined: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+    avatar_image_name: Mapped[str] = mapped_column(nullable=True)
 
     posts: Mapped[List["Post"]] = relationship(
         "Post",
@@ -37,8 +34,8 @@ class User(Base):
         lazy="selectin"
     )
 
-    views_history: Mapped[List["History"]] = relationship(
-        "History",
+    actions: Mapped[List["PostActions"]] = relationship(
+        "PostActions",
         back_populates="owner",
         lazy="selectin"
     )
@@ -74,19 +71,22 @@ class User(Base):
 class Post(Base):
     __tablename__ = "posts"
 
-    post_id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
-    parent_post_id: Mapped[UUID| None] = mapped_column(ForeignKey("posts.post_id", ondelete="SET NULL"), nullable=True)
+    post_id: Mapped[str] = mapped_column(primary_key=True)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
+    parent_post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="SET NULL"), nullable=True)    
 
     is_reply: Mapped[bool] = mapped_column(default=False)
 
     # Add constraits!!!
     title: Mapped[str] = mapped_column()
     text: Mapped[str]
-    image_path: Mapped[str | None] = mapped_column(nullable=True)
-    likes: Mapped[int] = mapped_column(default=0)
-    published: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
-    last_updated: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"), onupdate=text("TIMEZONE('utc', now())"))
+    published: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    last_updated: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    images: Mapped[List["PostImage"]] = relationship(
+        "PostImage",
+        lazy="selectin"
+    )
 
     owner: Mapped["User"] = relationship(
         "User",
@@ -94,24 +94,29 @@ class Post(Base):
         lazy="selectin"
     )
 
+    popularity_rate: Mapped[int] = mapped_column(default=0)
+    last_rate_calculated: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    actions: Mapped[List["PostActions"]] = relationship(
+        "PostActions",
+        back_populates="post",
+        lazy="selectin"
+    )
+
+
     # Self referable one-2-many relationship https://docs.sqlalchemy.org/en/20/orm/self_referential.html
     parent_post: Mapped["Post"] = relationship(
         "Post",
         back_populates="replies",
         remote_side=[post_id],
-        lazy="selectin"
+        lazy="selectin",
     )
+
     replies: Mapped[List["Post"]] = relationship(
         "Post",
         back_populates="parent_post",
         lazy="selectin"
     )
 
-    viewers: Mapped[List["History"]] = relationship(
-        "History",
-        back_populates="post",
-        lazy="selectin"
-    )
 
     @validates("title")
     def validate_title(self, key, title: str):
@@ -126,24 +131,49 @@ class Post(Base):
         return text
 
     def __repr__(self):
-        return f"Post name: {self.title}"
+        return f"Post name: {self.title} | Rate: {self.popularity_rate}"
+
+class PostImage(Base):
+    __tablename__ = "postimages"
+
+    image_id: Mapped[str] = mapped_column(primary_key=True)
+
+    post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
+    image_name: Mapped[str]
+
+# Self referential m2m
+class Friendship(Base):
+    __tablename__ = "friendship"
+
+    follower_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+    followed_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
 
 
-class History(Base):
-    __tablename__ = "history"
+class ActionType(enum.Enum):
+    view = "view"
+    like = "like"
+    reply = "reply"
+    repost = "repost"
 
-    view_id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"))
-    post_id: Mapped[UUID] = mapped_column(ForeignKey("posts.post_id", ondelete="SET NULL"))
 
-    owner: Mapped["User"] = relationship(
-        "User",
-        back_populates="views_history",
+class PostActions(Base):
+    __tablename__ = "postactions"
+
+    action_id: Mapped[str] = mapped_column(primary_key=True)
+
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+    post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
+    action: Mapped[ActionType]
+    date: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+    post: Mapped[Post] = relationship(
+        "Post",
+        back_populates="actions",
         lazy="selectin"
     )
 
-    post: Mapped["Post"] = relationship(
-        "Post",
-        back_populates="viewers",
+    owner: Mapped[User] = relationship(
+        "User",
+        back_populates="actions",
         lazy="selectin"
     )

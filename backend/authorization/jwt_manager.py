@@ -48,8 +48,8 @@ class JWTService:
                 "user_id": str(user_id),
                 "issued_at": int(datetime.now().timestamp())
             },
-            key=getenv("SECRET_KEY")+str(hash(random.randint(1, 9999999))),
-            algorithm=getenv("JWT_ALGORITHM")
+            key=getenv("SECRET_KEY"),
+            algorithm="HS256"
         )
         return encoded_jwt
 
@@ -87,11 +87,10 @@ class JWTService:
         )
 
     @classmethod
-    @jwt_error_handler
     def extract_jwt_payload(cls, jwt_token: str) -> PayloadJWT:
         payload = jwt.decode(
             jwt=jwt_token,
             key=getenv("SECRET_KEY"),
-            algorithms=getenv("JWT_ALGORITHM")
+            algorithms=["HS256",]
         )
         return PayloadJWT.model_validate(payload)

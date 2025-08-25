@@ -3,21 +3,25 @@ from databases_manager.postgres_manager.models import User
 
 from fastapi import Header, HTTPException
 
-
 from dotenv import load_dotenv
 from os import getenv
+from typing import Callable
 
 PASSWORD_MIN_L = int(getenv("PASSWORD_MIN_L"))
 PASSWORD_MAX_L = int(getenv("PASSWORD_MAX_L"))
 
-async def authrorize_request_depends(token: str = Header(..., title="Authorization token", examples="Bearer (token)")):
-    from backend.databases_manager.main_managers.auth_manager import MainServiceAuth
+
+async def authorize_request_depends(token: str = Header(..., title="Authorization acces token", examples="Bearer (token)")) -> User | None:
     """User with fastAPI Depends()"""
-    session = get_session()
-    service = await MainServiceAuth.create(postgres_session=session)
-    user: User = await service.authorize_request(token=token, return_user=True)
-    await service.finish(commit_postgres=False)
-    return user
+
+    # To prevent circular import
+    from databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
+    from databases_manager.main_managers.auth_manager import MainServiceAuth
+
+    session = await get_session()
+    async with await MainServiceContextManager[MainServiceAuth].create(MainServiceType=MainServiceAuth, postgres_session=session) as auth:
+        return await auth.authorize_request(token=token, return_user=True)
+
 
 def validate_password(password: str) -> None:
     """Raises HTTPexception if password not secure enough"""
