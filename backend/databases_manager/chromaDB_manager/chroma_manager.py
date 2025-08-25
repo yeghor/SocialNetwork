@@ -15,6 +15,7 @@ from databases_manager.main_managers.mix_posts import MIX_HISTORY_POSTS_RELATED,
 
 load_dotenv()
 
+CHROMADB_HOST = getenv("CHROMADB_HOST")
 PROD_COLLECTION_NAME = getenv("CHROMADB_PROD_COLLECTION_NAME")
 TEST_COLLECTION_NAME = getenv("CHROMADB_TEST_COLLECTION_NAME")
 PORT = int(getenv("CHROMADB_PORT"))
@@ -67,7 +68,7 @@ class ChromaService:
             raise ValueError("Invalid chromaDB database mode")
         
         try:
-            client = await AsyncHttpClient(port=PORT, host="localhost")
+            client = await AsyncHttpClient(port=PORT, host=CHROMADB_HOST)
         except ChromaError:
             raise HTTPException(status_code=500, detail="Connection to chromaDB failed")
 

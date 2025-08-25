@@ -16,6 +16,9 @@ EXCLUDE_TIMEOUT = int(getenv("EXCLUDE_TIMEOUT"))
 VIEW_TIMEOUT = int(getenv("VIEW_TIMEOUT"))
 IMAGE_VIEW_ACCES_SECONDS = int(getenv("IMAGE_VIEW_ACCES_SECONDS"))
 
+REDIS_HOST = getenv("REDIS_HOST")
+REDIS_PORT = int(getenv("REDIS_PORT"))
+
 ExcludeType = Literal["search", "feed", "viewed", "reply-list"] # TODO: Change "viewed" to "view"
 ImageType = Literal["post", "user"]
 
@@ -65,15 +68,15 @@ class RedisService:
     def _get_expiry(SPECIFIC_TOKEN_EXPIRY_IN_SECONDS: int) -> str:
         return datetime.strftime(datetime.fromtimestamp(datetime.utcnow().timestamp() + SPECIFIC_TOKEN_EXPIRY_IN_SECONDS), DATETIME_BASE_FORMAT)
         
-    def __init__(self, db_pool: str = "prod", host: str = "localhost"):
+    def __init__(self, db_pool: str = "prod"):
         """
         To switch to the test pool - assign db_pool to "test" \n
         If host equal to None - "localhost"
         """
         try:
             self.__client = async_redis.Redis(
-                host=self._define_host(host),
-                port=int(getenv("REDIS_PORT")),
+                host=REDIS_HOST,
+                port=REDIS_PORT,
                 db=self._chose_pool(db_pool),
                 decode_responses=True,
             )

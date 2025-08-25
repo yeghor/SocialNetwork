@@ -6,7 +6,7 @@ from asgiref.sync import async_to_sync
 
 from databases_manager.postgres_manager.models import Post, PostActions, Base
 from databases_manager.postgres_manager.database_utils import get_session
-from databases_manager.postgres_manager.database import initialize_models, engine
+from databases_manager.postgres_manager.database import initialize_models, get_engine
 
 from sqlalchemy import select, text, and_
 from sqlalchemy.orm import selectinload
@@ -36,6 +36,7 @@ async def update_post_rates() -> None:
     print("Task started")
     session = await get_session()
     try:
+        engine = await get_engine()
         await initialize_models(engine=engine, Base=Base)
         now = datetime.utcnow()
 
@@ -60,6 +61,7 @@ async def update_post_rates() -> None:
         await session.rollback()
         raise e
     finally:
+        await engine.dispose()
         await session.aclose()
 
 
