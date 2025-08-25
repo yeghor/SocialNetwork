@@ -1,0 +1,30 @@
+services:
+  backend:
+    build: ./backend
+    depends_on:
+      - redis_db
+      - postgres_db
+      - chromadb_db
+    ports:
+      - "8800:8800"
+  redis_db:
+    image: redis
+    container_name: social_network_redis_main
+    ports:
+      - "6379:6379"
+  chromadb_db:
+    image: chromadb/chroma
+    container_name: social_network_chromadb_main
+    volumes:
+      - ./backend/chroma-data:/chroma/chroma
+    ports:
+      - "8000:8000"
+  postgres_db:
+    image: postgres
+    container_name: social_network_postgres_main
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=database
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=database

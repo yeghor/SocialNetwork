@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncEngine
 from routes import auth_router, social_router, media_router
 from databases_manager.postgres_manager.models import *
-from databases_manager.postgres_manager.database import engine, initialize_models, drop_all
+from databases_manager.postgres_manager.database import get_engine, initialize_models, drop_all
 from databases_manager.postgres_manager.database_utils import get_session
 from databases_manager.main_managers.social_manager import MainServiceSocial
 from databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
@@ -16,10 +16,14 @@ from os import getenv, mkdir
 from dotenv import load_dotenv
 from post_popularity_rate_task.popularity_rate import update_post_rates
 
+import asyncio
+
 from post_popularity_rate_task.popularity_rate import scheduler
 
 load_dotenv()
 POST_RATING_EXPIRATION = int(getenv("POST_RATING_EXPIRATION_SECONDS"))
+
+engine = None
 
 async def drop_redis() -> None:
     client = async_redis.Redis(
@@ -32,8 +36,8 @@ async def drop_redis() -> None:
 
 # To be deleted
 async def sync_chroma_postgres_data() -> None:
+    session = await get_session()
     try:
-        session = await get_session()
         async with await MainServiceContextManager[MainServiceSocial].create(MainServiceType=MainServiceSocial, postgres_session=session, mode="prod") as social_service:
             await social_service.sync_postgres_chroma_DEV_METHOD()
     except EmptyPostsError:
@@ -44,8 +48,10 @@ async def sync_chroma_postgres_data() -> None:
 # On app startup. https://fastapi.tiangolo.com/advanced/events/#lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-
     # await drop_all(engine=engine, Base=Base)    
+    global engine
+    engine = await get_engine()
+
     await initialize_models(engine=engine, Base=Base)
     await sync_chroma_postgres_data()
     # await drop_redis()

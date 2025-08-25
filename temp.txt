@@ -1,7 +1,0 @@
-token - Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNDNkNDk3YTYtMjQ0Zi00ZTFlLWEwNTEtN2NhNTY4M2I3YjkxIiwiaXNzdWVkX2F0IjoxNzU2MDIzNDgyfQ.fphRBajIn6_JdzhRdgkCzkgDpKY-Q4bIScfDHtDBjHU
-
-post 1 - d8f9423a-20a3-4de7-b06d-208e03ad3338
-    post 3 - c19d1b08-fd61-4538-afba-22496a5b411d
-    post 4 - 75ff3027-dba8-41f3-8c38-7c8ca6f33730
-        post 5 - 80d308d0-c9b1-4fd3-a62c-f7bf53a4da2c
-        post 6 - 2947db4e-a033-4562-b76e-6b49582ca171

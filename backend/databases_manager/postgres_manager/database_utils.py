@@ -1,4 +1,4 @@
-from databases_manager.postgres_manager.database import SessionLocal
+from databases_manager.postgres_manager.database import get_sessionlocal, get_engine
 from databases_manager.postgres_manager.models import *
 from databases_manager.postgres_manager.validate_n_postive import validate_n_postitive
 
@@ -43,8 +43,13 @@ async def get_session_depends():
     Automatically closes session.\n
     Use with fastAPI Depends()!
     """
-    async with SessionLocal() as conn:
-        yield conn
+    try:
+        engine = await get_engine()
+        SessionLocal = get_sessionlocal(engine=engine)
+        async with SessionLocal() as conn:
+            yield conn
+    finally:
+        await engine.dispose()
 
 def postgres_error_handler(action: str = "Unknown action with the database"):
     def decorator(func):
@@ -71,7 +76,12 @@ def postgres_error_handler(action: str = "Unknown action with the database"):
     return decorator
 
 async def get_session() -> AsyncSession:
-    return SessionLocal()
+    try:
+        engine = await get_engine()
+        SessionLocal = get_sessionlocal(engine=engine)
+        return SessionLocal()
+    finally:
+        await engine.dispose()
 
 async def merge_model(postgres_session: AsyncSession, model_obj: ModelT) -> ModelT:
     """Caution! When merging old model. It can clear all loaded relationsghips!"""

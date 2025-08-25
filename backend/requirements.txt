@@ -16,3 +16,4 @@ python-magic==0.4.27
 aiofiles==24.1.0
 aiobotocore==2.23.2
 python-multipart==0.0.20
+libmagic==1.0
