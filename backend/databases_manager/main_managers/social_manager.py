@@ -182,19 +182,228 @@ class MainServiceSocial(MainServiceBase):
 
         await self._PostgresService.insert_models_and_flush(post)
 
-    async def construct_and_flush_user(self,
-        username: str,
-        email: str,
-        password_hash: str
-        ) -> None:
-        """Data must be validated!"""
-        user = User(
-            username=username,
-            email=email,
-            password_hash=password_hash
-        )
-        await self._PostgresService.insert_models_and_flush(user)
+        await self._PostgresService.refresh_model(post)
 
-    async def construct_and_flush_view(post: Post, user: User) -> None:
-        """Calling this method when user click on post \n Data must be validated!"""
-        raise Exception("Is not implemented yet!")
+        await self._ChromaService.add_posts_data(posts=[post])
+
+        if post.parent_post:
+            parent_post_validated = PostBase.model_validate(post.parent_post, from_attributes=True)
+        else:
+            parent_post_validated = None
+
+        return PostSchema(
+            post_id=post.post_id,
+            owner=UserShortSchema.model_validate(user, from_attributes=True),
+            title=post.title,
+            text=post.text,
+            last_updated=post.last_updated,
+            published=post.published,
+            parent_post=parent_post_validated,
+            replies=[],
+            pictures_urls=[],
+            is_reply=post.is_reply
+        )
+
+    async def _construct_and_flush_action(self, action_type: ActionType, user: User, post: Post = None) -> None:
+        """Do NOT call this method outside the class"""
+
+        if await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=action_type):
+            print("actions here")
+            if action_type == ActionType.view:
+                print("view type")
+                if not await self._RedisService.check_view_timeout(id_=post.post_id, user_id=user.user_id):
+                    print("not timeouted")
+                    return
+                print("adding view")
+            elif action_type == ActionType.reply:
+                # TODO: Reply populatiry rate evaluation
+                pass
+            else:
+                raise HTTPException(status_code=400, detail=f"Action: '{action_type}' is already given on this post")
+
+        if action_type == ActionType.view:
+            await self._RedisService.add_view(user_id=user.user_id, id_=post.post_id)
+
+        self.change_post_rate(post=post, action_type=action_type, add=True)
+
+        action = PostActions(
+            action_id=str(uuid4()),
+            owner_id=user.user_id,
+            post_id=post.post_id,
+            action=action_type,
+        )
+        await self._PostgresService.insert_models_and_flush(action)
+
+    async def remove_action(self, user: User, post: Post, action_type: ActionType) -> None:
+        potential_action = await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=action_type)
+        if not potential_action:
+            raise HTTPException(status_code=400, detail=f"Action '{action_type} was not given to this post'")
+        
+        await self._PostgresService.delete_models_and_flush(potential_action)
+        self.change_post_rate(post=post, action_type=action_type, add=False)
+    
+
+    async def delete_post(self, post_id: str, user: User) -> None:
+        post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
+
+        if not post:
+            raise HTTPException(status_code=404, detail="Post with this id does not exist")
+
+        self.check_post_user_id(post=post, user=user)
+
+        await self._PostgresService.delete_post_by_id(id_=post.post_id)
+        await self._ImageStorage.delete_post_images(base_name=post.post_id)
+        await self._ChromaService.delete_by_ids(ids=[post.post_id])
+
+
+    async def like_post_action(self, post_id: str, user: User, like: bool = True) -> None:
+        """Set 'like' param to True to leave like. To remove like - set to False"""
+        post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
+        if like:
+            await self._construct_and_flush_action(action_type=ActionType.like,post=post, user=user)
+        else:
+            await self.remove_action(user=user, post=post, action_type=ActionType.like)
+
+
+    async def change_post(self, post_data: PostDataSchemaID, user: User, post_id: str) -> PostSchema:
+        post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
+
+        if not post:
+            raise HTTPException(status_code=404, detail="Post with this id doesn't exist")
+
+        self.check_post_user_id(post=post, user=user)
+        
+        updated_post = await self._PostgresService.update_post_fields(post_data=post_data, post_id=post_id, return_updated_post = True)
+        await self._ChromaService.add_posts_data(posts=[updated_post])
+
+        return PostSchema.model_validate(updated_post, from_attributes=True)
+
+
+    async def friendship_action(self, user: User, other_user_id: str, follow: bool) -> None:
+        """To follow user - set follow to True. To unfollow - False"""
+
+        if user.user_id == other_user_id:
+            raise HTTPException(status_code=400, detail="You can't follow or unfollow yourself")
+
+        other_user = await self._PostgresService.get_entry_by_id(id_=other_user_id, ModelType=User)
+        
+        # Getting fresh user. Because merged Model often lose it's relationships loads
+        fresh_user = await self._PostgresService.get_entry_by_id(id_=user.user_id, ModelType=User)
+
+        if follow:
+            if other_user in fresh_user.followed:
+                raise HTTPException(status_code=400, detail="You are already following this user")
+            fresh_user.followed.append(other_user)
+        elif not follow:
+            if other_user not in fresh_user.followed:
+                raise HTTPException(status_code=400, detail="You are not following this user")
+            fresh_user.followed.remove(other_user)
+    
+
+    async def get_user_profile(self, other_user_id: str) -> UserSchema:
+
+        print(other_user_id)
+
+        other_user = await self._PostgresService.get_entry_by_id(id_=other_user_id, ModelType=User)
+
+        if not other_user: 
+            raise HTTPException(status_code=404, detail="User with this id not found")
+
+        avatar_token = await self._ImageStorage.get_user_avatar_url(user_id=other_user.user_id)
+        print(other_user.followed)
+        return UserSchema(
+            user_id=other_user.user_id,
+            username=other_user.username,
+            followers=[UserShortSchema.model_validate(follower, from_attributes=True) for follower in other_user.followers],
+            followed=[UserShortSchema.model_validate(followed, from_attributes=True) for followed in other_user.followed],
+            avatar_url=avatar_token
+        )
+    
+    async def get_users_posts(self, user_id: str, exclude: bool) -> PostLiteSchema:
+        if exclude:
+            exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user_id, exclude_type="")
+        else:
+            await self._RedisService.clear_exclude(user_id=user_id, exclude_type="")
+            exclude_ids = []
+
+        posts = await self._PostgresService.get_user_posts(user_id=user_id, exclude_ids=exclude_ids)
+
+        await self._RedisService.add_exclude_post_ids(post_ids=[post.post_id for post in posts], user_id=user_id, exclude_type="")
+
+        return [PostLiteSchema.model_validate(post, from_attributes=True) for post in posts]
+    
+
+    async def get_my_profile(self, user: User) -> UserSchema:
+        """To use this method you firstly need to get User instance by Bearer token"""
+
+        # To prever SQLalechemy missing greenlet_spawn error. Cause merged model loses relationships
+        user = await self._PostgresService.get_entry_by_id(id_=user.user_id, ModelType=User)
+
+        avatar_token = await self._ImageStorage.get_user_avatar_url(user_id=user.user_id)
+
+        return UserSchema(
+            user_id=user.user_id,
+            username=user.username,
+            followers=user.followers,
+            followed=user.followed,
+            posts=user.posts,
+            avatar_url=avatar_token
+        )
+
+
+    async def load_post(self, user: User, post_id: str) -> PostSchema:
+        post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
+
+        if not post:
+            raise HTTPException(status_code=404, detail="Post with this id doesn't exist")
+
+        if post.parent_post: parent_post = PostBase.model_validate(post.parent_post, from_attributes=True)
+        else: parent_post = None
+
+        await self._construct_and_flush_action(action_type=ActionType.view, post=post, user=user)
+
+        await self._PostgresService.refresh_model(model_obj=post)
+
+        liked_by = await self._PostgresService.get_post_action_by_type(post_id=post.post_id, action_type=ActionType.like) 
+        viewed_by = await self._PostgresService.get_post_action_by_type(post_id=post.post_id, action_type=ActionType.view) 
+
+        viewed_by_validated = None
+
+        if post.owner_id == user.user_id:
+            viewed_by_validated = [UserShortSchema.model_validate(action.owner, from_attributes=True) for action in viewed_by if action]
+        liked_by_validated = [UserShortSchema.model_validate(action.owner, from_attributes=True) for action in liked_by if action]
+
+        filenames = [filename.image_name for filename in post.images]
+        images_temp_urls = await self._ImageStorage.get_post_image_urls(image_names=filenames)
+
+        print(post)
+
+        return PostSchema(
+            post_id=post.post_id,
+            title=post.title,
+            text=post.text,
+            image_path=None,
+            published=post.published,
+            owner=UserShortSchema.model_validate(post.owner, from_attributes=True),
+            liked_by=liked_by_validated,
+            likes=len(liked_by),
+            viewed_by=viewed_by_validated,
+            views=len(viewed_by),
+            parent_post=parent_post,
+            last_updated=post.last_updated,
+            pictures_urls=images_temp_urls,
+            is_reply=post.is_reply
+        )
+
+    async def load_comments(self, post_id: str, user_id: str, exclude: bool):
+        if exclude:
+            exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user_id, exclude_type="reply-list")
+        else:
+            await self._RedisService.clear_exclude(user_id=user_id, exclude_type="reply-list")
+            exclude_ids = []
+
+        replies = await self._PostgresService.get_post_replies(post_id=post_id, exclude_ids=exclude_ids)
+
+        await self._RedisService.add_exclude_post_ids(post_ids=[reply.post_id for reply in replies], user_id=user_id, exclude_type="reply-list")
+
+        return [PostBase.model_validate(reply, from_attributes=True) for reply in replies]        
