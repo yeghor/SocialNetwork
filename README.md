@@ -52,7 +52,7 @@ docker compose up
 ```
 
 Acces your backend application by this URL:
-Https://0.0.0.0:8800/docs
+[https://0.0.0.0:8800/docs](http://127.0.0.1:8800/)
 
 ## Frontend
 
