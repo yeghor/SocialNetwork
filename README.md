@@ -10,12 +10,10 @@ Stack of this project includes:
 - Redis - For storing short living data, like: JWTs, viewed posts excluding, temporary image urls _(when using the local storage)_. _Async_
 - ChromaDD - For user posts feed related to his history. 
 - AioBotocore - For **AWS S3**.
-- etc.
 
 Project architecture complete with following SOLID principles, also it is asynchronous and easy to develop/expand.
 
 Work with images (user avatars, post pictures) impemented by using **S3** *(AioBotocore)* or **LocalStorage**. Can be shosen in `.env` file.
-
 Interactions with `/media` router in LocalStorage all the same as in **S3** implementation.
 
 Authorization handeled with password hashing and two JWT tokens:
@@ -31,6 +29,7 @@ User feed contain mixed posts: *(proportions can be setted in `.env` file)*
 - Following posts - Post from users you follow to
 
 This project has `docker-compose.yml` file, so it is allow you to start the application executing only one command.
+Also basic **CI** _(Implemented with GitHub actions)_ that runs tests on every **push**.
 
 # Usage
 Requirements - Docker, Python 3.12.0 or higher.
