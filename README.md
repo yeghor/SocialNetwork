@@ -1,4 +1,3 @@
-Этот 
 # Social Network project
 This is my most **serious** project.
 
