@@ -32,6 +32,7 @@ This project has `docker-compose.yml` file, so it is allow you to start the appl
 Also basic **CI** _(Implemented with GitHub actions)_ that runs tests on every **push**.
 
 # Usage
+
 Requirements - Docker, Python 3.12.0 or higher.
 To run this application, follow these steps:
 
@@ -49,10 +50,19 @@ cd SocialNetwork
 ```bash
 docker compose up
 ```
+---
 
-Acces your backend application by this URL:
+In case you managed to run the application **not** using `docker-compose`. 
+
+**Change** HOST variables values in `.env` file to `localhost`!
+Example:
+```env
+REDIS_HOST = "localhost" # from redis_db
+CHROMADB_HOST = "localhost" # from "chromadb_db"
+DB_HOST = "localhost" # from "postgres_db"
+```
+---
+
+**Acces** your backend application by this URL:
 [https://0.0.0.0:8800/docs](http://127.0.0.1:8800/)
 
-## Frontend
-
-  **To be continued...**
