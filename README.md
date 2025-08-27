@@ -10,12 +10,10 @@ Stack of this project includes:
 - Redis - For storing short living data, like: JWTs, viewed posts excluding, temporary image urls _(when using the local storage)_. _Async_
 - ChromaDD - For user posts feed related to his history. 
 - AioBotocore - For **AWS S3**.
-- etc.
 
 Project architecture complete with following SOLID principles, also it is asynchronous and easy to develop/expand.
 
 Work with images (user avatars, post pictures) impemented by using **S3** *(AioBotocore)* or **LocalStorage**. Can be shosen in `.env` file.
-
 Interactions with `/media` router in LocalStorage all the same as in **S3** implementation.
 
 Authorization handeled with password hashing and two JWT tokens:
@@ -31,8 +29,10 @@ User feed contain mixed posts: *(proportions can be setted in `.env` file)*
 - Following posts - Post from users you follow to
 
 This project has `docker-compose.yml` file, so it is allow you to start the application executing only one command.
+Also basic **CI** _(Implemented with GitHub actions)_ that runs tests on every **push**.
 
 # Usage
+
 Requirements - Docker, Python 3.12.0 or higher.
 To run this application, follow these steps:
 
@@ -50,10 +50,19 @@ cd SocialNetwork
 ```bash
 docker compose up
 ```
+---
 
-Acces your backend application by this URL:
-Https://0.0.0.0:8800/docs
+In case you managed to run the application **not** using `docker-compose`. 
 
-## Frontend
+**Change** HOST variables values in `.env` file to `localhost`!
+Example:
+```env
+REDIS_HOST = "localhost" # from redis_db
+CHROMADB_HOST = "localhost" # from "chromadb_db"
+DB_HOST = "localhost" # from "postgres_db"
+```
+---
 
-  **To be continued...**
+**Acces** your backend application by this URL:
+[https://0.0.0.0:8800/docs](http://127.0.0.1:8800/)
+
