@@ -23,7 +23,7 @@ from datetime import datetime
 
 @pytest.mark.asyncio
 async def test_postgres_service():    
-    engine = create_engine(mode="test")
+    engine = await create_engine(mode="test")
     session = create_sessionmaker(engine=engine)()
 
     await drop_all(engine=engine, Base=Base)
