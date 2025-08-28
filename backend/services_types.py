@@ -11,9 +11,3 @@ ImageType = Literal["post", "user"]
 
 
 # ========
-
-class ActionType(enum.Enum):
-    view = "view"
-    like = "like"
-    reply = "reply"
-    repost = "repost"

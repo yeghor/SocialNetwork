@@ -1,6 +1,5 @@
 import pytest
 from services.postgres_service import *
-from services_types import ActionType
 
 from post_popularity_rate_task.popularity_rate import POST_ACTIONS
 from services import *
@@ -8,7 +7,7 @@ from services.core_services import MainServiceContextManager
 
 from main import initialize_models, drop_all
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.authorization.password_utils import hash_password
+from authorization.password_utils import hash_password
 from uuid import uuid4
 from pydantic_schemas.pydantic_schemas_social import PostDataSchemaID
 

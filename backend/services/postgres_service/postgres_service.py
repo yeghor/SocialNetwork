@@ -7,7 +7,7 @@ from typing import Type, TypeVar, List, Union
 from pydantic_schemas.pydantic_schemas_social import PostDataSchemaID
 from uuid import UUID
 from .models import Base, User, Post, PostActions
-from services_types import ActionType
+from .models import ActionType
 from .database_utils import postgres_error_handler
 
 Models = TypeVar("Models", bound=Base)
