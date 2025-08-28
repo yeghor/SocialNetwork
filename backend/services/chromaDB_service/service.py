@@ -11,7 +11,7 @@ from uuid import UUID
 from fastapi import HTTPException
 from datetime import datetime
 from mix_posts_consts import FEED_MAX_POSTS_LOAD, MIX_HISTORY_POSTS_RELATED
-from services_exceptions import EmptyPostsError
+from backend.exceptions.custom_exceptions import EmptyPostsError
 
 load_dotenv()
 

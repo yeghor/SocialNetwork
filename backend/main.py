@@ -7,7 +7,7 @@ from services.postgres_service import get_engine, initialize_models, drop_all, g
 from services.core_services.main_services import MainServiceSocial
 from services.core_services import MainServiceContextManager
 
-from services_exceptions import EmptyPostsError
+from backend.exceptions.custom_exceptions import EmptyPostsError
 
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,6 +20,15 @@ from post_popularity_rate_task.popularity_rate import update_post_rates
 import asyncio
 
 from post_popularity_rate_task.popularity_rate import scheduler
+
+import logging
+
+logging.basicConfig(
+    logging.WARN,
+    filename="app_logs.log",
+    filemode="w",
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 load_dotenv()
 POST_RATING_EXPIRATION = int(getenv("POST_RATING_EXPIRATION_SECONDS"))
