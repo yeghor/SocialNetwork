@@ -1,4 +1,4 @@
-from services.postgres_service import get_engine, User
+from services.postgres_service import get_session, User
 
 from fastapi import Header, HTTPException
 
@@ -14,8 +14,8 @@ async def authorize_request_depends(token: str = Header(..., title="Authorizatio
     """User with fastAPI Depends()"""
 
     # To prevent circular import
-    from databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
-    from databases_manager.main_managers.auth_manager import MainServiceAuth
+    from services.core_services import MainServiceContextManager
+    from services.core_services.main_services import MainServiceAuth
 
     session = await get_session()
     async with await MainServiceContextManager[MainServiceAuth].create(MainServiceType=MainServiceAuth, postgres_session=session) as auth:
