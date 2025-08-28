@@ -1,7 +1,7 @@
-from databases_manager.main_managers.services_creator_abstractions import MainServiceBase, MainServiceContextManagerABS
-
-from authorization import password_manager, jwt_manager
-from databases_manager.postgres_manager.models import User, Post
+from authorization import jwt_service
+from services.core_services import MainServiceBase
+from services.postgres_service import Post, User
+from authorization import password_utils
 from pydantic_schemas.pydantic_schemas_auth import (
     RegisterSchema,
     RefreshTokenSchema,
@@ -43,7 +43,7 @@ class MainServiceAuth(MainServiceBase):
         if await self._PostgresService.get_user_by_username_or_email(username=credentials.username, email=credentials.email):
             raise HTTPException(status_code=409, detail="Registered account with these credetials already exists")
 
-        password_hash = password_manager.hash_password(credentials.password)
+        password_hash = password_utils.hash_password(credentials.password)
         new_user = User(
             user_id=str(uuid4()),
             username=credentials.username, 
@@ -60,7 +60,7 @@ class MainServiceAuth(MainServiceBase):
         if not potential_user:
             raise HTTPException(status_code=400, detail="Account with this credentials doesn't exists")
         
-        if not password_manager.check_password(credentials.password, potential_user.password_hash):
+        if not password_utils.check_password(credentials.password, potential_user.password_hash):
             raise HTTPException(status_code=401, detail="Unathorized. Invalid credentials")
         
         user_id = potential_user.user_id
@@ -94,10 +94,10 @@ class MainServiceAuth(MainServiceBase):
         return new_acces_token
     
     async def change_password(self, user: User, credentials: OldNewPassword) -> None:
-        if not password_manager.check_password(entered_pass=credentials.old_password, hashed_pass=user.password_hash):
+        if not password_utils.check_password(entered_pass=credentials.old_password, hashed_pass=user.password_hash):
             raise HTTPException(status_code=401, detail="Old password didn't match")
 
-        new_password_hashed = password_manager.hash_password(raw_pass=credentials.new_password)
+        new_password_hashed = password_utils.hash_password(raw_pass=credentials.new_password)
         await self._PostgresService.change_field_and_flush(Model=user, password_hash=new_password_hashed)
 
     async def change_username(self, user: User, credentials: NewUsername) -> None:
@@ -109,7 +109,7 @@ class MainServiceAuth(MainServiceBase):
         await self._PostgresService.change_field_and_flush(Model=User, username=new_username)
 
     async def delete_user(self, password: str, user: User) -> None:
-        if not password_manager.check_password(entered_pass=password, hashed_pass=user.password_hash):
+        if not password_utils.check_password(entered_pass=password, hashed_pass=user.password_hash):
             raise HTTPException(status_code=401, detail="Password didn't match")
         
         await self._PostgresService.delete_models_and_flush(user)

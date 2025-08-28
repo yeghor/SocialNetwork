@@ -1,13 +1,12 @@
 from fastapi import HTTPException
 
-from databases_manager.main_managers.services_creator_abstractions import MainServiceBase
-from databases_manager.postgres_manager.models import User, Post, PostImage
-from databases_manager.redis_manager.redis_manager import ImageType
-from databases_manager.redis_manager.redis_manager import ImageType
+from services.core_services import MainServiceBase
+from services.postgres_service import User, Post, PostImage
+from services_types import ImageType
+from services_exceptions import EmptyPostsError
 from typing import Tuple, Literal
 import mimetypes
 import os
-from databases_manager.main_managers.s3_image_storage import ImageDoesNotLocalyExist
 import aiofiles
 from uuid import uuid4
 
@@ -79,11 +78,8 @@ class MainMediaService(MainServiceBase):
     async def upload_user_avatar(self, user: User, image_contents: bytes, specified_mime: str):
         if image_contents and specified_mime:
             if user.avatar_image_name:
-                try:
                     await self._ImageStorage.delete_avatar_user(user_id=user.user_id)
-                except ImageDoesNotLocalyExist:
-                    raise HTTPException(status_code=500, detail="Old user avatar not found. PLease, contact us.")
-            
+ 
             await self._ImageStorage.upload_avatar_user(contents=image_contents, content_type=specified_mime, image_name=user.user_id)
 
             user.avatar_image_name = user.user_id

@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, Body, Query, HTTPException
-from databases_manager.postgres_manager.database_utils import get_session_depends, merge_model
-from databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
-from databases_manager.main_managers.social_manager import MainServiceSocial
-from authorization.authorization import authorize_request_depends
+from services.postgres_service.database_utils import *
+from services.postgres_service.models import User
+from services.core_services import MainServiceContextManager
+from services.core_services.main_services.main_social_service import MainServiceSocial
+from authorization.authorization_utils import authorize_request_depends
 from pydantic_schemas.pydantic_schemas_social import (
     UserLiteSchema,
     PostBase,
@@ -12,7 +13,6 @@ from pydantic_schemas.pydantic_schemas_social import (
     PostDataSchemaBase,
     UserSchema
 )
-from databases_manager.postgres_manager.models import User
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import inspect
 

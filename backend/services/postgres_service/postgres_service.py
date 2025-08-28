@@ -1,16 +1,18 @@
 from sqlalchemy import select, delete, update, or_, inspect, and_, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
-from databases_manager.postgres_manager.models import User, Post, Base, PostActions, ActionType
-from databases_manager.postgres_manager.database_utils import postgres_error_handler
-from databases_manager.postgres_manager.validate_n_postive import validate_n_postitive
 from dotenv import load_dotenv
 from os import getenv
 from typing import Type, TypeVar, List, Union
 from pydantic_schemas.pydantic_schemas_social import PostDataSchemaID
 from uuid import UUID
+from .models import Base, User, Post, PostActions
+from services_types import ActionType
+from .database_utils import postgres_error_handler
 
 Models = TypeVar("Models", bound=Base)
+
+load_dotenv()
 
 FEED_MAX_POSTS_LOAD = int(getenv("FEED_MAX_POSTS_LOAD"))
 

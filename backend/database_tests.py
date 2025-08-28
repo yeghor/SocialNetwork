@@ -1,24 +1,16 @@
 import pytest
-from databases_manager.postgres_manager.database import create_engine, create_sessionmaker
-from databases_manager.postgres_manager.database_utils import get_session
-from databases_manager.postgres_manager.models import User, Post, Base, PostActions, ActionType
+from services.postgres_service import *
+from services_types import ActionType
+
 from post_popularity_rate_task.popularity_rate import POST_ACTIONS
-from databases_manager.postgres_manager.postgres_manager import PostgresService
-from databases_manager.chromaDB_manager.chroma_manager import ChromaService
-from databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
-from databases_manager.main_managers.social_manager import MainServiceSocial
-from databases_manager.main_managers.auth_manager import MainServiceAuth
-from sqlalchemy.orm import close_all_sessions
+from services import *
+from services.core_services import MainServiceContextManager
+
 from main import initialize_models, drop_all
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from authorization.password_manager import hash_password
+from backend.authorization.password_utils import hash_password
 from uuid import uuid4
-from typing import AsyncGenerator, List
-import logging
 from pydantic_schemas.pydantic_schemas_social import PostDataSchemaID
-from databases_manager.main_managers.auth_manager import MainServiceAuth
-from datetime import datetime
 
 
 @pytest.mark.asyncio

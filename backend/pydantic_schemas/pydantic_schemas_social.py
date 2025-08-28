@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from databases_manager.postgres_manager.models import ActionType
+from services_types import ActionType
 
 from pydantic import BaseModel, field_validator, Field, ValidationInfo, model_validator
 from uuid import UUID

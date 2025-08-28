@@ -2,12 +2,13 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncEngine
 from routes import auth_router, social_router, media_router
-from databases_manager.postgres_manager.models import *
-from databases_manager.postgres_manager.database import get_engine, initialize_models, drop_all
-from databases_manager.postgres_manager.database_utils import get_session
-from databases_manager.main_managers.social_manager import MainServiceSocial
-from databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
-from databases_manager.chromaDB_manager.chroma_manager import EmptyPostsError
+from services.postgres_service import Base
+from services.postgres_service import get_engine, initialize_models, drop_all, get_session
+from services.core_services.main_services import MainServiceSocial
+from services.core_services import MainServiceContextManager
+
+from services_exceptions import EmptyPostsError
+
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 import redis.asyncio as async_redis

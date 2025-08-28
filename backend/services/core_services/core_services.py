@@ -1,7 +1,10 @@
-from databases_manager.postgres_manager.models import *
-from databases_manager.main_managers.s3_image_storage import StorageABC, S3Storage, LocalStorage
-from authorization import jwt_manager
 
+
+from services.postgres_service.models import *
+from services.image_storage_service import *
+from authorization import jwt_service
+
+from services.image_storage_service import ImageStorageABC
 
 from abc import ABC, abstractmethod
 from typing import Type, Literal
@@ -56,11 +59,12 @@ async def create():
 
     """
 
-from databases_manager.chromaDB_manager.chroma_manager import ChromaService
-from databases_manager.postgres_manager.postgres_manager import PostgresService
-from databases_manager.redis_manager.redis_manager import RedisService
+from services.redis_service import RedisService
+from services.chromaDB_service import ChromaService
+from services.postgres_service import PostgresService
 
 class MainServiceBase(MainServiceABC):
+
 
     """
     To create obj - use async method `initialize()` *Reason - chromaDB async client requires await. But `__init__` can't be async* \n
@@ -70,13 +74,13 @@ class MainServiceBase(MainServiceABC):
     Take into account that SQLalchemy AsyncSession requires outer close handling - THIS CLASS DOESN'T CLOSE SQLalhemy AsyncSession.
     """
 
-    def __init__(self, Chroma: ChromaService, Redis: RedisService, Postgres: PostgresService, ImageStorage: StorageABC):
+    def __init__(self, Chroma: ChromaService, Redis: RedisService, Postgres: PostgresService, ImageStorage: ImageStorageABC):
         self._PostgresService = Postgres
         self._RedisService = Redis
         self._ChromaService = Chroma
         self._ImageStorage = ImageStorage
 
-        self._JWT = jwt_manager.JWTService
+        self._JWT = jwt_service.JWTService
 
     @classmethod
     async def create(cls, postgres_session: AsyncSession, mode: Literal["prod", "test"] = "prod") -> "MainServiceABC":

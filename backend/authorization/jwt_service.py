@@ -2,7 +2,7 @@ import jwt
 from dotenv import load_dotenv
 from os import getenv
 from datetime import datetime
-from databases_manager.redis_manager.redis_manager import RedisService
+from services.redis_service import RedisService
 from typing import Literal
 from pydantic_schemas.pydantic_schemas_auth import (PayloadJWT,
     RefreshTokenSchema,

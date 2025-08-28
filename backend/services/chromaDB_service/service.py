@@ -6,12 +6,12 @@ from os import getenv
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Literal
 from functools import wraps
-from databases_manager.postgres_manager.models import Post, User
-from databases_manager.postgres_manager.validate_n_postive import validate_n_postitive
+from services.postgres_service import Post, User
 from uuid import UUID
 from fastapi import HTTPException
 from datetime import datetime
-from databases_manager.main_managers.mix_posts import MIX_HISTORY_POSTS_RELATED, FEED_MAX_POSTS_LOAD
+from mix_posts_consts import FEED_MAX_POSTS_LOAD, MIX_HISTORY_POSTS_RELATED
+from services_exceptions import EmptyPostsError
 
 load_dotenv()
 
@@ -26,8 +26,6 @@ HISTORY_POSTS_TO_TAKE_INTO_RELATED = int(getenv("HISTORY_POSTS_TO_TAKE_INTO_RELA
 
 GET_EXTRA_CHROMADB_RELATED_RESULTS = int(getenv("GET_EXTRA_CHROMADB_RELATED_RESULTS"))
 
-class EmptyPostsError(Exception):
-    pass    
 
 def chromaDB_error_handler(func):
     @wraps(func)
@@ -120,7 +118,7 @@ class ChromaService:
     async def add_posts_data(self, posts: List[Post]) -> None:
         """
         Add new post embeddings or update existing by post ids \n
-        If posts empty - raise EmptyPostsError (declared in this file)
+        If posts empty - raise EmptyPostsError _(declared in `services_exceptions.py`)_
         """
         filtered_posts = [post for post in posts if not post.is_reply]
         

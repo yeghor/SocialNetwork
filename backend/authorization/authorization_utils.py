@@ -1,5 +1,4 @@
-from databases_manager.postgres_manager.database_utils import get_session
-from databases_manager.postgres_manager.models import User
+from services.postgres_service import get_engine, User
 
 from fastapi import Header, HTTPException
 

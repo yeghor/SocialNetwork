@@ -2,7 +2,7 @@ import magic
 import mimetypes
 from abc import ABC, abstractmethod
 
-from databases_manager.redis_manager.redis_manager import RedisService
+from services.redis_service import RedisService
 
 from aiobotocore.session import get_session
 from botocore.exceptions import HTTPClientError
@@ -38,8 +38,6 @@ ALLOWED_EXTENSIONS = ALLOWED_IMAGES_EXTENSIONS_MIME_RAW.split(",")
 for i, ext in enumerate(ALLOWED_EXTENSIONS):
     ALLOWED_EXTENSIONS[i] = ext.strip()
 
-class ImageDoesNotLocalyExist(Exception):
-    pass
 
 class DuplicateImagesExists(Exception):
     pass
@@ -50,7 +48,7 @@ class DuplicateImagesExists(Exception):
 #TODO: webp format not working
 #TODO: Redis must save full image name with extension
 
-class StorageABC(ABC):
+class ImageStorageABC(ABC):
     @staticmethod
     def _guess_mime(file_bytes: bytes) -> str:
         return magic.from_buffer(buffer=file_bytes, mime=True)
@@ -84,7 +82,7 @@ class StorageABC(ABC):
 
 # =======================
 
-class S3Storage(StorageABC):
+class S3Storage(ImageStorageABC):
     def _validate_image_mime(self, image_bytes: bytes, specified_mime: str) -> bool:    
         """Validate specified mime_type"""
         #TODO: Could reject valid file
@@ -171,14 +169,14 @@ class S3Storage(StorageABC):
     # TODO: DRY this below    
     async def delete_post_images(self, image_name: str) -> None:
         async with self._client() as s3:
-            response = await s3.delete_object(
+            await s3.delete_object(
                 Bucket=self._bucket_name,
                 Key=image_name
             )
 
     async def delete_avatar_user(self, user_id: str) -> None:
         async with self._client() as s3:
-            response = await s3.delete_object(
+            await s3.delete_object(
                 Bucket=self._bucket_name,
                 Key=user_id
             )
@@ -207,7 +205,7 @@ class S3Storage(StorageABC):
 
 import secrets
 
-class LocalStorage(StorageABC):
+class LocalStorage(ImageStorageABC):
     def _validate_image_mime(self, image_bytes: bytes, specified_mime: str) -> bool:    
         """Validate specified mime_type"""
         #TODO: Could reject valid file
@@ -332,18 +330,3 @@ class LocalStorage(StorageABC):
 
         await self._Redis.save_url_user_token(image_token=urlsafe_token, image_name=filename)
         return f"{BASE_URL}{USER_AVATAR_URI}{urlsafe_token}"
-
-    def get_full_path_by_partial_path_without_extension(self, filepath: str) -> str:
-        """If no full filepath found - raise FileNotFoundError"""
-
-        filenames = glob.glob(f"{filepath}*")
-
-        if len(filenames) > 1:
-            raise DuplicateImagesExists
-
-        full_filepath = filenames[0]
-
-        if not full_filepath:
-            raise FileNotFoundError("Avatar image not found")
-        
-        return full_filepath

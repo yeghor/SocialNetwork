@@ -1,9 +1,9 @@
 from fastapi import HTTPException
 
-from databases_manager.main_managers.services_creator_abstractions import MainServiceBase
-from databases_manager.postgres_manager.models import *
+from services.core_services import MainServiceBase
+from services.postgres_service.models import *
 from post_popularity_rate_task.popularity_rate import POST_ACTIONS
-from databases_manager.main_managers.mix_posts import MIX_FOLLOWING, MIX_UNRELEVANT, MIX_HISTORY_POSTS_RELATED
+from mix_posts_consts import *
 
 from dotenv import load_dotenv
 from os import getenv

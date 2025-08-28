@@ -1,6 +1,5 @@
-from databases_manager.postgres_manager.database import get_sessionlocal, get_engine
-from databases_manager.postgres_manager.models import *
-from databases_manager.postgres_manager.validate_n_postive import validate_n_postitive
+from .models import Base
+from .database import get_engine, get_sessionlocal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

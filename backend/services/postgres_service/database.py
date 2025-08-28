@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
 from dotenv import load_dotenv
 from os import getenv    
-from databases_manager.postgres_manager.models import Base
+from .models import Base
 import asyncio
 from typing import Tuple
 

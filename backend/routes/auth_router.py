@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Depends, Body, Header, File, UploadFile, Form
-from databases_manager.postgres_manager.database_utils import get_session_depends
-from databases_manager.main_managers.services_creator_abstractions import MainServiceContextManager
-from databases_manager.main_managers.auth_manager import MainServiceAuth
+from services.postgres_service import *
+from services.core_services import MainServiceContextManager, MainServiceAuth
 from sqlalchemy.ext.asyncio import AsyncSession
-from authorization.authorization import authorize_request_depends
-from databases_manager.postgres_manager.database_utils import merge_model
-from databases_manager.postgres_manager.models import User
+from authorization.authorization_utils import authorize_request_depends
+
 from pydantic_schemas.pydantic_schemas_auth import (
     LoginSchema,
     RegisterSchema,
