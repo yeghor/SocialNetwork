@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from services.core_services import MainServiceBase
 from services.postgres_service import User, Post, PostImage
 from services_types import ImageType
-from backend.exceptions.custom_exceptions import EmptyPostsError
+from exceptions.custom_exceptions import EmptyPostsError
 from typing import Tuple, Literal
 import mimetypes
 import os

@@ -41,7 +41,7 @@ class NotFoundExc(EndpointExcConstructor):
 
 
 class ConflictExc(EndpointExcConstructor):
-    """Core - 409"""
+    """Code - 409"""
 
     status_code: int = 409
 

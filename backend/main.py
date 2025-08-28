@@ -7,7 +7,7 @@ from services.postgres_service import get_engine, initialize_models, drop_all, g
 from services.core_services.main_services import MainServiceSocial
 from services.core_services import MainServiceContextManager
 
-from backend.exceptions.custom_exceptions import EmptyPostsError
+from exceptions.custom_exceptions import EmptyPostsError
 
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,7 +24,7 @@ from post_popularity_rate_task.popularity_rate import scheduler
 import logging
 
 logging.basicConfig(
-    logging.WARN,
+    level=logging.WARN,
     filename="app_logs.log",
     filemode="w",
     format="%(asctime)s - %(levelname)s - %(message)s"
