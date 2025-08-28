@@ -22,9 +22,9 @@ It is a prototype of a social network similar to Twitter _(now X)_.
   - **Popularity rate** is a dynamic field in each post, value depends on user activity. The rate is secured from fake activity abusing.
   - **ChromaDB Semantic Search** provides vectorized search to find relevant posts to user view history.
   The feed contains mixed posts _(proportions can be seted in `.env` file)_
-  - **History related** _(Semantic Search)_
-  - **Unrelated**, but popular and fresh posts
-  - **Following posts** from users you follow to _(If no follows - returns **Unrelated**)_
+    - **History related** _(Semantic Search)_
+    - **Unrelated**, but popular and fresh posts
+    - **Following posts** from users you follow to _(If no follows - returns **Unrelated**)_
 
 This project has a `docker-compose.yml` file, so it allows you to start the application by executing only one line.
 
