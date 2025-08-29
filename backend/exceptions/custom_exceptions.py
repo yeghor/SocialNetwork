@@ -15,12 +15,12 @@ E = TypeVar("E", bound=ServiceLayerBaseBound)
 class EndpointExcConstructor(Exception):
     status_code: int
 
-    def __init__(self, user_safe_detail: str, exc_type: Type[E], dev_log_detail: str | None = None):
-        self.detail = user_safe_detail
+    def __init__(self, client_safe_detail: str, exc_type: Type[E], dev_log_detail: str | None = None):
+        self.detail = client_safe_detail
         self.exc_type = exc_type
 
         if not dev_log_detail:
-            super().__init__(user_safe_detail)
+            super().__init__(client_safe_detail)
             return
         super().__init__(dev_log_detail) # To pass detail to base exception args - we don't want to break python exception logic
 
