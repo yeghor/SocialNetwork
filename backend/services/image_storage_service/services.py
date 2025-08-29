@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from typing import List, Literal, Dict
 import glob
 
+from exceptions.custom_exceptions import *
 
 # LocalStorage service can't be async. So I use aiofiles's run_in_executor() wrap
 import aiofiles
@@ -134,10 +135,10 @@ class S3Storage(ImageStorageABC):
                 mime_type = content_type
 
                 if not self._validate_image_mime(image_bytes=contents, specified_mime=mime_type):
-                    raise ValueError(f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
+                    raise InvalidFileMimeType(f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
                 
                 if not self._validate_file_size(bytes_obj=contents):
-                    raise ValueError(f"Image is too big. Size up to {POST_IMAGE_MAX_SIZE_MB}mb")
+                    raise InvalidResourceProvided(f"Image is too big. Size up to {POST_IMAGE_MAX_SIZE_MB}mb")
                 
                 try:
                     await s3.put_object(
@@ -147,7 +148,7 @@ class S3Storage(ImageStorageABC):
                         ContentType=mime_type
                     )
                 except Exception as e:
-                    raise Exception(f"Failed yo upload post image: {e}")
+                    raise MediaError(f"Failed to upload post image: {e}")
 
     async def upload_avatar_user(self, contents: bytes, mime_type: str, image_name: str) -> None:
         async with self._client() as s3:

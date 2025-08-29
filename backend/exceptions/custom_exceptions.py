@@ -13,10 +13,11 @@ E = TypeVar("E", bound=ServiceLayerBaseBound)
 # Endpoint Layer Exceptions 
 
 class EndpointExcConstructor(Exception):
+    """Dev log usage: try - except EndpointExcConstructor as e: msg=str(e)"""
     status_code: int
 
     def __init__(self, client_safe_detail: str, exc_type: Type[E], dev_log_detail: str | None = None):
-        self.detail = client_safe_detail
+        self.client_safe_detail = client_safe_detail
         self.exc_type = exc_type
 
         if not dev_log_detail:
@@ -34,7 +35,7 @@ class InternalServerErrorExc(EndpointExcConstructor):
     """Code - 500 \n `logging type` - 30 = warning, 40 - error, 50 - critical"""
 
     status_code: int = 500
-    logging_type: Literal[30, 40, 50] = 50
+    logging_type: Literal[40, 50] = 50
 
 
 class NotFoundExc(EndpointExcConstructor):
@@ -57,39 +58,47 @@ class UnauthorizedExc(EndpointExcConstructor):
 # Services layer exceptions 
 # These exception that application requires right now, they're growing.
 
-# 404 
+# CLIENT SAFE MESSAGE DOES NOT SPECIFY ANY SPECIFIC ERROR DATA
 
-class ResourceNotFound(ServiceLayerBaseBound):
+class ClientSafeServiceError(ServiceLayerBaseBound):
+
+    def __init__(self, detail: str, client_safe_detail: str):
+        self.client_safe_detail = client_safe_detail
+        super().__init__(detail)
+
+
+# 404 # PROVIDE DEFIRENT CLIENT SAFE INFO WHERE IT'S NECESSARY
+class ResourceNotFound(ClientSafeServiceError):
     """Raise in case provided ID does not exist or similar"""
 
 
-# 401
-class Unauthorized(ServiceLayerBaseBound):
+# 401 PROVIDE SPECIFIED INFO WHEN IT'S SAFE
+class Unauthorized(ClientSafeServiceError):
     """Authorization failed? Raise this"""
 
 
-# 400 PROVIDE ONLY USER SAFE (FRONTEND) ERROR DATA 
-class InvalidAction(ServiceLayerBaseBound):
+# 400 PROVIDE SPECIFIED USER ACTION IN DEV DETAIL (FIRST ARG) AND REGULAR CLIENT ERROR IN `client_safe_detail`
+class InvalidAction(ClientSafeServiceError):
     """Raise in case when aaction can't be done. For examaple - follow user that you already following to. Or follow self"""
 
-class InvalidFileMimeType(ServiceLayerBaseBound):
+class InvalidFileMimeType(ClientSafeServiceError):
     """Raise when provided file mime type invalid"""
 
-class LimitReached(ServiceLayerBaseBound):
+class LimitReached(ClientSafeServiceError):
     """Raise whenever user 'action' limit reached. For example - max post images uploaded"""
 
-class InvalidResourceProvided(ServiceLayerBaseBound):
+class InvalidResourceProvided(ClientSafeServiceError):
     """Raise whenever user's content corrupted or does not fits application rules"""
 
-class ValidationError(ServiceLayerBaseBound):
+class ValidationError(ClientSafeServiceError):
     """Raise in cases provided user data does not valid, for example email validation through regular expressions"""
 
-# 409 # PROVIDE ONLY USER SAFE (FRONTEND) ERROR DATA 
-class Collision(ServiceLayerBaseBound):
+# 409  
+class Collision(ClientSafeServiceError):
     """Raise when something is already exists"""
 
 
-# 500 DANGER ZONE :)
+# 500 DANGER ZONE :) 
 class PostgresError(ServiceLayerBaseBound):
     pass
 
