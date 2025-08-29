@@ -1,10 +1,13 @@
 from typing import Literal, Type, TypeVar
 
-E = TypeVar(name="E", bound="ServiceLayerBaseBound")
-
 # Service Layer Exceptions
 class EmptyPostsError(Exception):
     """Gets raised in ChromaDB service. Raise if provided post list empty"""
+
+class ServiceLayerBaseBound(Exception):
+    """Use in TypeVar"""
+
+E = TypeVar("E", bound=ServiceLayerBaseBound)
 
 # =======
 # Endpoint Layer Exceptions 
@@ -55,9 +58,6 @@ class UnauthorizedExc(EndpointExcConstructor):
 # These exception that application requires right now, they're growing.
 
 # 404 
-
-class ServiceLayerBaseBound(Exception):
-    """Use in TypeVar"""
 
 class ResourceNotFound(ServiceLayerBaseBound):
     """Raise in case provided ID does not exist or similar"""

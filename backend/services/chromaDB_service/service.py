@@ -11,7 +11,7 @@ from uuid import UUID
 from fastapi import HTTPException
 from datetime import datetime
 from mix_posts_consts import FEED_MAX_POSTS_LOAD, MIX_HISTORY_POSTS_RELATED
-from exceptions.custom_exceptions import EmptyPostsError
+from exceptions.custom_exceptions import EmptyPostsError, ChromaDBError
 
 load_dotenv()
 
@@ -35,9 +35,9 @@ def chromaDB_error_handler(func):
         except EmptyPostsError:
             pass
         except ChromaError as e:
-            raise Exception(f"ChromaDB error: {e}")
+            raise ChromaDBError(f"ChromaDB exception occured: {e}") from e
         except Exception as e:
-            raise Exception(f"Unknown error occured while working with chromaDB: {e}")
+            raise ChromaDBError(f"Uknown exception occured: {e}") from e
     return wrapper
 
 class ChromaService:
