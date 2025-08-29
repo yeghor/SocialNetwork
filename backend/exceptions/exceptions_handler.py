@@ -40,20 +40,20 @@ def web_exceptions_raiser(func: callable) -> callable:
         try:
             return await func(*args, **kwargs)
         except (InvalidAction, InvalidFileMimeType, LimitReached, InvalidResourceProvided, ValidationError) as e:
-            raise BadRequestExc(user_safe_detail=str(e), exc_type=e)
+            raise BadRequestExc(client_safe_detail=str(e), exc_type=e)
         except Unauthorized as e:
-            raise UnauthorizedExc(user_safe_detail="Unauthorized", dev_log_detail=e, exc_type=e)
+            raise UnauthorizedExc(client_safe_detail="Unauthorized", dev_log_detail=e, exc_type=e)
         except ResourceNotFound as e:
-            raise NotFoundExc(user_safe_detail="Not found", dev_log_detail=e, exc_type=e)
+            raise NotFoundExc(client_safe_detail="Not found", dev_log_detail=e, exc_type=e)
         except Collision as e:
-            raise ConflictExc(user_safe_detail=str(e), exc_type=e)
+            raise ConflictExc(client_safe_detail=str(e), exc_type=e)
         except (PostgresError, ChromaDBError, RedisError, MediaError, JWTError, BcryptError, WrongDataFound) as e:
             logging_level = 50
             if isinstance(e, MediaError):
                 logging_level = 40
 
             raise InternalServerErrorExc(
-                user_safe_detail="It's not you, it's us. Something went wrong, email us or try again later.",
+                client_safe_detail="It's not you, it's us. Something went wrong, email us or try again later.",
                 dev_log_detail=e,
                 logging_type=logging_level,
                 exc_type=e
