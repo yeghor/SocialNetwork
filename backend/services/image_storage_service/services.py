@@ -52,6 +52,10 @@ class DuplicateImagesExists(Exception):
 
 class ImageStorageABC(ABC):
     @staticmethod
+    def _validate_file_size(bytes_obj: bytes) -> bool:
+        return 0 < len(bytes_obj) / 1024 / 1024 < POST_IMAGE_MAX_SIZE_MB
+
+    @staticmethod
     def _guess_mime(file_bytes: bytes) -> str:
         return magic.from_buffer(buffer=file_bytes, mime=True)
 
@@ -104,10 +108,6 @@ class S3Storage(ImageStorageABC):
             return False
         
         return True
-
-    @staticmethod
-    def _validate_file_size(bytes_obj: bytes) -> bool:
-        return 0 < len(bytes_obj) / 1024 / 1024 < POST_IMAGE_MAX_SIZE_MB
     
     @staticmethod
     def _guess_mime(file_bytes: bytes) -> str:
@@ -118,7 +118,7 @@ class S3Storage(ImageStorageABC):
 
         if mode == "prod": self._bucket_name = S3_BUCKET_NAME
         elif mode == "test": self._bucket_name = S3_BUCKET_NAME_TEST
-        else: raise ValueError("Unsupported running mode")
+        else: raise ValueError("S3 Storage: Unsupported running mode")
 
     @asynccontextmanager
     async def _client(self):
@@ -135,10 +135,10 @@ class S3Storage(ImageStorageABC):
                 mime_type = content_type
 
                 if not self._validate_image_mime(image_bytes=contents, specified_mime=mime_type):
-                    raise InvalidFileMimeType(f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
+                    raise InvalidFileMimeType(f"S3 Storage: Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
                 
                 if not self._validate_file_size(bytes_obj=contents):
-                    raise InvalidResourceProvided(f"Image is too big. Size up to {POST_IMAGE_MAX_SIZE_MB}mb")
+                    raise InvalidResourceProvided(f"S3 Storage: Image is too big. Size up to {POST_IMAGE_MAX_SIZE_MB}mb")
                 
                 try:
                     await s3.put_object(
@@ -148,15 +148,15 @@ class S3Storage(ImageStorageABC):
                         ContentType=mime_type
                     )
                 except Exception as e:
-                    raise MediaError(f"Failed to upload post image: {e}")
+                    raise MediaError(f"S3 Storage: Failed to upload post image: {e}") from e
 
     async def upload_avatar_user(self, contents: bytes, mime_type: str, image_name: str) -> None:
         async with self._client() as s3:
             if not self._validate_image_mime(image_bytes=contents, specified_mime=mime_type):
-                raise ValueError(f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
+                raise InvalidFileMimeType(detail=f"S3 Storage: User {image_name} tried to upload avatar with wrong mime type", client_safe_detail=f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
             
             if not self._validate_file_size(bytes_obj=contents):
-                raise ValueError(f"Image is too big. Size up to {POST_IMAGE_MAX_SIZE_MB}mb")
+                raise InvalidResourceProvided(detail=f"S3 Storage: User {image_name} tried to uploaded avatar bigger than {POST_IMAGE_MAX_SIZE_MB}mb", client_safe_detail=f"Image is too big. Size up to {POST_IMAGE_MAX_SIZE_MB}mb")
             
             try:
                 await s3.put_object(
@@ -166,44 +166,56 @@ class S3Storage(ImageStorageABC):
                     ContentType=mime_type
                 )
             except Exception as e:
-                raise Exception(f"Failed to upload user image: {e}")
+                raise MediaError(f"S3 Storage: Failed to upload user image: {e}") from e
 
     # TODO: DRY this below    
     async def delete_post_images(self, image_name: str) -> None:
         async with self._client() as s3:
-            await s3.delete_object(
-                Bucket=self._bucket_name,
-                Key=image_name
-            )
+            try:
+                await s3.delete_object(
+                    Bucket=self._bucket_name,
+                    Key=image_name
+                )
+            except Exception as e:
+                raise MediaError(f"S3 Storage: Failed to delete post image: {e}") from e
 
     async def delete_avatar_user(self, user_id: str) -> None:
         async with self._client() as s3:
-            await s3.delete_object(
-                Bucket=self._bucket_name,
-                Key=user_id
-            )
+            try:
+                await s3.delete_object(
+                    Bucket=self._bucket_name,
+                    Key=user_id
+                )
+            except Exception as e:
+                raise MediaError(f"S3 Storage: Failed to delete user avatar: {e}") from e
 
     async def get_post_image_urls(self, image_names: List[str]) -> List[str]:
         async with self._client() as s3:
             urls = []
             for image_name in image_names:
-                url = await s3.generate_presigned_url(
-                    "get_object",
-                    Params=self._define_boto_Params(key=image_name),
-                    ExpiresIn=IMAGE_VIEW_ACCES_SECONDS
-                )
-                if url:
-                    urls.append(url)
+                try:
+                    url = await s3.generate_presigned_url(
+                        "get_object",
+                        Params=self._define_boto_Params(key=image_name),
+                        ExpiresIn=IMAGE_VIEW_ACCES_SECONDS
+                    )
+                    if url:
+                        urls.append(url)
+                except Exception as e:
+                    raise MediaError(f"S3 Storage: Failed to get post images presigned URLs. Images names: {image_names}. Exception: {e}") from e
             
             return urls
 
     async def get_user_avatar_url(self, user_id: str) -> str:
         async with self._client() as s3:
-            return await s3.generate_presigned_url(
-                "get_object",
-                Params=self._define_boto_Params(key=user_id),
-                ExpiresIn=IMAGE_VIEW_ACCES_SECONDS
-            )
+            try:
+                return await s3.generate_presigned_url(
+                    "get_object",
+                    Params=self._define_boto_Params(key=user_id),
+                    ExpiresIn=IMAGE_VIEW_ACCES_SECONDS
+                )
+            except Exception as e:
+                raise MediaError(f"S3 Storage: Failed to get user avatar presigned. Image name - {user_id}. Exception: {e}") from e
 
 import secrets
 
@@ -242,41 +254,44 @@ class LocalStorage(ImageStorageABC):
             self.__media_avatar_path = MEDIA_AVATAR_PATH_TEST
             self.__media_post_path = MEDIA_POST_IMAGE_PATH_TEST
 
-    async def upload_images_post(self, contents: bytes, content_type: str, image_name: str) -> None:
+    async def _validate_image(self, contents: bytes, content_type: str, image_name: str) -> None: 
         if not self._validate_image_mime(image_bytes=contents, specified_mime=content_type):
-            raise ValueError(f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
+            raise InvalidFileMimeType(detail=f"Local Storage: User {image_name} tried to upload avatar with wrong mime type", client_safe_detail=f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
 
+        if not self._validate_file_size(bytes_obj=contents):
+            raise InvalidResourceProvided(detail=f"Local Storage: User {image_name} tried to uploaded avatar bigger than {POST_IMAGE_MAX_SIZE_MB}mb", client_safe_detail=f"Image is too big. Size up to {POST_IMAGE_MAX_SIZE_MB}mb")
+
+    @staticmethod
+    async def _get_extension(content_type: str, image_name: str) -> str:
+         # Return value is a string giving a filename extension, including the leading dot ('.') / mimetypes.guess_extension()
         extension = mimetypes.guess_extension(type=content_type)
         if not extension:
-            raise ValueError("Invalid content type")
-        
-        print(f"{self.__media_post_path}/{image_name}{extension}")
+            raise InvalidFileMimeType(detail=f"Local Storage: User {image_name} tried to upload post image with corrupted mime type - {content_type}", client_safe_detail=f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
+        return extension
 
-        # Return value is a string giving a filename extension, including the leading dot ('.') / mimetypes.guess_extension()
+    async def upload_images_post(self, contents: bytes, content_type: str, image_name: str) -> None:
+        await self._validate_image(contents=contents, content_type=content_type, image_name=image_name)
+        extension = await self._get_extension(content_type=content_type, image_name=image_name)
+
         try:
             async with aiofiles.open(file=f"{self.__media_post_path}/{image_name}{extension}", mode="wb") as file_:
                 await file_.write(contents)
         except Exception as e:
-            raise Exception(f"Uknown error occured when trying to write image locally: {e}")
+                raise MediaError(f"Local Storage: Failed write post image localy. Image name - {image_name}. Exception - {e}") from e
 
     async def upload_avatar_user(self, contents: bytes, content_type: str, image_name: str) -> None:
-        if not self._validate_image_mime(image_bytes=contents, specified_mime=content_type):
-            raise ValueError(f"Invalid image type. Allowed only - {ALLOWED_EXTENSIONS}")
-
-        extension = mimetypes.guess_extension(type=content_type)
-        if not extension:
-            raise ValueError("Invalid content type")
+        await self._validate_image(contents=contents, content_type=content_type, image_name=image_name)
+        extension = await self._get_extension(content_type=content_type, image_name=image_name)
         
-        # Return value is a string giving a filename extension, including the leading dot ('.') / mimetypes.guess_extension()
-        print(f"{self.__media_avatar_path}/{image_name}{extension}")
         try:
             async with aiofiles.open(file=f"{self.__media_avatar_path}/{image_name}{extension}", mode="wb") as file_:
                 await file_.write(contents)
         except Exception as e:
-            raise Exception("Uknown error occured when trying to write image locally")
+            raise MediaError(f"Local Storage: Failed write user avatar localy. Image name - {image_name}. Exception - {e}") from e
+
     
     async def delete_post_images(self, base_name: str) -> None:
-        """Pass to `base_name` image name that includes іфьу part, like post_id without image ordinal number"""
+        """Pass to `base_name` image name that includes same part, like post_id without image ordinal number"""
         # Whe don't know file extension. So we need to find it using glob and image_name*
 
         filenames = glob.glob(f"{base_name}*", root_dir=self.__media_post_path)
@@ -284,11 +299,10 @@ class LocalStorage(ImageStorageABC):
             filepath = f"{self.__media_post_path}{filename}"
 
             if os.path.exists(path=filepath):
-                print(filepath)
                 try:
                     os.remove(path=filepath)
-                except Exception:
-                    raise Exception(f"Failed to remove image: {filename}")
+                except Exception as e:
+                  raise MediaError(f"Local Storage: Failed delete post image localy. Filepath - {filename}. Exception - {e}") from e
             else:
                 return
 
@@ -306,22 +320,30 @@ class LocalStorage(ImageStorageABC):
         filename = filenames[0]
         filepath = f"{self.__media_avatar_path}{filename}"
 
-        # TODO: try-except
         if os.path.exists(path=filepath):
-            os.remove(path=filepath)
+            try:
+                os.remove(path=filepath)
+            except Exception as e:
+                raise MediaError(f"Local Storage: Failed delete user avatar localy. Filepath - {filename}. Exception - {e}") from e
         else:
             return
 
     async def get_post_image_urls(self, image_names: List[str]) -> List[str]:
         urls = []
-        for filename in image_names:
+        for provided_filename in image_names:
             urfsafe_token = self._generate_url_token()
+
+            filenames = glob.glob(pathname=f"{provided_filename}*", root_dir=self.__media_post_path)
+            if not filenames:
+                continue
+            filename = filenames[0]
+
             await self._Redis.save_url_post_token(image_token=urfsafe_token, image_name=filename)
             url = f"{BASE_URL}{MEDIA_POST_IMAGE_URI}{urfsafe_token}"
             urls.append(url)
         return urls
 
-    async def get_user_avatar_url(self, user_id: str) -> str:
+    async def get_user_avatar_url(self, user_id: str) -> str | None:
         urlsafe_token = self._generate_url_token()
 
         # Searching for potential 

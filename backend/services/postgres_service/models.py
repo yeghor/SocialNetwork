@@ -161,8 +161,8 @@ class PostActions(Base):
 
     action_id: Mapped[str] = mapped_column(primary_key=True)
 
-    owner_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
-    post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"), primary_key=True)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"))
+    post_id: Mapped[str] = mapped_column(ForeignKey("posts.post_id", ondelete="CASCADE"))
     action: Mapped[ActionType]
     date: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 

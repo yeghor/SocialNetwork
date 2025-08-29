@@ -101,6 +101,5 @@ class MainMediaService(MainServiceBase):
 
         filepath = f"{MEDIA_POST_IMAGE_PATH}{image_name}"
 
-        filepath_full = self._ImageStorage.get_full_path_by_partial_path_without_extension(filepath=filepath)
-        return await self._read_contents_and_mimetype_by_filepath(filepath=filepath_full)
+        return await self._read_contents_and_mimetype_by_filepath(filepath=filepath)
     

@@ -7,6 +7,7 @@ class EmptyPostsError(Exception):
 class ServiceLayerBaseBound(Exception):
     """Use in TypeVar"""
 
+
 E = TypeVar("E", bound=ServiceLayerBaseBound)
 
 # =======
