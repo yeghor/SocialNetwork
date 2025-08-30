@@ -80,7 +80,7 @@ class Unauthorized(ClientSafeServiceError):
 
 # 400 PROVIDE SPECIFIED USER ACTION IN DEV DETAIL (FIRST ARG) AND REGULAR CLIENT ERROR IN `client_safe_detail`
 class InvalidAction(ClientSafeServiceError):
-    """Raise in case when aaction can't be done. For examaple - follow user that you already following to. Or follow self"""
+    """Raise in case when action can't be done. For examaple - follow user that you already following to. Or follow self"""
 
 class InvalidFileMimeType(ClientSafeServiceError):
     """Raise when provided file mime type invalid"""
@@ -120,3 +120,6 @@ class BcryptError(ServiceLayerBaseBound):
 
 class WrongDataFound(ServiceLayerBaseBound):
     """Raise when unexpected data found. Note method and service where issue occured."""
+
+class MultipleDataFound(ServiceLayerBaseBound):
+    pass

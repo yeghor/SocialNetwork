@@ -8,7 +8,9 @@ from pydantic_schemas.pydantic_schemas_social import PostDataSchemaID
 from uuid import UUID
 from .models import Base, User, Post, PostActions
 from .models import ActionType
-from .database_utils import postgres_error_handler
+from .database_utils import postgres_exception_handler
+
+from exceptions.custom_exceptions import PostgresError
 
 Models = TypeVar("Models", bound=Base)
 
@@ -25,32 +27,38 @@ class PostgresService:
         # We don't need to close session. Because Depends func will handle it in endpoints.
         self.__session = postgres_session
 
+    @postgres_exception_handler(action="Close session")
     async def close(self) -> None:
         await self.__session.aclose()
 
+    @postgres_exception_handler(action="Commit session")
     async def commit_changes(self) -> None:
         await self.__session.commit()
 
+    @postgres_exception_handler(action="Rollback session")
     async def rollback(self) -> None:
         await self.__session.rollback()
 
+    @postgres_exception_handler(action="Refresh session model")
     async def refresh_model(self, model_obj: Base) -> None:
         await self.__session.refresh(model_obj)
 
+    @postgres_exception_handler(action="Flush session")
     async def flush(self) -> None:
         await self.__session.flush()
 
+    @postgres_exception_handler(action="Delete model sesion")
     async def delete_models_and_flush(self, *models: Base) -> None:
         for model in models:
             await self.__session.delete(model)
         await self.flush()
 
-    @postgres_error_handler(action="Add model and flush")
+    @postgres_exception_handler(action="Add model and flush")
     async def insert_models_and_flush(self, *models: Base):
         self.__session.add_all(models)
         await self.__session.flush()
 
-    @postgres_error_handler(action="Get user by id")
+    @postgres_exception_handler(action="Get user by id")
     async def get_user_by_id(self, user_id: str) -> User | None:
         result = await self.__session.execute(
             select(User)
@@ -59,7 +67,7 @@ class PostgresService:
         )
         return result.scalar()
 
-    @postgres_error_handler(action="Get fresh feed")
+    @postgres_exception_handler(action="Get fresh feed")
     async def get_fresh_posts(self, user: User, exclude_ids: List[str] = [], n: int = FEED_MAX_POSTS_LOAD) -> List[Post]:
         result = await self.__session.execute(
             select(Post)
@@ -69,41 +77,15 @@ class PostgresService:
         )
         return result.scalars().all()
 
-    @postgres_error_handler(action="Get new posts")
 
-    # @validate_n_postitive
-    # @postgres_error_handler(action="Get subcribers posts")
-    # async def get_subscribers_posts(self, n: int, ids, user_models: List[User] | None, most_popular: bool = False) -> List[Post]:
-    #     """
-    #     Getting posts of users, whose ids mentioned in user_ids or user_models lists. If user_models not empty - getting ids from models.
-    #     Most popular sorts posts by descending amount of likes field. Can be used by your followers or who you follow
-    #     """
-    #     if not ids and not user_models:
-    #         return []
-    #     if user_models:
-    #         ids = [user.user_id for user in user_models]
-
-    #     result = await self.__session.execute(
-    #         select(Post)
-    #         .where(Post.owner_id.in_(ids))
-    #         .order_by(Post.published.desc())
-    #         .limit(n)
-    #     )
-    #     posts = result.scalars().all()
-        
-    #     if most_popular:
-    #         return sorted(posts, key=lambda post : post.likes, reverse=True)
-
-    #     return posts
-
-    @postgres_error_handler(action="Get all posts")
+    @postgres_exception_handler(action="Get all posts")
     async def get_all_from_model(self, ModelType: Type[Models]) -> List[Models]:
         result = await self.__session.execute(
             select(ModelType)
         )
         return result.scalars().all()
 
-    @postgres_error_handler(action="Get entries from specific model by ids")
+    @postgres_exception_handler(action="Get entries from specific model by ids")
     async def get_entries_by_ids(self, ids: List[str], ModelType: Type[Models]) -> List[Models]:     
         if not ids:
             return []
@@ -122,7 +104,7 @@ class PostgresService:
             raise TypeError("Unsupported model type!")
         return result.scalars().all()
     
-    @postgres_error_handler(action="Get entry from id")
+    @postgres_exception_handler(action="Get entry from id")
     async def get_entry_by_id(self, id_: str, ModelType: Type[Models]) -> Models:
         if ModelType == User:
             result = await self.__session.execute(
@@ -141,7 +123,7 @@ class PostgresService:
         return result.scalar()
 
     #https://stackoverflow.com/questions/3325467/sqlalchemy-equivalent-to-sql-like-statement
-    @postgres_error_handler(action="Get users by LIKE statement")
+    @postgres_exception_handler(action="Get users by LIKE statement")
     async def get_users_by_username(self, prompt: str) -> List[User]:
         if not prompt:
             raise ValueError("Prompt is None")
@@ -153,20 +135,20 @@ class PostgresService:
         )
         return result.scalars().all()
 
-    @postgres_error_handler(action="Change field and flush")
+    @postgres_exception_handler(action="Change field and flush")
     async def change_field_and_flush(self, Model: Models, **kwargs) -> None:
         for key, value in kwargs.items():
             setattr(Model, key, value)
         await self.__session.flush()
 
-    @postgres_error_handler(action="Delete post by id")
+    @postgres_exception_handler(action="Delete post by id")
     async def delete_post_by_id(self, id_: str) -> None:
         await self.__session.execute(
             delete(Post)
             .where(Post.post_id == id_)
         )
 
-    @postgres_error_handler(action="Get user by username and email")
+    @postgres_exception_handler(action="Get user by username and email")
     async def get_user_by_username_or_email(self, username: str | None = None, email: str | None = None) -> User:
         if not username and not email:
             raise ValueError("Username and email are None!")
@@ -177,7 +159,7 @@ class PostgresService:
         )
         return result.scalar()
     
-    @postgres_error_handler(action="Get followed users posts")
+    @postgres_exception_handler(action="Get followed users posts")
     async def get_followed_posts(self, user: User, n: int, exclude_ids: List[str] = []) -> List[Post]:
         """If user not following anyone - returns empty list"""
 
@@ -198,7 +180,7 @@ class PostgresService:
         return result.scalars().all()
 
 
-    @postgres_error_handler(action="Update post values nad return post is needed")
+    @postgres_exception_handler(action="Update post values nad return post is needed")
     async def update_post_fields(self, post_data: PostDataSchemaID, return_updated_post: bool = False) -> Post | None:
         post_data_dict = post_data.model_dump(exclude_defaults=True, exclude_none=True, exclude={"post_id"})
         if not post_data_dict:
@@ -217,7 +199,7 @@ class PostgresService:
             )
             return result.scalar()
 
-    @postgres_error_handler(action="Get action")
+    @postgres_exception_handler(action="Get action")
     async def get_actions(self, user_id: str, post_id: str, action_type: ActionType) -> List[PostActions]:
         """Return **list** of actions ordered by date in descending order. Even if you specified `action_type` as single action"""
         result = await self.__session.execute(
@@ -227,7 +209,7 @@ class PostgresService:
         )
         return result.scalars().all()
 
-    @postgres_error_handler(action="Get actions on post by specified type")
+    @postgres_exception_handler(action="Get actions on post by specified type")
     async def get_post_action_by_type(self, post_id: str, action_type: ActionType) -> List[User]:
         result = await self.__session.execute(
             select(PostActions)
@@ -236,7 +218,7 @@ class PostgresService:
         )
         return result.scalars().all()
     
-    @postgres_error_handler(action="Get user actions by type")
+    @postgres_exception_handler(action="Get user actions by type")
     async def get_user_actions(self, user_id: str, action_type: ActionType, n_most_fresh: int | None, return_posts: bool = False) -> List[PostActions] | List[Post]:
         result = await self.__session.execute(
             select(PostActions)
@@ -249,7 +231,7 @@ class PostgresService:
         if return_posts: return [action.post for action in actions]
         else: return actions
 
-
+    @postgres_exception_handler(action="Get post replies")
     async def get_post_replies(self, post_id: str, n: int = RETURN_REPLIES, exclude_ids: List[str] = []) -> List[Post]:
         likes_subq = (
             select(func.count(PostActions.action_id))
@@ -264,6 +246,7 @@ class PostgresService:
         )
         return result.scalars().all()
     
+    @postgres_exception_handler(action="Get user's posts")
     async def get_user_posts(self, user_id: str, n: int = LOAD_MAX_USERS_POST, exclude_ids: List[str] = []):
         result = await self.__session.execute(
             select(Post)

@@ -18,9 +18,12 @@ from fastapi import HTTPException
 from uuid import uuid4
 import os
 
+from exceptions.exceptions_handler import web_exceptions_raiser
+
 POST_IMAGE_MAX_SIZE_MB = int(os.getenv("POST_IMAGE_MAX_SIZE_MB", "25"))
 
 class MainServiceAuth(MainServiceBase):
+    @web_exceptions_raiser
     async def authorize_request(self, token: str, return_user: bool = True) -> User | None:
         """Can be used in fastAPI Depends() \n Prepares and authorizes token"""
         
@@ -38,7 +41,7 @@ class MainServiceAuth(MainServiceBase):
         
         return None
 
-    # TODO: Cover in try except! ALL OF THIS
+    @web_exceptions_raiser
     async def register(self, credentials: RegisterSchema) -> RefreshAccesTokens:
         if await self._PostgresService.get_user_by_username_or_email(username=credentials.username, email=credentials.email):
             raise HTTPException(status_code=409, detail="Registered account with these credetials already exists")
@@ -54,7 +57,7 @@ class MainServiceAuth(MainServiceBase):
         print(new_user.user_id)
         return await self._JWT.generate_refresh_acces_token(user_id=new_user.user_id, redis=self._RedisService)
 
-            
+    @web_exceptions_raiser
     async def login(self, credentials: LoginSchema) -> RefreshAccesTokens:
         potential_user = await self._PostgresService.get_user_by_username_or_email(username=credentials.username, email=None)
         if not potential_user:
@@ -74,10 +77,12 @@ class MainServiceAuth(MainServiceBase):
         
         return await self._JWT.generate_refresh_acces_token(user_id=user_id, redis=self._RedisService)
 
+    @web_exceptions_raiser
     async def logout(self, tokens: RefreshAccesTokens) -> None:
         await self._RedisService.delete_jwt(jwt_token=tokens.acces_token, token_type="acces")
         await self._RedisService.delete_jwt(jwt_token=tokens.refresh_token, token_type="refresh")
 
+    @web_exceptions_raiser
     async def refresh_token(self, refresh_token: str) -> AccesTokenSchema:
         prepared_token = self._JWT.prepare_token(jwt_token=refresh_token)
         if not await self._RedisService.check_jwt_existence(jwt_token=prepared_token, token_type="refresh"):
@@ -93,6 +98,7 @@ class MainServiceAuth(MainServiceBase):
         await self._RedisService.refresh_acces_token(old_token=old_acces_token, new_token=new_acces_token.acces_token, user_id=user_id)
         return new_acces_token
     
+    @web_exceptions_raiser
     async def change_password(self, user: User, credentials: OldNewPassword) -> None:
         if not password_utils.check_password(entered_pass=credentials.old_password, hashed_pass=user.password_hash):
             raise HTTPException(status_code=401, detail="Old password didn't match")
@@ -100,6 +106,7 @@ class MainServiceAuth(MainServiceBase):
         new_password_hashed = password_utils.hash_password(raw_pass=credentials.new_password)
         await self._PostgresService.change_field_and_flush(Model=user, password_hash=new_password_hashed)
 
+    @web_exceptions_raiser
     async def change_username(self, user: User, credentials: NewUsername) -> None:
         new_username = credentials.new_username
 
@@ -108,6 +115,7 @@ class MainServiceAuth(MainServiceBase):
 
         await self._PostgresService.change_field_and_flush(Model=User, username=new_username)
 
+    @web_exceptions_raiser
     async def delete_user(self, password: str, user: User) -> None:
         if not password_utils.check_password(entered_pass=password, hashed_pass=user.password_hash):
             raise HTTPException(status_code=401, detail="Password didn't match")

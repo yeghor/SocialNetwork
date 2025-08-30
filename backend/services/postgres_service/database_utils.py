@@ -11,6 +11,7 @@ from sqlalchemy import select, or_
 from typing import List, Type, TypeVar
 from uuid import UUID
 
+from exceptions.custom_exceptions import PostgresError, MultipleDataFound
 
 from dotenv import load_dotenv
 from os import getenv
@@ -50,7 +51,7 @@ async def get_session_depends():
     finally:
         await engine.dispose()
 
-def postgres_error_handler(action: str = "Unknown action with the database"):
+def postgres_exception_handler(action: str = "Unknown action with the database"):
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -58,19 +59,12 @@ def postgres_error_handler(action: str = "Unknown action with the database"):
                 return await func(*args, **kwargs)
             except Exception as e:
                 if isinstance(e, MultipleResultsFound):
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Unexpectedly, multiply database entries found. Please, contact us and try again later."
-                    )
+                    raise MultipleDataFound(f"Postgres: Multiple results found in - {func.__name__}. Action - {action}. Exception - {e}") from e
                 elif isinstance(e, SQLAlchemyError):
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Error with the database occured: {e} | Action: {action}"
-                    )
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Unkown error with the database occured: {e} | Action: {action}"
-                )
+                    raise PostgresError(
+                        f"Postgres: Postgres error occured in : {func.__name__}. Action: {action}. Exception - {e}") from e
+                else:
+                    raise PostgresError(f"Postgres: Uknown error occured in : {func.__name__}. Action: {action}. Exception - {e}") from e
         return wrapper
     return decorator
 

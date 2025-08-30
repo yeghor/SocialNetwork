@@ -10,6 +10,7 @@ import os
 import aiofiles
 from uuid import uuid4
 
+from exceptions.exceptions_handler import web_exceptions_raiser
 
 MEDIA_AVATAR_PATH = os.getenv("MEDIA_AVATAR_PATH", "media/users/")
 MEDIA_POST_IMAGE_PATH = os.getenv("MEDIA_POST_IMAGE_PATH", "media/posts/")
@@ -45,7 +46,7 @@ class MainMediaService(MainServiceBase):
 
         return (contents, content_type)
 
-
+    @web_exceptions_raiser
     async def get_name_and_check_token(self, token: str, image_type: ImageType):
         """
         Get image name from Redis. If it's not exist - raises HTTPexception 401 \n
@@ -55,6 +56,7 @@ class MainMediaService(MainServiceBase):
         if image_name: return image_name
         raise HTTPException(status_code=401, detail="Expired or invalid token")
     
+    @web_exceptions_raiser
     async def upload_post_image(self, post_id: str, user: User, image_contents: bytes, specified_mime: str) -> None:
         if image_contents and specified_mime:
             post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
@@ -75,6 +77,7 @@ class MainMediaService(MainServiceBase):
             await self._ImageStorage.upload_images_post(contents=image_contents, content_type=specified_mime, image_name=image_name)
         else: raise HTTPException(status_code=400, detail="Image type or contents missing")
 
+    @web_exceptions_raiser
     async def upload_user_avatar(self, user: User, image_contents: bytes, specified_mime: str):
         if image_contents and specified_mime:
             if user.avatar_image_name:
@@ -87,6 +90,7 @@ class MainMediaService(MainServiceBase):
 
         else: raise HTTPException(status_code=400, detail="Image type or contents missing")        
 
+    @web_exceptions_raiser
     async def get_user_avatar_by_token(self, token: str) -> Tuple[bytes, str]:
         """Returns single image (contents, mime_type) from granted token"""
         avatar_name = await self.get_name_and_check_token(token=token, image_type="user")
@@ -94,6 +98,7 @@ class MainMediaService(MainServiceBase):
         filepath = f"{MEDIA_AVATAR_PATH}{avatar_name}"
         return await self._read_contents_and_mimetype_by_filepath(filepath=filepath)
 
+    @web_exceptions_raiser
     async def get_post_image_by_token(self, token: str) -> Tuple[bytes, str]:
         """Returns single image (contents, mime_type) from granted token"""
 
