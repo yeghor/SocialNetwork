@@ -1,0 +1,35 @@
+{
+  "acces_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiM2Y0NzJhZjEtZjVjMC00OWNjLTlkYjYtYWUxZjNlNjMyYWQwIiwiaXNzdWVkX2F0IjoxNzUzMDA5MzIyfQ.CgfVQh4LK1DUNTvhvO-rR367pfgIfwqPYcmd3YZEbco",
+  "expires_at_acces": "20/07/2025, 12:01:02",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiM2Y0NzJhZjEtZjVjMC00OWNjLTlkYjYtYWUxZjNlNjMyYWQwIiwiaXNzdWVkX2F0IjoxNzUzMDA5MjYyfQ.FgpWzLmCXjkRwMvkcEuD_ySFNh-WBWTuyOT9hUNG5XE",
+  "expires_at_refresh": "20/07/2025, 21:01:02"
+}
+
+{
+  "post_id": "ba198fe5-066d-4eb9-8a37-6d5a19c6b4f6",
+  "title": "A Note from the Edge of the Universe",
+  "published": "2025-08-14T06:48:49.511146",
+  "owner": {
+    "user_id": "b297c7c4-c33d-4c68-9220-0ecddc088622",
+    "username": "test"
+  },
+  "text": "Today I caught myself thinking that stars are just little lights that have survived everything we’re going through now. They’re up there, we’re down here, and yet somehow we’re connected. Maybe that’s the point.",
+  "liked_by": [],
+  "likes": 0,
+  "views": 1,
+  "last_updated": "2025-08-14T13:31:40.501575",
+  "replies": [],
+  "parent_post": null,
+  "pictures_urls": [
+    "7mA8BXaLYFafyZHHWx6jyo86osHH5aezL3rfekCzjIA",
+    "aWDA1qFTXtcvhEHW2D9-nrtgjVH5Zn_vhUXj4y5ScDU",
+    "ftVSBUa7Eag0sjWQsz0NBI5cXup9dGubqzW__OXMtJ8"
+  ],
+  "viewed_by": [
+    {
+      "user_id": "b297c7c4-c33d-4c68-9220-0ecddc088622",
+      "username": "test"
+    }
+  ]
+}
+

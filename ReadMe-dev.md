@@ -25,3 +25,9 @@ The `DEBUG` variable in the `.env` file controls how the application handles exc
 
 - `DEBUG=True` — when an exception is raised, you will see the full stack trace. Exceptions are not written to the log file.  
 - `DEBUG=False` — the application raises client-safe FastAPI `HTTPException`s and records them in the `.log` file.
+
+## Exceptions
+
+Exception handlers decorators rules:
+1. Use exception handler decorators only in functions that don't raise any exceptions that the decorator not handling. 
+2. Use exception handler decorators only if functions that being called outside the class. (It handles, but follow thi rule)

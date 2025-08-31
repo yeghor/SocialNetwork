@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from dotenv import load_dotenv
 from os import getenv
+from functools import wraps
 
 load_dotenv()
 Debug = getenv("DEBUG").lower().capitalize().strip()
@@ -9,10 +10,11 @@ INTERNAL_SERVER_ERROR_CLIENT_MESSAGE = getenv("INTERNAL_SERVER_ERROR_CLIENT_MESS
 
 import logging
 
-from custom_exceptions import *
+from exceptions.custom_exceptions import *
 
 def endpoint_exception_handler(func):
     """Use only with asynchronomous code"""
+    @wraps(func)
     async def wrapper(*args, **kwargs):
         if Debug == "False":
             try:
@@ -38,21 +40,22 @@ def endpoint_exception_handler(func):
 
 def web_exceptions_raiser(func):
     """Use only with asynchronomous code"""
+    @wraps(func)
     async def wrapper(*args, **kwargs):
         try:
             return await func(*args, **kwargs)
         
         except (InvalidAction, InvalidFileMimeType, LimitReached, InvalidResourceProvided, ValidationError) as e:
-            raise BadRequestExc(client_safe_detail=e.client_safe_detail, dev_log_detail=str(e), exc_type=e)
+            raise BadRequestExc(client_safe_detail=e.client_safe_detail, dev_log_detail=str(e), exc_type=e) from e
         
         except Unauthorized as e:
-            raise UnauthorizedExc(client_safe_detail=e.client_safe_detail, dev_log_detail=str(e), exc_type=e)
+            raise UnauthorizedExc(client_safe_detail=e.client_safe_detail, dev_log_detail=str(e), exc_type=e) from e 
         
         except ResourceNotFound as e:
-            raise NotFoundExc(client_safe_detail=e.client_safe_detail, dev_log_detail=str(e), exc_type=e)
+            raise NotFoundExc(client_safe_detail=e.client_safe_detail, dev_log_detail=str(e), exc_type=e) from e
         
         except Collision as e:
-            raise ConflictExc(client_safe_detail=e.client_safe_detail, dev_log_detail=str(e), exc_type=e)
+            raise ConflictExc(client_safe_detail=e.client_safe_detail, dev_log_detail=str(e), exc_type=e) from e
         
         except (PostgresError, ChromaDBError, RedisError, MediaError, JWTError, BcryptError, WrongDataFound) as e:
             logging_level = 40
@@ -64,6 +67,10 @@ def web_exceptions_raiser(func):
                 dev_log_detail=str(e),
                 logging_type=logging_level,
                 exc_type=e
-            )
+            ) from e
+        # We must handle these exceptions becasue: in this project, decorated with `web_exception_raiser` functions call functions that also decorated with the decorator.
+        # By handling exceptions that being raised in this decorator too we can keep correct exception chaining.
+        except (BadRequestExc, UnauthorizedExc, NotFoundExc, ConflictExc, InternalServerErrorExc) as e:
+            raise e
 
     return wrapper

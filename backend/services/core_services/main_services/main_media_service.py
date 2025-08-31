@@ -11,6 +11,7 @@ import aiofiles
 from uuid import uuid4
 
 from exceptions.exceptions_handler import web_exceptions_raiser
+from exceptions.custom_exceptions import *
 
 MEDIA_AVATAR_PATH = os.getenv("MEDIA_AVATAR_PATH", "media/users/")
 MEDIA_POST_IMAGE_PATH = os.getenv("MEDIA_POST_IMAGE_PATH", "media/posts/")
@@ -42,11 +43,10 @@ class MainMediaService(MainServiceBase):
         content_type = mimetypes.guess_type(filepath)[0]
 
         if not content_type:
-            raise HTTPException(status_code=500, detail="Image content type can't be guessed. Please, try againg later")
+            raise MediaError(f"MediaService: Can't guess image type by it's contents.")
 
         return (contents, content_type)
 
-    @web_exceptions_raiser
     async def get_name_and_check_token(self, token: str, image_type: ImageType):
         """
         Get image name from Redis. If it's not exist - raises HTTPexception 401 \n
@@ -54,7 +54,7 @@ class MainMediaService(MainServiceBase):
         image_name = await self._RedisService.check_image_access(url_image_token=token, image_type=image_type)
 
         if image_name: return image_name
-        raise HTTPException(status_code=401, detail="Expired or invalid token")
+        raise Unauthorized(detail=f"MediaService: User with media token: {token} (image type: {image_type}) that does not exist tried to get image.", client_safe_detail="Invalid or expired token")
     
     @web_exceptions_raiser
     async def upload_post_image(self, post_id: str, user: User, image_contents: bytes, specified_mime: str) -> None:
@@ -62,20 +62,21 @@ class MainMediaService(MainServiceBase):
             post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
             if not post: 
-                raise HTTPException(status_code=404, detail="Post with this id not found")
+                raise ResourceNotFound(detail=f"MediaService: User: {user.user_id} tried to upload post image to post: {post_id} that does not exist.", client_safe_detail="You are trying to upload image to post that does not exist")
 
             if post.owner_id != user.user_id:
-                raise HTTPException(status_code=401, detail="You are not the owner of this post")
+                raise Unauthorized(detail=f"MediaService: User: {user.user_id} tried to upload image to post: {post.post_id} not being it's owner.", client_safe_detail=f"You can't upload image to post that you're not own")
 
             if len(post.images) >= MAX_NUMBER_POST_IMAGES:
-                raise HTTPException(status_code=400, detail="Max number of post images reached")
+                raise LimitReached(detail=f"MediaService: User: {User.user_id} tried to upload more than {MAX_NUMBER_POST_IMAGES} images to post: {post.post_id}", client_safe_detail=f"You can't upload more that {MAX_NUMBER_POST_IMAGES} to a single post")
 
             image_name = self._define_image_name(id_=post_id, image_type="post", n_image=len(post.images))
             image_entry = PostImage(image_id=str(uuid4()), post_id=post_id, image_name=image_name)
             await self._PostgresService.insert_models_and_flush(image_entry)
 
             await self._ImageStorage.upload_images_post(contents=image_contents, content_type=specified_mime, image_name=image_name)
-        else: raise HTTPException(status_code=400, detail="Image type or contents missing")
+        else:
+            raise InvalidResourceProvided(detail=f"MediaService: User: {user.user_id} tried to upload image to post: {post_id} with missing image contents: {image_contents[:10]} or mime type: {specified_mime}")
 
     @web_exceptions_raiser
     async def upload_user_avatar(self, user: User, image_contents: bytes, specified_mime: str):
@@ -88,7 +89,9 @@ class MainMediaService(MainServiceBase):
             user.avatar_image_name = user.user_id
             await self._PostgresService.flush()
 
-        else: raise HTTPException(status_code=400, detail="Image type or contents missing")        
+        else:
+            raise InvalidResourceProvided(detail=f"MediaService: User: {user.user_id} tried to upload avatar with missing image contents: {image_contents[:10]} or mime type: {specified_mime}")
+       
 
     @web_exceptions_raiser
     async def get_user_avatar_by_token(self, token: str) -> Tuple[bytes, str]:

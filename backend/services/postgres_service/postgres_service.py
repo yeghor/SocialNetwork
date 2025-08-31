@@ -136,9 +136,9 @@ class PostgresService:
         return result.scalars().all()
 
     @postgres_exception_handler(action="Change field and flush")
-    async def change_field_and_flush(self, Model: Models, **kwargs) -> None:
+    async def change_field_and_flush(self, model: Base, **kwargs) -> None:
         for key, value in kwargs.items():
-            setattr(Model, key, value)
+            setattr(model, key, value)
         await self.__session.flush()
 
     @postgres_exception_handler(action="Delete post by id")

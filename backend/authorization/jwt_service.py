@@ -14,6 +14,8 @@ from functools import wraps
 from fastapi import HTTPException
 import random
 
+from exceptions.custom_exceptions import *
+
 load_dotenv()
 
 def jwt_error_handler(func):
@@ -23,11 +25,11 @@ def jwt_error_handler(func):
             return func(*args, **kwargs)
         except Exception as e:
             if isinstance(e, jwt_exceptions.DecodeError):
-                raise HTTPException(status_code=500, detail="JWT Token decoding failed")
+                raise JWTError(f"JWTService: JWT Token decoding failed. Func - {func.__name__}")
             elif isinstance(e, jwt_exceptions.PyJWTError):
-                raise HTTPException(status_code=401, detail="Invalid or malformed JWT token")
+                raise JWTError(f"JWTService: Invalid or malformed JWT token. Func - {func.__name__}")
             else:
-                raise HTTPException(status_code=500, detail=f"Uknown error occured (jwt_manager): {e}")
+                raise JWTError(f"JWTService: Uknown exception occured. Func - {func.__name__}. Exception - {e}")
     return wrapper
 
 class JWTService:
@@ -37,7 +39,7 @@ class JWTService:
         This method validates and removes "Bearer " prefix from token
         """
         if not jwt_token.startswith("Bearer ") or not jwt_token:
-            raise HTTPException(status_code=400, detail="Bad token")
+            raise ValidationError(detail=f"JWTService: provided jwt: {jwt_token} did not pass startswith('Bearer') check.")
         return jwt_token.removeprefix("Bearer ")
 
     @classmethod
@@ -70,12 +72,12 @@ class JWTService:
 
 
     @classmethod
+    @jwt_error_handler
     async def generate_refresh_acces_token(cls, user_id: str, redis: RedisService) -> RefreshAccesTokens:
-        try:
-            acces_token = await cls.generate_save_token(user_id=user_id, redis=redis, token_type="acces")
-            refresh_token = await cls.generate_save_token(user_id=user_id, redis=redis, token_type="refresh")
-        except Exception:
-            raise HTTPException(status_code=500, detail="Uknown error occured while generating tokens")
+
+        acces_token = await cls.generate_save_token(user_id=user_id, redis=redis, token_type="acces")
+        refresh_token = await cls.generate_save_token(user_id=user_id, redis=redis, token_type="refresh")
+
 
         return RefreshAccesTokens.model_validate(
             {
@@ -87,6 +89,7 @@ class JWTService:
         )
 
     @classmethod
+    @jwt_error_handler
     def extract_jwt_payload(cls, jwt_token: str) -> PayloadJWT:
         payload = jwt.decode(
             jwt=jwt_token,

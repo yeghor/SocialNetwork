@@ -72,6 +72,16 @@ class MainServiceSocial(MainServiceBase):
         if post.owner_id != user.user_id:
             raise Unauthorized(detail=f"SocialService: User: {user.user_id} tried to access post: {post.post_id}", client_safe_detail="You are not owner of this post!")
 
+    async def _get_ids_by_query_type(self, exclude_ids: List[str], user: User, n: int, id_type: Literal["followed", "fresh"], return_posts_too: bool = False) -> Union[List[str], NamedTuple]:
+        posts = []
+        if id_type == "fresh": posts = await self._PostgresService.get_fresh_posts(user=user, exclude_ids=exclude_ids, n=n)
+        elif id_type == "followed": posts = await self._PostgresService.get_followed_posts(user=user, exclude_ids=exclude_ids, n=n)
+
+        ids = [post.post_id for post in posts]
+
+        if return_posts_too: return (ids, posts)
+        else: return ids
+
     @web_exceptions_raiser
     async def sync_postgres_chroma_DEV_METHOD(self) -> None:
         # TEMPORARY!
@@ -126,17 +136,6 @@ class MainServiceSocial(MainServiceBase):
         posts = await self._PostgresService.get_entries_by_ids(ids=all_ids, ModelType=Post)
         posts = self._shuffle_posts(posts=posts)
         return [PostLiteSchema.model_validate(post, from_attributes=True) for post in posts]
-        
-    @web_exceptions_raiser
-    async def _get_ids_by_query_type(self, exclude_ids: List[str], user: User, n: int, id_type: Literal["followed", "fresh"], return_posts_too: bool = False) -> Union[List[str], NamedTuple]:
-        posts = []
-        if id_type == "fresh": posts = await self._PostgresService.get_fresh_posts(user=user, exclude_ids=exclude_ids, n=n)
-        elif id_type == "followed": posts = await self._PostgresService.get_followed_posts(user=user, exclude_ids=exclude_ids, n=n)
-
-        ids = [post.post_id for post in posts]
-
-        if return_posts_too: return (ids, posts)
-        else: return ids
 
     @web_exceptions_raiser
     async def get_followed_posts(self, user: User, exclude: bool) -> List[PostLiteSchema]:
@@ -216,7 +215,6 @@ class MainServiceSocial(MainServiceBase):
             is_reply=post.is_reply
         )
 
-    @web_exceptions_raiser
     async def _construct_and_flush_action(self, action_type: ActionType, user: User, post: Post = None) -> None:
         """Protected method. Do NOT call this method outside the class"""
 
@@ -279,7 +277,7 @@ class MainServiceSocial(MainServiceBase):
         post = await self._PostgresService.get_entry_by_id(id_=post_id, ModelType=Post)
 
         if not post:
-            ResourceNotFound(detail=f"SocialService: User: {user.user_id} tried to change post: {post_id} that does not exist.", client_safe_detail="Post that you trying to change does not exist.")
+            raise ResourceNotFound(detail=f"SocialService: User: {user.user_id} tried to change post: {post_id} that does not exist.", client_safe_detail="Post that you trying to change does not exist.")
 
         self.check_post_user_id(post=post, user=user)
         

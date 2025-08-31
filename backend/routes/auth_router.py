@@ -15,9 +15,12 @@ from pydantic_schemas.pydantic_schemas_auth import (
 )
 from pydantic_schemas.pydantic_schemas_social import UserSchema
 
+from exceptions.exceptions_handler import endpoint_exception_handler
+
 auth = APIRouter()
 
 @auth.post("/login")
+@endpoint_exception_handler
 async def login(
     credentials: LoginSchema = Body(...),
     session: AsyncSession = Depends(get_session_depends)
@@ -27,6 +30,7 @@ async def login(
         return response
 
 @auth.post("/register")
+@endpoint_exception_handler
 async def register(
     credentials: RegisterSchema = Body(...),
     session: AsyncSession = Depends(get_session_depends)

@@ -112,7 +112,7 @@ async def test_postgres_service():
         assert user2 in users
         assert user3 not in users
 
-        await ps.change_field_and_flush(Model=user3, username="user3", email="user3@newemail.com")
+        await ps.change_field_and_flush(model=user3, username="user3", email="user3@newemail.com")
         assert user3.username == "user3"
         assert user3.email == "user3@newemail.com"
 

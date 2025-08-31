@@ -92,7 +92,7 @@ class InvalidResourceProvided(ClientSafeServiceError):
     """Raise whenever user's content corrupted or does not fits application rules"""
 
 class ValidationError(ClientSafeServiceError):
-    """Raise in cases provided user data does not valid, for example email validation through regular expressions"""
+    """Raise in cases provided user data does not valid, for example email validation did not get through regular expressions"""
 
 # 409  
 class Collision(ClientSafeServiceError):
