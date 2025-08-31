@@ -26,7 +26,7 @@ import logging
 logging.basicConfig(
     level=logging.WARN,
     filename="app_logs.log",
-    filemode="w",
+    filemode="a",
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
@@ -103,7 +103,6 @@ try:
 except FileExistsError:
     pass
 
-app.mount("/media", StaticFiles(directory="media"), name="media")
 
 # for debug
 if __name__ == "__main__":

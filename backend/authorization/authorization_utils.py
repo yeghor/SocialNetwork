@@ -7,12 +7,12 @@ from os import getenv
 from typing import Callable
 
 from exceptions.custom_exceptions import *
-from exceptions.exceptions_handler import web_exceptions_raiser
+from exceptions.exceptions_handler import endpoint_exception_handler
 
 PASSWORD_MIN_L = int(getenv("PASSWORD_MIN_L"))
 PASSWORD_MAX_L = int(getenv("PASSWORD_MAX_L"))
 
-@web_exceptions_raiser
+@endpoint_exception_handler
 async def authorize_request_depends(token: str = Header(..., title="Authorization acces token", examples="Bearer {token}")) -> User | None:
     """User with fastAPI Depends()"""
 
@@ -24,7 +24,7 @@ async def authorize_request_depends(token: str = Header(..., title="Authorizatio
     async with await MainServiceContextManager[MainServiceAuth].create(MainServiceType=MainServiceAuth, postgres_session=session) as auth:
         return await auth.authorize_request(token=token, return_user=True)
 
-@web_exceptions_raiser
+@endpoint_exception_handler
 def validate_password(password: str) -> None:
     """Raises HTTPexception if password not secure enough"""
 

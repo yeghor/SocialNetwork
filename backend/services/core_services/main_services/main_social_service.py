@@ -180,7 +180,7 @@ class MainServiceSocial(MainServiceBase):
     async def make_post(self, data: MakePostDataSchema, user: User) -> PostSchema:
         if data.parent_post_id:
             if not await self._PostgresService.get_entry_by_id(id_=data.parent_post_id, ModelType=Post):
-                raise InvalidAction(detail=f"SocialService: User: {user.user_id} tried to reply to post: {post.post_id} that does not exists.", client_safe_detail="Post that you are replying does not exist.")
+                raise InvalidAction(detail=f"SocialService: User: {user.user_id} tried to reply to post: {data.parent_post_id} that does not exists.", client_safe_detail="Post that you are replying does not exist.")
 
         post = Post(
             post_id=str(uuid4()),

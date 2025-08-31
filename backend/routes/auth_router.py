@@ -40,6 +40,7 @@ async def register(
         return response
 
 @auth.post("/logout")
+@endpoint_exception_handler
 async def logout(
     session: AsyncSession = Depends(get_session_depends),
     tokens:RefreshAccesTokensProvided = Body(...)
@@ -49,6 +50,7 @@ async def logout(
         return response
 
 @auth.get("/refresh")
+@endpoint_exception_handler
 async def refresh_token(
     token = Header(..., examples="Bearer (refresh_token)"),
     session: AsyncSession = Depends(get_session_depends)
@@ -58,6 +60,7 @@ async def refresh_token(
         return response
 
 @auth.patch("/users/my-profile/password")
+@endpoint_exception_handler
 async def change_password(
     credentials: OldNewPassword = Body(...),
     user_: User = Depends(authorize_request_depends),
@@ -68,6 +71,7 @@ async def change_password(
         await auth.change_password(user=user, credentials=credentials)
 
 @auth.patch("/users/my-profile/username")
+@endpoint_exception_handler
 async def change_username(
     credentials: NewUsername = Body(...),
     user_: User = Depends(authorize_request_depends),
@@ -78,6 +82,7 @@ async def change_username(
         await auth.change_username(user=user, credentials=credentials)
  
 @auth.delete("/users/my-profile")
+@endpoint_exception_handler
 async def delete_profile(
     password: str = Header(...),
     user_: User = Depends(authorize_request_depends),

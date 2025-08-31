@@ -40,6 +40,7 @@ def query_exclude_required(exclude_viewed: bool = Query(..., description="Exclud
     return exclude_viewed
 
 @social.get("/posts/feed")
+@endpoint_exception_handler
 async def get_feed(
     exclude_viewed: bool = Depends(query_exclude_required),
     user_: User = Depends(authorize_request_depends),
@@ -50,6 +51,7 @@ async def get_feed(
         return await social.get_feed(user=user, exclude=exclude_viewed)
 
 @social.get("/posts/following")
+@endpoint_exception_handler
 async def get_followed_posts(
     exclude_viewed: bool = Depends(query_exclude_required),
     user_: User = Depends(authorize_request_depends),
@@ -60,6 +62,7 @@ async def get_followed_posts(
         return await social.get_followed_posts(user=user, exclude=exclude_viewed)
 
 @social.get("/search/posts")
+@endpoint_exception_handler
 async def search_posts( # TODO: Exclude self posts
     exclude: bool = Depends(query_exclude_required),
     prompt: str = Depends(query_prompt_required),
@@ -71,6 +74,7 @@ async def search_posts( # TODO: Exclude self posts
         return await social.search_posts(prompt=prompt, user=user, exclude=exclude)
 
 @social.get("/search/users")
+@endpoint_exception_handler
 async def search_users(
     prompt: str = Depends(query_prompt_required),
     user_: User = Depends(authorize_request_depends),
@@ -82,6 +86,7 @@ async def search_users(
         return users
 
 @social.post("/posts")
+@endpoint_exception_handler
 async def make_post(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends),
@@ -92,6 +97,7 @@ async def make_post(
         return await social.make_post(data=post_data, user=user)
 
 @social.get("/posts/{post_id}")
+@endpoint_exception_handler
 async def load_post(
     post_id: str,
     user_: User = Depends(authorize_request_depends),
@@ -102,6 +108,7 @@ async def load_post(
         return await social.load_post(user=user, post_id=post_id)
 
 @social.get("/posts/{post_id}/comments")
+@endpoint_exception_handler
 async def load_comments(
     post_id: str,
     exclude: bool = Depends(query_exclude_required),
@@ -113,6 +120,7 @@ async def load_comments(
         return await social.load_comments(post_id=post_id, user_id=user.user_id, exclude=exclude)
 
 @social.patch("/posts/{post_id}")
+@endpoint_exception_handler
 async def change_post(
     post_id: str,
     user_: User = Depends(authorize_request_depends),
@@ -124,6 +132,7 @@ async def change_post(
         return await social.change_post(post_data=post_data, user=user, post_id=post_id)
 
 @social.delete("/posts/{post_id}")
+@endpoint_exception_handler
 async def delete_post(
     post_id: str,
     user_: User = Depends(authorize_request_depends),
@@ -135,6 +144,7 @@ async def delete_post(
         await social.delete_post(post_id=post_id, user=user)
 
 @social.post("/posts/{post_id}/like")
+@endpoint_exception_handler
 async def like_post(
     post_id: str | None,
     user_: User = Depends(authorize_request_depends),
@@ -145,6 +155,7 @@ async def like_post(
         await social.like_post_action(post_id=post_id, user=user, like=True)
 
 @social.delete("/posts/{post_id}/like")
+@endpoint_exception_handler
 async def unlike_post(
     post_id: str,
     user_: User = Depends(authorize_request_depends),
@@ -155,6 +166,7 @@ async def unlike_post(
         await social.like_post_action(post_id=post_id, user=user, like=False)
 
 @social.post("/users/{follow_to_id}/follow")
+@endpoint_exception_handler
 async def follow(
     follow_to_id: str,
     user_: User = Depends(authorize_request_depends),
@@ -165,6 +177,7 @@ async def follow(
         await social.friendship_action(user=user, other_user_id=follow_to_id, follow=True)
 
 @social.delete("/users/{follow_to_id}/follow")
+@endpoint_exception_handler
 async def unfollow(
     unfollow_from_id: str,
     user_: User = Depends(authorize_request_depends),
@@ -175,6 +188,7 @@ async def unfollow(
         await social.friendship_action(user=user, other_user_id=unfollow_from_id, follow=False)
 
 @social.get("/users/my-profile")
+@endpoint_exception_handler
 async def get_my_profile(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends),
@@ -184,6 +198,7 @@ async def get_my_profile(
         return await social.get_my_profile(user=user)
 
 @social.get("/users/{user_id}")
+@endpoint_exception_handler
 async def get_user_profile(
     user_id: str | None,
     user_: User = Depends(authorize_request_depends),
