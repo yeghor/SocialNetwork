@@ -78,6 +78,12 @@ class PostSchema(PostBase):
 class UserShortSchema(UserIDValidate):
     username: str
 
+class UserShortSchemaAvatarURL(UserShortSchema):
+    avatar_url: str | None
+    
+    # Boolean variable to identify which messsages do user own
+    me: bool
+
 class UserLiteSchema(UserShortSchema):
     """Pass to the followers field List[User]!"""
     followers: List[UserShortSchema]
