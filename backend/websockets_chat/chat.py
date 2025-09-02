@@ -14,7 +14,7 @@ chat = APIRouter()
 connection = WebsocketConnectionManager()
 
 @chat.get("/chat/messages/{room}")
-async def get_messages(
+async def get_messages_and_token(
     room: str,
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
