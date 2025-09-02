@@ -5,7 +5,8 @@ from services.core_services.main_services import MainChatService
 from services.core_services.core_services import MainServiceContextManager
 from websockets_chat.connection_manager import WebsocketConnectionManager
 
-from pydantic_schemas.pydantic_schemas_chat import ChatResponse, CreateDialoqueRoomBody, CreateGroupRoomBody
+from exceptions.custom_exceptions import WSInvaliddata
+from pydantic_schemas.pydantic_schemas_chat import ChatResponse, CreateDialoqueRoomBody, CreateGroupRoomBody, ExpectedWSData
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,13 +55,19 @@ async def connect_to_websocket_chat_room(
     session: AsyncSession = Depends(get_session_depends)
 ):
     await connection.connect()
-    try:
-        while True:
+    while True:
+        try:
             data = websocket.receive_json()
             # TODO: Implement main logic
-    except WebSocketDisconnect:
-        pass
-    except Exception as e:
-        # TODO: Add logs
-        pass
+        except WSInvaliddata:
+            # todo: Add logs
+            pass
+            break
+        except WebSocketDisconnect:
+            break
+        except Exception as e:
+            # TODO: Add logs
+            pass
+        break
+                
     

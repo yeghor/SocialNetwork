@@ -8,6 +8,9 @@ class ServiceLayerBaseBound(Exception):
     """Use in TypeVar"""
 
 
+class WSInvaliddata(Exception):
+    """Gets raised when user sent through Websockets invalid `json` data"""
+
 E = TypeVar("E", bound=ServiceLayerBaseBound)
 
 # =======

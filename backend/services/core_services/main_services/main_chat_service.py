@@ -10,9 +10,25 @@ class MainChatService(MainServiceBase):
         pass
 
     @web_exceptions_raiser
+    async def send_message():
+        pass
+
+    @web_exceptions_raiser
     async def delete_message():
         pass
 
     @web_exceptions_raiser
     async def change_message():
+        pass
+
+    @web_exceptions_raiser
+    async def get_chats():
+        pass
+
+    @web_exceptions_raiser
+    async def create_dialogue_chat():
+        pass
+
+    @web_exceptions_raiser
+    async def create_group_chat():
         pass
