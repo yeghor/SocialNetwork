@@ -31,3 +31,10 @@ The `DEBUG` variable in the `.env` file controls how the application handles exc
 Exception handlers decorators rules:
 1. Use exception handler decorators only in functions that don't raise any exceptions that the decorator not handling. 
 2. Use exception handler decorators only if functions that being called outside the class. (It handles, but follow thi rule)
+
+
+## Chats
+
+Return to user only chat rooms that contain at least one message. 
+To create room user have to send at least one message.
+Dialoque, group equals to chat room.

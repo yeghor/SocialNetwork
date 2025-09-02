@@ -12,3 +12,11 @@ class HistoryMessage(BaseModel):
 class ChatResponse(BaseModel):
     messages: List[HistoryMessage]
     token: str
+
+class CreateDialoqueRoomBody(BaseModel):
+    user_id: str
+    message: str
+
+class CreateGroupRoomBody(BaseModel):
+    user_id: str
+    message: str
