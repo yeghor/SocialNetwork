@@ -9,5 +9,4 @@ ExcludeType = Literal["search", "feed", "viewed", "reply-list"] # TODO: Change "
 
 ImageType = Literal["post", "user"]
 
-
 # ========
