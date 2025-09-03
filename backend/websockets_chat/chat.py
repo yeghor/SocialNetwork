@@ -1,5 +1,5 @@
 from fastapi import WebSocket, WebSocketDisconnect, APIRouter, Depends, Body
-from authorization import authorize_request_depends
+from authorization import authorize_request_depends, JWTService
 from services.postgres_service import User, get_session_depends, merge_model
 from services.core_services.main_services import MainChatService
 from services.core_services.core_services import MainServiceContextManager
@@ -9,6 +9,8 @@ from exceptions.custom_exceptions import WSInvaliddata
 from pydantic_schemas.pydantic_schemas_chat import ChatResponse, CreateDialoqueRoomBody, CreateGroupRoomBody, ExpectedWSData
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
+import logging
+
 
 chat = APIRouter()
 
@@ -54,13 +56,14 @@ async def connect_to_websocket_chat_room(
     token: str,
     session: AsyncSession = Depends(get_session_depends)
 ):
-    await connection.connect()
+    connection_data = JWTService.extract_chat_jwt_payload(jwt_token=token)
+    await connection.connect(websocket)
     while True:
         try:
-            data = websocket.receive_json()
-            # TODO: Implement main logic
+            user_data: ExpectedWSData = await websocket.receive_json()
+            await connection.execute_user_response(user_data=user_data, connection_data=connection_data)
         except WSInvaliddata:
-            # todo: Add logs
+            # TODO: Add logs
             pass
             break
         except WebSocketDisconnect:

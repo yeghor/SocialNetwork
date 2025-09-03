@@ -13,11 +13,12 @@ import jwt.exceptions as jwt_exceptions
 from functools import wraps
 from fastapi import HTTPException
 import random
-
+from pydantic_schemas.pydantic_schemas_chat import ChatJWTPayload
 from exceptions.custom_exceptions import *
 
 load_dotenv()
 
+# TODO: Fix exception raising
 def jwt_error_handler(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -97,3 +98,26 @@ class JWTService:
             algorithms=["HS256",]
         )
         return PayloadJWT.model_validate(payload)
+
+
+    @classmethod
+    @jwt_error_handler
+    def generate_chat_token(cls, room_id: str) -> str:
+        payload = {
+            "room_id": room_id
+        }
+        return jwt.encode(
+            payload=payload,
+            key=getenv("SECRET_KEY"),
+            algorithm="HS256"
+        )
+    
+    @classmethod
+    @jwt_error_handler
+    def extract_chat_jwt_payload(cls, jwt_token: str) -> ChatJWTPayload:
+        payload = jwt.decode(
+            jwt=jwt_token,
+            key=getenv("SECRET_KEY"),
+            algorithms=["HS256",]
+        )
+        return ChatJWTPayload.model_validate(payload)

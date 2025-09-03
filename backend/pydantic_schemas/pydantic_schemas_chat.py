@@ -40,3 +40,6 @@ class ExpectedWSData(BaseModel):
         else:
             if not self.message:
                 raise WSInvaliddata(f"Pydantic ExpectedWSData: The Schema received invalid data. Action - {self.action}. Message missing.")
+            
+class ChatJWTPayload(BaseModel):
+    room_id: str
