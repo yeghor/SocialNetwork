@@ -21,7 +21,7 @@ class WebsocketConnectionManager:
         if user_data.action == "send":
             await self._send_message(message=user_data.message, room_id=connection_data.room_id)
         elif user_data.action == "change":
-            await self._change_message(message_id=user_data.message_id, room_id=connection_data.room_id)
+            await self._change_message(message_id=user_data.message_id, room_id=connection_data.room_id, new_message=user_data.message)
         elif user_data.action == "delete":
             await self._delete_message(message_id=user_data.message_id, room_id=connection_data.room_id)
 

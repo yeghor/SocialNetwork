@@ -60,6 +60,7 @@ class User(Base):
 
     chat_rooms: Mapped[List["ChatRoom"]] = relationship(
         "ChatRoom",
+        secondary="userroom",
         back_populates="participants",
         lazy="selectin"
     )
