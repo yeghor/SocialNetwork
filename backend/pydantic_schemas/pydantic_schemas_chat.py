@@ -43,3 +43,4 @@ class ExpectedWSData(BaseModel):
             
 class ChatJWTPayload(BaseModel):
     room_id: str
+    user_id: str

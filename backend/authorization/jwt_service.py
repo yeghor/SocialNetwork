@@ -102,9 +102,10 @@ class JWTService:
 
     @classmethod
     @jwt_error_handler
-    def generate_chat_token(cls, room_id: str) -> str:
+    def generate_chat_token(cls, room_id: str, user_id: str) -> str:
         payload = {
-            "room_id": room_id
+            "room_id": room_id,
+            "user_id": user_id
         }
         return jwt.encode(
             payload=payload,

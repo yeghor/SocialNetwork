@@ -38,3 +38,5 @@ Exception handlers decorators rules:
 Return to user only chat rooms that contain at least one message. 
 To create room user have to send at least one message.
 Dialoque, group equals to chat room.
+
+When action on message needs to be validated, like deleting or changing - firsty call database chat layer, then websocket layer chat manager. To prevent desynchronization.
