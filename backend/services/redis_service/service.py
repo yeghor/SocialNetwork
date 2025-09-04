@@ -30,7 +30,7 @@ def redis_error_handler(func):
         except redis_exceptions.RedisError as e:
             raise HTTPException(status_code=500, detail=f"Action with Redis failed: {e}")
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Uknown erro while working with Redis occured: {e}")
+            raise HTTPException(status_code=500, detail=f"Unkown erro while working with Redis occured: {e}")
     return wrapper
 
 
@@ -252,7 +252,7 @@ class RedisService:
         Pass `n_image` if `image_type` set to "post"
         """
         if not url_image_token:
-            return False
+            return None
 
         if image_type == "post":
             pattern = f"{self.__post_image_acces_prefix}{url_image_token}"    

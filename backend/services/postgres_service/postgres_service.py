@@ -6,7 +6,7 @@ from os import getenv
 from typing import Type, TypeVar, List, Union
 from pydantic_schemas.pydantic_schemas_social import PostDataSchemaID
 from uuid import UUID
-from .models import Base, User, Post, PostActions
+from .models import *
 from .models import ActionType
 from .database_utils import postgres_exception_handler
 
@@ -257,3 +257,22 @@ class PostgresService:
         )
 
         return result.scalars().all()
+    
+
+    @postgres_exception_handler(action="Get chat room by it's id")
+    async def get_chat_room(self, room_id: str) -> ChatRoom:
+        result = await self.__session.execute(
+            select(ChatRoom)
+            .where(ChatRoom.room_id == room_id)
+        )
+        return result.scalar()
+    
+    @postgres_exception_handler(action="Get n char room messages excluding exclude_ids list")
+    async def get_chat_n_messages(self, room_id: str, n: int = int(getenv("MESSAGES_BATCH_SIZE", "50")), exclude_ids: List[str] = [] ) -> List[Message]:
+        result = await self.__session.execute(
+            select(Message)
+            .where(and_(Message.room_id == room_id, Message.message_id.not_in(exclude_ids)))
+            .order_by(Message.sent.desc())
+            .limit(n)
+        )
+    
