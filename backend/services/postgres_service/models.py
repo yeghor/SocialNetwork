@@ -194,6 +194,15 @@ class ChatRoom(Base):
     __tablename__ = "chatroom"
 
     room_id: Mapped[str] = mapped_column(primary_key=True)
+    approval_sent: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+    # Change manualy on approval
+    created: Mapped[datetime | None] = mapped_column(default=None, nullable=True)
+
+    is_group: Mapped[bool]
+
+    # Only for dialogues, for groups must always be setted on `True``
+    approved: Mapped[bool]
 
     participants: Mapped[List[User]] = relationship(
         "User",

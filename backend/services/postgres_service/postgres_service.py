@@ -267,6 +267,14 @@ class PostgresService:
         )
         return result.scalar()
     
+    @postgres_exception_handler(action="Get dialogue chat by two users")
+    async def get_dialogue_by_users(self, user_1: User, user_2: User) -> ChatRoom | None:
+        result = await self.__session.execute(
+            select(ChatRoom)
+            .where(and_(ChatRoom.is_group == False, ChatRoom.participants.contains(user_1), ChatRoom.participants.contains(user_2)))
+        )
+        return result.one()
+
     @postgres_exception_handler(action="Get n char room messages excluding exclude_ids list")
     async def get_chat_n_messages(self, room_id: str, n: int = int(getenv("MESSAGES_BATCH_SIZE", "50")), exclude_ids: List[str] = [] ) -> List[Message]:
         result = await self.__session.execute(
@@ -275,4 +283,5 @@ class PostgresService:
             .order_by(Message.sent.desc())
             .limit(n)
         )
+        return result.scalars().all()
     
