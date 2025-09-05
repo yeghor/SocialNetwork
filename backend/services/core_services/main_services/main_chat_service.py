@@ -17,6 +17,10 @@ class MainChatService(MainServiceBase):
         messages = await self._PostgresService.get_chat_n_messages(room_id=room_id)
 
     @web_exceptions_raiser
+    async def disconnect(self, user: User) -> None:
+        """Necessarily call this methods when error occured or user disconnected from websocket to clear all excluding."""
+
+    @web_exceptions_raiser
     async def send_message(self, ):
         pass
 
