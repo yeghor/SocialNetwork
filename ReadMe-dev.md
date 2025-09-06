@@ -38,3 +38,4 @@ Exception handlers decorators rules:
 Return to user only chat rooms that contain at least one message. 
 To create room user have to send at least one message.
 Dialoque, group equals to chat room.
+To create chat or group, you have to be friends between participants

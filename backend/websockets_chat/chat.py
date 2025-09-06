@@ -33,6 +33,8 @@ async def create_dialoque_chat(
     session: AsyncSession = Depends(get_session_depends)
 ):
     user = await merge_model(postgres_session=session, model_obj=user_)
+    async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
+        return await chat.create_dialogue_chat(data=data, user=user)
 
 @chat.post("chat/group")
 async def create_group_chat(
@@ -41,7 +43,6 @@ async def create_group_chat(
     session: AsyncSession = Depends(get_session_depends)
 ):
     user = await merge_model(postgres_session=session, model_obj=user_)
-
 
 @chat.get("/chat")
 async def get_my_chats(

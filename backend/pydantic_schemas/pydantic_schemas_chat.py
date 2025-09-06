@@ -16,12 +16,12 @@ class ChatResponse(BaseModel):
     token: str
 
 class CreateDialoqueRoomBody(BaseModel):
-    user_id: str
+    companion: str
     message: str
 
 class CreateGroupRoomBody(BaseModel):
-    user_id: str
-    message: str
+    companions: List[str]
+
 
 class ExpectedWSData(BaseModel):
     action: Literal["send", "change", "delete"]

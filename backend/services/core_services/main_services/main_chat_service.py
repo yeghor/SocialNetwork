@@ -2,7 +2,7 @@ from services.core_services import MainServiceBase
 from services.postgres_service.models import User
 from exceptions.custom_exceptions import *
 from exceptions.exceptions_handler import web_exceptions_raiser
-from pydantic_schemas.pydantic_schemas_chat import ChatResponse
+from pydantic_schemas.pydantic_schemas_chat import ChatResponse, CreateDialoqueRoomBody
 
 class MainChatService(MainServiceBase):
     @web_exceptions_raiser
@@ -26,7 +26,7 @@ class MainChatService(MainServiceBase):
         pass
 
     @web_exceptions_raiser
-    async def create_dialogue_chat():
+    async def create_dialogue_chat(data: CreateDialoqueRoomBody, user: User):
         pass
 
     @web_exceptions_raiser
