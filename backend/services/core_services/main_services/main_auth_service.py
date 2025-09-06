@@ -57,7 +57,7 @@ class MainServiceAuth(MainServiceBase):
 
         await self._PostgresService.insert_models_and_flush(new_user)
 
-        return await self._JWT.generate_refresh_acces_token(user_id=new_user.user_id, redis=self._RedisService)
+        return await self._JWT.generate_save_refresh_acces_token(user_id=new_user.user_id, redis=self._RedisService)
 
     @web_exceptions_raiser
     async def login(self, credentials: LoginSchema) -> RefreshAccesTokens:
@@ -77,7 +77,7 @@ class MainServiceAuth(MainServiceBase):
         if potential_refresh_token:
             await self._RedisService.delete_jwt(jwt_token=potential_refresh_token, token_type="refresh")
         
-        return await self._JWT.generate_refresh_acces_token(user_id=user_id, redis=self._RedisService)
+        return await self._JWT.generate_save_refresh_acces_token(user_id=user_id, redis=self._RedisService)
 
     @web_exceptions_raiser
     async def logout(self, tokens: RefreshAccesTokens) -> None:

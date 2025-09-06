@@ -16,10 +16,12 @@ EXCLUDE_TIMEOUT = int(getenv("EXCLUDE_TIMEOUT"))
 VIEW_TIMEOUT = int(getenv("VIEW_TIMEOUT"))
 IMAGE_VIEW_ACCES_SECONDS = int(getenv("IMAGE_VIEW_ACCES_SECONDS"))
 
+CHAT_TOKEN_EXPIRY_SECONDS = int(getenv("CHAT_TOKEN_EXPIRY_SECONDS"))
+
 REDIS_HOST = getenv("REDIS_HOST")
 REDIS_PORT = int(getenv("REDIS_PORT"))
 
-ExcludePostType = Literal["search", "feed", "viewed", "reply-list"] # TODO: Change "viewed" to "view"
+ExcludePostType = Literal["search", "feed", "view", "reply-list"] # TODO: Change "viewed" to "view"
 ImageType = Literal["post", "user"]
 ExcludeChatType = Literal["message", "chat", "not-approved"]
 
@@ -98,6 +100,11 @@ class RedisService:
 
             self.__post_view_timeout_prefix_1 = "post-view-timeout-user-"
             self.__post_view_timeout_prefix_2 = "post:"
+
+
+            # Chat
+
+            self.__chat_token_prefix = "chat-jwt-token:"
 
             # ========
 
@@ -279,6 +286,10 @@ class RedisService:
 
         return await self.__client.get(pattern)
     
+    # ==============
+    # Chat
+    # ==============
+
     @redis_error_handler
     async def add_exclude_chat_ids(self, exclude_ids: List[str], user_id: str, exclude_type: ExcludeChatType) -> None:
         first_prefix = self._get_right_first_exclude_chat_prefix(exclude_type=exclude_type)
@@ -299,3 +310,16 @@ class RedisService:
         to_delete = [key async for key in self.__client.scan_iter(match=f"{first_prefix}{user_id}{self.__exclude_chat_prefix_2}*")]
 
         self.__client.delete(*to_delete)    
+
+    @redis_error_handler
+    async def save_chat_token(self, chat_token, user_id: str) -> None:
+        await self.__client.setex(
+            f"{self.__chat_token_prefix}{chat_token}",
+            CHAT_TOKEN_EXPIRY_SECONDS,
+            user_id
+        )
+
+    @redis_error_handler
+    async def check_chat_token_existense(self, chat_token: str) -> bool:
+        potential_token = await self.__client.get(f"{self.__chat_token_prefix}{chat_token}")
+        return bool(potential_token)

@@ -74,7 +74,7 @@ class JWTService:
 
     @classmethod
     @jwt_error_handler
-    async def generate_refresh_acces_token(cls, user_id: str, redis: RedisService) -> RefreshAccesTokens:
+    async def generate_save_refresh_acces_token(cls, user_id: str, redis: RedisService) -> RefreshAccesTokens:
 
         acces_token = await cls.generate_save_token(user_id=user_id, redis=redis, token_type="acces")
         refresh_token = await cls.generate_save_token(user_id=user_id, redis=redis, token_type="refresh")
@@ -99,6 +99,14 @@ class JWTService:
         )
         return PayloadJWT.model_validate(payload)
 
+
+    @classmethod
+    @jwt_error_handler
+    async def generate_save_chat_token(cls, room_id: str, user_id: str, redis: RedisService) -> str:
+        chat_token = cls.generate_chat_token(room_id=room_id, user_id=user_id)
+        await redis.save_chat_token(chat_token=chat_token, user_id=user_id)
+
+        return chat_token
 
     @classmethod
     @jwt_error_handler
