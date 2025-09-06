@@ -8,7 +8,7 @@ from websockets_chat.connection_manager import WebsocketConnectionManager
 from exceptions.custom_exceptions import WSInvaliddata, NoActiveConnectionsOrRoomDoesNotExist
 from exceptions.exceptions_handler import endpoint_exception_handler
 
-from pydantic_schemas.pydantic_schemas_chat import ChatResponse, CreateDialoqueRoomBody, CreateGroupRoomBody, ExpectedWSData
+from pydantic_schemas.pydantic_schemas_chat import *
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
@@ -19,16 +19,28 @@ chat = APIRouter()
 
 connection = WebsocketConnectionManager()
 
-@chat.get("/chat/{room_id}")
+@chat.get("/chat/connect/{chat_id}")
 @endpoint_exception_handler
-async def get_messages_and_token(
-    room_id: str,
+async def get_chat_token(
+    chat_id: str,
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
-) -> List[ChatResponse]:
+) -> List[ChatTokenResponse]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
-        return await chat.get_messages_and_token(room_id=room_id, user=user)
+        return await chat.get_chat_token(room_id=chat_id, user=user)
+
+@chat.get("/chat/{chat_id}/messages")
+@endpoint_exception_handler
+async def get_batch_chat_messages(
+    chat_id: str,
+    exclude: bool = Depends(query_exclude_required),
+    user_: User = Depends(authorize_request_depends),
+    session: AsyncSession = Depends(get_session_depends)
+) -> List[HistoryMessage]:
+    user = await merge_model(postgres_session=session, model_obj=user_)
+    async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
+        return await chat.get_chat_messages(room_id=chat_id, user=user)
 
 @chat.post("/chat/dialoque")
 @endpoint_exception_handler
@@ -36,19 +48,21 @@ async def create_dialoque_chat(
     data: CreateDialoqueRoomBody = Body(...),  
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
-):
+) -> None:
     user = await merge_model(postgres_session=session, model_obj=user_)
+    async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
+        return await chat.create_dialogue_chat(data=data, user=user)
 
 @chat.post("chat/group")
 @endpoint_exception_handler
 async def create_group_chat(
     data: CreateGroupRoomBody,
-    exclude: bool = Depends(query_exclude_required),
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
-):
+) -> None:
     user = await merge_model(postgres_session=session, model_obj=user_)
-
+    async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
+        return await chat.create_group_chat(data=data, user=user)
 
 @chat.get("/chat")
 @endpoint_exception_handler
@@ -57,6 +71,15 @@ async def get_my_chats(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)  
 ):
+    pass
+
+@chat.get("/chat/not-approved")
+@endpoint_exception_handler
+async def get_not_approved_chats(
+    exclude: bool = Depends(query_exclude_required),
+    user_: User = Depends(authorize_request_depends),
+    session: AsyncSession = Depends(get_session_depends)  
+) -> List[Chat]:
     pass
 
 @chat.websocket("/ws/{token}")
