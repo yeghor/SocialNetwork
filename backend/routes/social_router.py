@@ -22,22 +22,13 @@ from os import getenv
 
 from exceptions.exceptions_handler import endpoint_exception_handler
 
+from .query_utils import query_exclude_required, query_prompt_required
+
 social = APIRouter()
 
 load_dotenv()
 QUERY_PARAM_MAX_L = int(getenv("QUERY_PARAM_MAX_L"))
 
-
-def query_prompt_required(prompt: Annotated[str, Query(..., max_length=QUERY_PARAM_MAX_L)]):
-    # Somehow... But Depends() makes prompt Query field required...
-    if not prompt.strip():
-        raise HTTPException(status_code=400, detail="Prompt can't be empty!")
-    return prompt
-
-def query_exclude_required(exclude_viewed: bool = Query(..., description="Exclude viewed post. Set to True if user pressed 'load more' button")):
-    if not isinstance(exclude_viewed, bool):
-        raise HTTPException(status_code=400, detail="Exclude posts wasn't specified correctly")
-    return exclude_viewed
 
 @social.get("/posts/feed")
 @endpoint_exception_handler

@@ -5,23 +5,26 @@ from datetime import datetime
 from pydantic_schemas.pydantic_schemas_social import UserShortSchemaAvatarURL
 from exceptions.custom_exceptions import WSInvaliddata
 
+class Chat(BaseModel):
+    chat_id: str
+    participants: int
+
 class HistoryMessage(BaseModel):
     message_id: str
     message: str
     date: datetime = Field(default=datetime.utcnow())
     owner: UserShortSchemaAvatarURL
 
-class ChatResponse(BaseModel):
-    messages: List[HistoryMessage]
+class ChatTokenResponse(BaseModel):
     token: str
 
 class CreateDialoqueRoomBody(BaseModel):
-    companion: str
+    other_participant_id: str
     message: str
 
 class CreateGroupRoomBody(BaseModel):
-    companions: List[str]
-
+    other_participants_ids: List[str]
+    message: str
 
 class ExpectedWSData(BaseModel):
     action: Literal["send", "change", "delete"]
@@ -43,3 +46,4 @@ class ExpectedWSData(BaseModel):
             
 class ChatJWTPayload(BaseModel):
     room_id: str
+    user_id: str

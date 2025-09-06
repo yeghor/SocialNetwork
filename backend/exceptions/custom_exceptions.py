@@ -10,6 +10,11 @@ class ServiceLayerBaseBound(Exception):
 
 class WSInvaliddata(Exception):
     """Gets raised when user sent through Websockets invalid `json` data"""
+    
+class NoActiveConnectionsOrRoomDoesNotExist(Exception):
+    """Gets raised when no active connections on room id or it's not exist"""
+
+    logging_type = 50
 
 E = TypeVar("E", bound=ServiceLayerBaseBound)
 

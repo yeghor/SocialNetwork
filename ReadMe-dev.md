@@ -38,4 +38,9 @@ Exception handlers decorators rules:
 Return to user only chat rooms that contain at least one message. 
 To create room user have to send at least one message.
 Dialoque, group equals to chat room.
-To create chat or group, you have to be friends between participants
+
+When action on message needs to be validated, like deleting or changing - firsty call database chat layer, then websocket layer chat manager. To prevent desynchronization.
+
+For groups, ChatRoom model `approved` field must always be setted on `True`. To create group - user and it's participants must be friends. (following each other)
+
+`created` ChatRoom model field change manualy on chat approval.
