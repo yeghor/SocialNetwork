@@ -12,11 +12,11 @@ from authorization.authorization_utils import validate_password
 load_dotenv()
 
 DATE_FORMAT = getenv("DATETIME_BASE_FORMAT")
-USERNAME_MIN_L = int(getenv("USERNAME_MIN_L"))
-USERNAME_MAX_L = int(getenv("USERNAME_MAX_L"))
+USERNAME_MIN_L = int(getenv("USERNAME_MIN_L", "3"))
+USERNAME_MAX_L = int(getenv("USERNAME_MAX_L", "32"))
 
-PASSWORD_MIN_L = int(getenv("PASSWORD_MIN_L"))
-PASSWORD_MAX_L = int(getenv("PASSWORD_MAX_L"))
+PASSWORD_MIN_L = int(getenv("PASSWORD_MIN_L", "8"))
+PASSWORD_MAX_L = int(getenv("PASSWORD_MAX_L", "32"))
 
 
 # PRIVATE - App only usage
@@ -119,44 +119,3 @@ class AccesTokenSchema(BaseModel):
 
 class RefreshAccesTokens(RefreshTokenSchema, AccesTokenSchema):
     pass
-# ================
-
-
-# """
-# Using short schemas to prevent recursive convertation with SQLalchemy relationship.
-# """
-
-# class ShortUserProfileSchema(BaseModel):
-#     user_id: UUID
-#     username: str = Field(min_length=int(getenv("USERNAME_MIN_L")), max_length=int(getenv("USERNAME_MAX_L")))
-#     joined: datetime
-
-# class UserProfileSchema(ShortUserProfileSchema):
-#     posts: List["PostSchema"]
-#     followed: List["ShortUserProfileSchema"]
-#     followers: List["ShortUserProfileSchema"]
-
-# class ShortPostSchema(BaseModel):
-#     post_id: UUID
-#     owner_id: UUID
-#     parent_post_id: UUID | None
-
-#     is_reply: bool
-
-#     title: str = Field(min_length=int(getenv("POST_TITLE_MIN_L")), max_length=int(getenv("POST_TITLE_MAX_L")))
-#     text: str = Field(min_length=int(getenv("POST_TEXT_MIN_L")), max_length=int(getenv("POST_TEXT_MAX_L")))
-#     image_path: str | None
-#     likes: int
-#     published: datetime
-#     last_updated: datetime
-
-
-# class PostSchema(ShortPostSchema):
-#     owner: "ShortUserProfileSchema"
-#     parent_post: "ShortPostSchema"
-#     replies: List["ShortPostSchema"]
-#     viewers: List["HistorySchema"]
-
-# class HistorySchema(BaseModel):
-#     owner: "ShortUserProfileSchema"
-#     post: "ShortPostSchema"

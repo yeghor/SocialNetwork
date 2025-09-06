@@ -11,12 +11,6 @@ from os import getenv
 
 load_dotenv()
 
-POST_TITLE_MAX_L = int(getenv("POST_TITLE_MAX_L", 100))
-POST_TITLE_MIN_L = int(getenv("POST_TITLE_MIN_L", 1))
-
-POST_TEXT_MAX_L = int(getenv("POST_TEXT_MAX_L", 1000))
-POST_TEXT_MIN_L = int(getenv("POST_TEXT_MIN_L", 1))
-
 class ActionSchemaShort(BaseModel):
     owner_id: str
     post_id: str
@@ -59,7 +53,7 @@ class PostLiteSchema(PostBase):
 class PostSchema(PostBase):
     text: str
 
-    liked_by: List[UserShortSchema] = []
+    liked_by: List[UserShortSchema]
     likes: int = 0
     views: int = 0
 

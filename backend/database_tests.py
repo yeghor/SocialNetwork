@@ -1,8 +1,7 @@
 import pytest
-from services.postgres_service import *
+from services.postgres_service import PostgresService, create_engine, create_async_engine, Base, User, Post, PostActions, create_sessionmaker, ActionType
 
 from post_popularity_rate_task.popularity_rate import POST_ACTIONS
-from services import *
 from services.core_services import MainServiceContextManager
 
 from main import initialize_models, drop_all

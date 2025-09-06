@@ -12,7 +12,7 @@ class Chat(BaseModel):
 class HistoryMessage(BaseModel):
     message_id: str
     message: str
-    date: datetime = Field(default=datetime.utcnow())
+    date: datetime = Field(default=datetime.utcnow)
     owner: UserShortSchemaAvatarURL
 
 class ChatTokenResponse(BaseModel):
