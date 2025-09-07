@@ -18,13 +18,14 @@ class HistoryMessage(BaseModel):
 class ChatTokenResponse(BaseModel):
     token: str
 
-class CreateDialoqueRoomBody(BaseModel):
-    other_participant_id: str
+class CreateChatBodyBase(BaseModel):
     message: str
 
-class CreateGroupRoomBody(BaseModel):
+class CreateDialoqueRoomBody(CreateChatBodyBase):
+    other_participant_id: str
+
+class CreateGroupRoomBody(CreateChatBodyBase):
     other_participants_ids: List[str]
-    message: str
 
 class ExpectedWSData(BaseModel):
     action: Literal["send", "change", "delete"]

@@ -285,3 +285,11 @@ class PostgresService:
         )
         return result.scalars().all()
     
+    @postgres_exception_handler(action="Get message by it's id")
+    async def get_message_by_id(self, message_id: str) -> Message | None:
+        result = await self.__session.execute(
+            select(Message)
+            .where(Message.message_id == message_id)
+        )
+
+        return result.scalar()

@@ -22,13 +22,13 @@ class WebsocketConnectionManager:
         """
         self.rooms = {}
 
-    async def execute_user_response(self, user_data: ExpectedWSData, connection_data: ChatJWTPayload):
-        if user_data.action == "send":
-            await self._send_message(message=user_data.message, room_id=connection_data.room_id, sender_id=connection_data.user_id)
-        elif user_data.action == "change":
-            await self._change_message(message_id=user_data.message_id, room_id=connection_data.room_id, new_message=user_data.message)
-        elif user_data.action == "delete":
-            await self._delete_message(message_id=user_data.message_id, room_id=connection_data.room_id)
+    async def execute_real_time_action(self, request_data: ExpectedWSData, connection_data: ChatJWTPayload):
+        if request_data.action == "send":
+            await self._send_message(message=request_data.message, room_id=connection_data.room_id, sender_id=connection_data.user_id)
+        elif request_data.action == "change":
+            await self._change_message(message_id=request_data.message_id, room_id=connection_data.room_id, new_message=request_data.message)
+        elif request_data.action == "delete":
+            await self._delete_message(message_id=request_data.message_id, room_id=connection_data.room_id)
 
     def connect(self, room_id: str, user_id: str, websocket: WebSocket):
         payload = {
