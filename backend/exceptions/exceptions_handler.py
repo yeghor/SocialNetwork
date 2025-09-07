@@ -74,3 +74,13 @@ def web_exceptions_raiser(func):
             raise e
 
     return wrapper
+
+
+async def ws_endpoint_exception_handler(func):
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func
+        except:
+            pass
+    
+    return wrapper

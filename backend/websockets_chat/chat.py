@@ -32,7 +32,7 @@ async def get_chat_token(
 
 @chat.get("/chat/{chat_id}/messages")
 @endpoint_exception_handler
-async def get_batch_chat_messages(
+async def get_batch_of_chat_messages(
     chat_id: str,
     exclude: bool = Depends(query_exclude_required),
     user_: User = Depends(authorize_request_depends),
@@ -40,7 +40,7 @@ async def get_batch_chat_messages(
 ) -> List[HistoryMessage]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
-        return await chat.get_batch_chat_messages(room_id=chat_id, user=user)
+        return await chat.get_of_batch_chat_messages(room_id=chat_id, user=user)
 
 @chat.post("/chat/dialoque")
 @endpoint_exception_handler
@@ -61,7 +61,8 @@ async def create_group_chat(
     session: AsyncSession = Depends(get_session_depends)
 ) -> None:
     user = await merge_model(postgres_session=session, model_obj=user_)
-
+    async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
+        await chat.create_group_chat(data=data, user=user)
 
 @chat.get("/chat")
 @endpoint_exception_handler
@@ -70,7 +71,9 @@ async def get_my_chats(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)  
 ) -> List[Chat]:
-    pass
+    user = await merge_model(postgres_session=session, model_obj=user_)
+    async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
+        pass
 
 @chat.get("/chat/not-approved")
 @endpoint_exception_handler
@@ -79,7 +82,9 @@ async def get_not_approved_chats(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)  
 ) -> List[Chat]:
-    pass
+    user = await merge_model(postgres_session=session, model_obj=user_)
+    async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
+        pass
 
 @chat.post("/chat/{chat_id}")
 async def approve_chat(
@@ -87,7 +92,9 @@ async def approve_chat(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
 ) -> None:
-    pass
+    user = await merge_model(postgres_session=session, model_obj=user_)
+    async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
+        return await chat.approve_chat(room_id=chat_id, user=user)
 
 @chat.websocket("/ws/{token}")
 async def connect_to_websocket_chat_room(

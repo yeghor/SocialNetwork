@@ -52,7 +52,7 @@ class MainChatService(MainServiceBase):
         return await self._JWT.generate_save_chat_token(room_id=room_id, user_id=user.user_id)
 
     @web_exceptions_raiser
-    async def get_batch_chat_messages(self, room_id: str, user: User, exclude: bool) -> List[HistoryMessage]:
+    async def get_of_batch_chat_messages(self, room_id: str, user: User, exclude: bool) -> List[HistoryMessage]:
         await self._get_and_authorize_chat_room(room_id=room_id, user_id=user, return_chat_room=False)
 
         if exclude:
@@ -130,6 +130,10 @@ class MainChatService(MainServiceBase):
     @web_exceptions_raiser
     async def create_dialogue_chat(self, data: CreateDialoqueRoomBody, user: User) -> None:
         other_user = await self._PostgresService.get_user_by_id(data.other_participant_id)
+
+        if other_user.user_id == user.user_id:
+            raise InvalidAction(detail=f"ChatService: User: {user.user_id} tried to create dialogue chat with himself.", client_safe_detail="You can't create chat with yourself")
+
         existing_dialogue = await self._PostgresService.get_dialogue_by_users(
             user_1=other_user,
             user_2=user
@@ -172,6 +176,9 @@ class MainChatService(MainServiceBase):
             if not self._check_if_users_are_friends(user=user, other_user=participant):
                 raise InvalidResourceProvided(detail=f"ChatService: User: {user.user_id} tried to create group while not being friends with participant: {participant.user_id}", client_safe_detail=f"You can't create group while not being friend with members")
         
+        if user in participants:
+            raise InvalidResourceProvided(detail=f"ChatService: User {user.user_id} tried to create group with himself.", client_safe_detail="You can't create group with yourself")
+
         chat_room_id = str(uuid4())
         participants.append(user)
 
@@ -182,4 +189,16 @@ class MainChatService(MainServiceBase):
 
     @web_exceptions_raiser
     async def add_participant_to_group(self, room_id: str, participant_id: str, user: User) -> None:
-        pass
+        chat_room = await self._get_and_authorize_chat_room(room_id=room_id, user_id=user.user_id, return_chat_room=True)
+
+        if len(chat_room.participants) >= MAX_CHAT_GROUP_PARTICIPANTS:
+            raise InvalidAction(detail=f"ChatService: User: {user.user_id} tried to add participatn: {participant_id} to group: {room_id}, but reached maximum paritcipants limit.", client_safe_detail=f"You can't add more that {MAX_CHAT_GROUP_PARTICIPANTS} members to fgroup")
+        
+        new_participant = await self._PostgresService.get_user_by_id(user_id=participant_id)
+
+        if new_participant.user_id == user.user_id:
+            raise InvalidAction(detail=f"User: {user.user_id} tried to add himself to group: {room_id}")
+
+        if new_participant in chat_room.participants:
+            raise InvalidAction(detail=f"User: {user.user_id} tried to add participant: {participant_id} to group: {room_id} that that already participating in this group.")
+        
