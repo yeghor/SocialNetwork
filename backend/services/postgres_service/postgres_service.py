@@ -3,7 +3,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from dotenv import load_dotenv
 from os import getenv
-from typing import Type, TypeVar, List, Union
+from typing import Type, TypeVar, List, Union, Literal
 from pydantic_schemas.pydantic_schemas_social import PostDataSchemaID
 from uuid import UUID
 from .models import *
@@ -275,8 +275,8 @@ class PostgresService:
         )
         return result.one()
 
-    @postgres_exception_handler(action="Get n char room messages excluding exclude_ids list")
-    async def get_chat_n_fresh_chat_messages(self, room_id: str, n: int = int(getenv("MESSAGES_BATCH_SIZE", "50")), exclude_ids: List[str] = [] ) -> List[Message]:
+    @postgres_exception_handler(action="Get n chat room messages excluding exclude_ids list")
+    async def get_chat_n_fresh_chat_messages(self, room_id: str, n: int = int(getenv("MESSAGES_BATCH_SIZE", "50")), exclude_ids: List[str] = []) -> List[Message]:
         result = await self.__session.execute(
             select(Message)
             .where(and_(Message.room_id == room_id, Message.message_id.not_in(exclude_ids)))
@@ -285,6 +285,22 @@ class PostgresService:
         )
         return result.scalars().all()
     
+    @postgres_exception_handler(action="Get n user chat rooms excluding exclude_ids list")
+    async def get_n_user_chats(self, user: User, exclude_ids: List[str], n: int = int(getenv("CHAT_BATCH_SIZE", "50")), chat_type: Literal["approved", "non-approved"]) -> List[ChatRoom]:
+        if chat_type == "approved":
+            where_stmt = ChatRoom.approved.is_(True)
+        elif chat_type == "non-approved":
+            where_stmt = ChatRoom.approved.is_(False)
+
+        result = await self.__session.execute(
+            select(ChatRoom)
+            .where(and_(ChatRoom.participants.contains(user), ChatRoom.room_id.not_in(exclude_ids), where_stmt))
+            .order_by(ChatRoom.last_message_time.desc())
+            .limit(n)
+        )
+
+        return result.scalars().all() 
+
     @postgres_exception_handler(action="Get message by it's id")
     async def get_message_by_id(self, message_id: str) -> Message | None:
         result = await self.__session.execute(

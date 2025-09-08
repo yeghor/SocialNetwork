@@ -200,6 +200,9 @@ class ChatRoom(Base):
     created: Mapped[datetime | None] = mapped_column(default=None, nullable=True)
 
     is_group: Mapped[bool]
+    
+    # Putting onupdate cause when user approving chat we need to notify user about that on chat orders
+    last_message_time: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Only for dialogues, for groups must always be setted on `True``
     approved: Mapped[bool]

@@ -6,6 +6,7 @@ from services.postgres_service import Base
 from services.postgres_service import get_engine, initialize_models, drop_all, get_session
 from services.core_services.main_services import MainServiceSocial
 from services.core_services import MainServiceContextManager
+from websockets_chat.chat import chat
 
 from exceptions.custom_exceptions import EmptyPostsError
 
@@ -97,6 +98,7 @@ app.add_middleware(
 app.include_router(auth_router.auth)
 app.include_router(social_router.social)
 app.include_router(media_router.media_router)
+app.include_router(chat)
 
 try:
     mkdir("images")

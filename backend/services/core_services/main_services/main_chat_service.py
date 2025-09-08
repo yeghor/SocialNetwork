@@ -6,6 +6,8 @@ from pydantic_schemas.pydantic_schemas_chat import *
 from post_popularity_rate_task.popularity_rate import scheduler
 from uuid import uuid4
 
+from services.redis_service import ChatType
+
 from dotenv import load_dotenv
 from os import getenv
 
@@ -52,7 +54,7 @@ class MainChatService(MainServiceBase):
         return await self._JWT.generate_save_chat_token(room_id=room_id, user_id=user.user_id)
 
     @web_exceptions_raiser
-    async def get_of_batch_chat_messages(self, room_id: str, user: User, exclude: bool) -> List[HistoryMessage]:
+    async def get_messages_batch(self, room_id: str, user: User, exclude: bool) -> List[HistoryMessage]:
         await self._get_and_authorize_chat_room(room_id=room_id, user_id=user, return_chat_room=False)
 
         if exclude:
@@ -71,6 +73,23 @@ class MainChatService(MainServiceBase):
 
         return message_batch
         
+    @web_exceptions_raiser
+    async def get_chat_batch(self, user: User, exclude: bool, chat_type: Literal["approved", "non-approved"]) -> List[Chat]:
+        if exclude:
+            exclude_ids = await self._RedisService.get_exclude_chat_ids(user_id=user.user_id, exclude_type=chat_type)
+        else:
+            await self._RedisService.clear_exclude_chat_ids(user_id=user.user_id, exclude_type=chat_type)
+        
+        chat_batch = await self._PostgresService.get_n_user_chats(user=user, exclude_ids=exclude_ids, chat_type=chat_type)
+
+        await self._RedisService.add_exclude_chat_ids(
+            exclude_ids=[chat.room_id for chat in chat_batch],
+            user_id=user.user_id,
+            exclude_type=chat_type
+        )
+
+        return chat_batch
+
 
     @web_exceptions_raiser
     async def approve_chat(self, room_id: str, user: User) -> None:

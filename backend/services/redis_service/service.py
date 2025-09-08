@@ -23,7 +23,7 @@ REDIS_PORT = int(getenv("REDIS_PORT"))
 
 ExcludePostType = Literal["search", "feed", "view", "reply-list"] # TODO: Change "viewed" to "view"
 ImageType = Literal["post", "user"]
-ExcludeChatType = Literal["message", "chat", "not-approved"]
+ChatType = Literal["message", "chat", "not-approved"]
 
 def redis_error_handler(func):
     @wraps(func)
@@ -50,7 +50,7 @@ class RedisService:
         else:
             raise ValueError("Invalid exclude_type provided")
 
-    def _get_right_first_exclude_chat_prefix(self, exclude_type: ExcludeChatType) -> str:
+    def _get_right_first_exclude_chat_prefix(self, exclude_type: ChatType) -> str:
         if exclude_type == "chat":
             return self.__exclude_chat_prefix_1
         elif exclude_type == "message":
@@ -291,20 +291,20 @@ class RedisService:
     # ==============
 
     @redis_error_handler
-    async def add_exclude_chat_ids(self, exclude_ids: List[str], user_id: str, exclude_type: ExcludeChatType) -> None:
+    async def add_exclude_chat_ids(self, exclude_ids: List[str], user_id: str, exclude_type: ChatType) -> None:
         first_prefix = self._get_right_first_exclude_chat_prefix(exclude_type=exclude_type)
         for id_ in exclude_ids:
             pattern = f"{first_prefix}{user_id}{self.__exclude_chat_prefix_2}{id_}"
             await self.__client.set(pattern, id_)
 
     @redis_error_handler
-    async def get_exclude_chat_ids(self, user_id: str, exclude_type: ExcludeChatType) -> List[str]:
+    async def get_exclude_chat_ids(self, user_id: str, exclude_type: ChatType) -> List[str]:
         first_prefix = self._get_right_first_exclude_chat_prefix(exclude_type=exclude_type)
         return [await self.__client.get(key) async for key in self.__client.scan_iter(match=f"{first_prefix}{user_id}{self.__exclude_chat_prefix_2}*")]
 
 
     @redis_error_handler
-    async def clear_exclude_chat_ids(self, user_id: str, exclude_type: ExcludeChatType) -> None:
+    async def clear_exclude_chat_ids(self, user_id: str, exclude_type: ChatType) -> None:
         # Caution! May not be optimized for large keys numbers
         first_prefix = self._get_right_first_exclude_chat_prefix(exclude_type=exclude_type)
         to_delete = [key async for key in self.__client.scan_iter(match=f"{first_prefix}{user_id}{self.__exclude_chat_prefix_2}*")]

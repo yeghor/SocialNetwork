@@ -4,3 +4,4 @@ TODO:
 3. Redis to store all websockets connections
 4. Add constraits to ExcpectedWSData pydantic schema
 5. Get rid of deprecated datetime.utcnow()
+6. Fix chat type literal type architecture

@@ -40,7 +40,7 @@ async def get_batch_of_chat_messages(
 ) -> List[HistoryMessage]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
-        return await chat.get_of_batch_chat_messages(room_id=chat_id, user=user)
+        return await chat.get_messages_batch(room_id=chat_id, user=user)
 
 @chat.post("/chat/dialoque")
 @endpoint_exception_handler
@@ -73,7 +73,7 @@ async def get_my_chats(
 ) -> List[Chat]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
-        pass
+        return await chat.get_chat_batch(user=user, exclude=exclude, chat_type="approved")
 
 @chat.get("/chat/not-approved")
 @endpoint_exception_handler
@@ -84,7 +84,7 @@ async def get_not_approved_chats(
 ) -> List[Chat]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
-        pass
+        return await chat.get_chat_batch(user=user, exclude=exclude, chat_type="non-approved")
 
 @chat.post("/chat/{chat_id}")
 async def approve_chat(
