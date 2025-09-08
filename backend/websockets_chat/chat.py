@@ -6,7 +6,7 @@ from services.core_services.core_services import MainServiceContextManager
 from websockets_chat.connection_manager import WebsocketConnectionManager
 
 from exceptions.custom_exceptions import WSInvaliddata, NoActiveConnectionsOrRoomDoesNotExist
-from exceptions.exceptions_handler import endpoint_exception_handler
+from exceptions.exceptions_handler import endpoint_exception_handler, ws_endpoint_exception_handler
 
 from pydantic_schemas.pydantic_schemas_chat import *
 from typing import List
@@ -97,6 +97,7 @@ async def approve_chat(
         return await chat.approve_chat(room_id=chat_id, user=user)
 
 @chat.websocket("/ws/{token}")
+@ws_endpoint_exception_handler
 async def connect_to_websocket_chat_room(
     websocket: WebSocket,
     token: str,
@@ -105,27 +106,9 @@ async def connect_to_websocket_chat_room(
     connection_data = JWTService.extract_chat_jwt_payload(jwt_token=token)
     await connection.connect(websocket)
     while True:
-        try:
-            request_data: ExpectedWSData = await websocket.receive_json()
-            
-            await connection.execute_real_time_action(request_data=request_data, connection_data=connection_data)
+        request_data: ExpectedWSData = await websocket.receive_json()
+        
+        await connection.execute_real_time_action(request_data=request_data, connection_data=connection_data)
 
-            async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
-                await chat.execute_action(request_data=request_data, connection_data=connection_data)
-
-        except WSInvaliddata as e:
-            # TODO: Add logs
-            pass
-            break
-        except WebSocketDisconnect:
-            break
-        except NoActiveConnectionsOrRoomDoesNotExist as e:
-            # TODO: Add logs
-            pass
-        except Exception as e:
-            # TODO: Add logs
-            pass
-        finally:
-            await websocket.close()
-            break                
-    
+        async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
+            await chat.execute_action(request_data=request_data, connection_data=connection_data)

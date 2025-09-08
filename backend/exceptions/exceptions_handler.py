@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 from os import getenv
 from functools import wraps
 
+from fastapi import WebSocketDisconnect, WebSocketException, WebSocket
+
 load_dotenv()
 Debug = getenv("DEBUG").lower().capitalize().strip()
 
@@ -77,10 +79,23 @@ def web_exceptions_raiser(func):
 
 
 async def ws_endpoint_exception_handler(func):
-    async def wrapper(*args, **kwargs):
+    async def wrapper(websocket: WebSocket, *args, **kwargs):
         try:
-            return await func
-        except:
+            return await func(websocket, *args, **kwargs)
+        except WSInvaliddata as e:
+            logging.log(level=logging.WARNING, msg=e)
+
+        except WebSocketDisconnect:
             pass
-    
+
+        except NoActiveConnectionsOrRoomDoesNotExist as e:
+            logging.log(level=logging.CRITICAL, msg=e, exc_info=True)
+
+
+        except Exception as e:
+            logging.log(level=logging.CRITICAL, msg=e, exc_info=True)
+
+        finally:
+            await websocket.close()
+ 
     return wrapper

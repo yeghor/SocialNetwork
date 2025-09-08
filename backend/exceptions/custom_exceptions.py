@@ -131,3 +131,20 @@ class WrongDataFound(ServiceLayerBaseBound):
 
 class MultipleDataFound(ServiceLayerBaseBound):
     pass
+
+
+# Service Layer Exceptions
+class EmptyPostsError(Exception):
+    """Gets raised in ChromaDB service. Raise if provided post list empty"""
+
+class ServiceLayerBaseBound(Exception):
+    """Use in TypeVar"""
+
+
+class WSInvaliddata(Exception):
+    """Gets raised when user sent through Websockets invalid `json` data"""
+    
+class NoActiveConnectionsOrRoomDoesNotExist(Exception):
+    """Gets raised when no active connections on room id or it's not exist"""
+
+    logging_type = 50
