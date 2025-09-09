@@ -1,19 +1,20 @@
-from pydantic import BaseModel, Field, model_validator
-from typing import List, Literal
+from pydantic import BaseModel, Field, model_validator, field_validator
+from typing import List, Literal, Any
 from typing_extensions import Self
 from datetime import datetime
-from pydantic_schemas.pydantic_schemas_social import UserShortSchemaAvatarURL
+from pydantic_schemas.pydantic_schemas_social import UserShortSchema
 from exceptions.custom_exceptions import WSInvaliddata
+from services.postgres_service import User
 
 class Chat(BaseModel):
     chat_id: str
     participants: int
 
-class HistoryMessage(BaseModel):
+class MessageSchema(BaseModel):
     message_id: str
-    message: str
-    date: datetime = Field(default=datetime.utcnow)
-    owner: UserShortSchemaAvatarURL
+    text: str
+    sent: datetime = Field(default=datetime.utcnow)
+    owner: UserShortSchema
 
 class ChatTokenResponse(BaseModel):
     token: str
@@ -44,7 +45,9 @@ class ExpectedWSData(BaseModel):
         else:
             if not self.message:
                 raise WSInvaliddata(f"Pydantic ExpectedWSData: The Schema received invalid data. Action - {self.action}. Message missing.")
-            
+
+        return self
+    
 class ChatJWTPayload(BaseModel):
     room_id: str
     user_id: str

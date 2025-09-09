@@ -201,6 +201,8 @@ class ChatRoom(Base):
 
     is_group: Mapped[bool]
     
+    creator_id: Mapped[str | None] = mapped_column(ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
+
     # Putting onupdate cause when user approving chat we need to notify user about that on chat orders
     last_message_time: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -213,7 +215,6 @@ class ChatRoom(Base):
         back_populates="chat_rooms",
         lazy="selectin"
     )
-
 
 
 class UserRoom(Base):

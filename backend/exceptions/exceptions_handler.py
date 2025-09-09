@@ -67,7 +67,6 @@ def web_exceptions_raiser(func):
             raise InternalServerErrorExc(
                 client_safe_detail=INTERNAL_SERVER_ERROR_CLIENT_MESSAGE,
                 dev_log_detail=str(e),
-                logging_type=logging_level,
                 exc_type=e
             ) from e
         # We must handle these exceptions becasue: in this project, decorated with `web_exception_raiser` functions call functions that also decorated with the decorator.
@@ -78,24 +77,23 @@ def web_exceptions_raiser(func):
     return wrapper
 
 
-async def ws_endpoint_exception_handler(func):
+def ws_endpoint_exception_handler(func):
     async def wrapper(websocket: WebSocket, *args, **kwargs):
         try:
             return await func(websocket, *args, **kwargs)
         except WSInvaliddata as e:
             logging.log(level=logging.WARNING, msg=e)
+            await websocket.close(code=1008)
 
         except WebSocketDisconnect:
-            pass
+            await websocket.close(code=1000)
 
         except NoActiveConnectionsOrRoomDoesNotExist as e:
             logging.log(level=logging.CRITICAL, msg=e, exc_info=True)
-
+            await websocket.close(code=1011)
 
         except Exception as e:
             logging.log(level=logging.CRITICAL, msg=e, exc_info=True)
-
-        finally:
-            await websocket.close()
+            await websocket.close(code=1011)
  
     return wrapper

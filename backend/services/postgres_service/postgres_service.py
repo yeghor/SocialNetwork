@@ -273,7 +273,7 @@ class PostgresService:
             select(ChatRoom)
             .where(and_(ChatRoom.is_group == False, ChatRoom.participants.contains(user_1), ChatRoom.participants.contains(user_2)))
         )
-        return result.one()
+        return result.one_or_none()
 
     @postgres_exception_handler(action="Get n chat room messages excluding exclude_ids list")
     async def get_chat_n_fresh_chat_messages(self, room_id: str, n: int = int(getenv("MESSAGES_BATCH_SIZE", "50")), exclude_ids: List[str] = []) -> List[Message]:
@@ -286,10 +286,10 @@ class PostgresService:
         return result.scalars().all()
     
     @postgres_exception_handler(action="Get n user chat rooms excluding exclude_ids list")
-    async def get_n_user_chats(self, user: User, exclude_ids: List[str], n: int = int(getenv("CHAT_BATCH_SIZE", "50")), chat_type: Literal["approved", "non-approved"]) -> List[ChatRoom]:
-        if chat_type == "approved":
+    async def get_n_user_chats(self, user: User, exclude_ids: List[str], chat_type: Literal["chat", "not-approved"], n: int = int(getenv("CHAT_BATCH_SIZE", "50"))) -> List[ChatRoom]:
+        if chat_type == "chat":
             where_stmt = ChatRoom.approved.is_(True)
-        elif chat_type == "non-approved":
+        elif chat_type == "not-approved":
             where_stmt = ChatRoom.approved.is_(False)
 
         result = await self.__session.execute(

@@ -2,7 +2,8 @@ from services.core_services import MainServiceBase
 from services.postgres_service.models import *
 from exceptions.custom_exceptions import *
 from exceptions.exceptions_handler import web_exceptions_raiser
-from pydantic_schemas.pydantic_schemas_chat import *
+from pydantic_schemas.pydantic_schemas_chat import Chat, MessageSchema, ExpectedWSData, ChatJWTPayload, CreateDialoqueRoomBody, ChatTokenResponse, CreateGroupRoomBody
+from pydantic_schemas.pydantic_schemas_social import UserShortSchema
 from post_popularity_rate_task.popularity_rate import scheduler
 from uuid import uuid4
 
@@ -46,14 +47,16 @@ class MainChatService(MainServiceBase):
         elif request_data.action == "delete":
             await self.delete_message(message_data=request_data, request_data=connection_data)
 
-    @web_exceptions_raiser
+    # @web_exceptions_raiser
     async def get_chat_token(self, room_id: str, user: User) -> ChatTokenResponse:
-        await self._get_and_authorize_chat_room(room_id=room_id, user_id=user, return_chat_room=False)
-        return await self._JWT.generate_save_chat_token(room_id=room_id, user_id=user.user_id)
+        await self._get_and_authorize_chat_room(room_id=room_id, user_id=user.user_id, return_chat_room=False)
+        chat_token = await self._JWT.generate_save_chat_token(room_id=room_id, user_id=user.user_id, redis=self._RedisService)
 
-    @web_exceptions_raiser
-    async def get_messages_batch(self, room_id: str, user: User, exclude: bool) -> List[HistoryMessage]:
-        await self._get_and_authorize_chat_room(room_id=room_id, user_id=user, return_chat_room=False)
+        return ChatTokenResponse(token=chat_token)
+
+    # @web_exceptions_raiser
+    async def get_messages_batch(self, room_id: str, user: User, exclude: bool) -> List[MessageSchema]:
+        await self._get_and_authorize_chat_room(room_id=room_id, user_id=user.user_id, return_chat_room=False)
 
         if exclude:
             exclude_ids = await self._RedisService.get_exclude_chat_ids(user_id=user.user_id, exclude_type="message")
@@ -68,14 +71,19 @@ class MainChatService(MainServiceBase):
             user_id=user.user_id,
             exclude_type="message"
         )
-
-        return message_batch
         
-    @web_exceptions_raiser
-    async def get_chat_batch(self, user: User, exclude: bool, chat_type: Literal["approved", "non-approved"]) -> List[Chat]:
+        return [
+            MessageSchema.model_validate(message, from_attributes=True)
+            for message in message_batch
+        ]
+        
+    # @web_exceptions_raiser
+    async def get_chat_batch(self, user: User, exclude: bool, chat_type: Literal["chat", "noе-approved"]) -> List[Chat]:
+        
         if exclude:
             exclude_ids = await self._RedisService.get_exclude_chat_ids(user_id=user.user_id, exclude_type=chat_type)
         else:
+            exclude_ids = []
             await self._RedisService.clear_exclude_chat_ids(user_id=user.user_id, exclude_type=chat_type)
         
         chat_batch = await self._PostgresService.get_n_user_chats(user=user, exclude_ids=exclude_ids, chat_type=chat_type)
@@ -86,12 +94,12 @@ class MainChatService(MainServiceBase):
             exclude_type=chat_type
         )
 
-        return chat_batch
+        return [Chat(chat_id=chat.room_id, participants=len(chat.participants)) for chat in chat_batch]
 
 
     @web_exceptions_raiser
     async def approve_chat(self, room_id: str, user: User) -> None:
-        chat_room = await self._get_and_authorize_chat_room(room_id=room_id, user_id=user, return_chat_room=True)
+        chat_room = await self._get_and_authorize_chat_room(room_id=room_id, user_id=user.user_id, return_chat_room=True)
 
         if chat_room.approved:
             raise InvalidAction(detail=f"ChatService: User: {user.user_id} tried to approve dialogue chat: {room_id} that already approved.", client_safe_detail="You're already approved this chat")
@@ -100,7 +108,7 @@ class MainChatService(MainServiceBase):
     
     @web_exceptions_raiser
     async def disapprove_chat(self, room_id: str, user: User) -> None:
-        chat_room = await self._get_and_authorize_chat_room(room_id=room_id, user_id=user, return_chat_room=True)
+        chat_room = await self._get_and_authorize_chat_room(room_id=room_id, user_id=user.user_id, return_chat_room=True)
 
         if chat_room.approved:
             raise InvalidAction(detail=f"ChatService: User: {user.user_id} tried to disapprove dialogue chat: {room_id} that already approved.", client_safe_detail="You're already approved this chat")
@@ -171,7 +179,11 @@ class MainChatService(MainServiceBase):
         
         chat_room_id = str(uuid4())
 
-        chat_room = ChatRoom(room_id=chat_room_id, is_group=False, approved=False, participants=[user, other_user])
+        chat_room = ChatRoom(room_id=chat_room_id, is_group=False, approved=False, creator_id=user.user_id)
+
+        chat_room.participants.append(user)
+        chat_room.participants.append(other_user)
+
         message = self._create_message(text=data.message, room_id=chat_room_id, owner_id=user.user_id)
 
         await self._PostgresService.insert_models_and_flush(chat_room, message)
@@ -199,7 +211,7 @@ class MainChatService(MainServiceBase):
         chat_room_id = str(uuid4())
         participants.append(user)
 
-        chat_room = ChatRoom(room_id=chat_room_id, created=datetime.utcnow(), is_group=True, approved=True, participants=participants)
+        chat_room = ChatRoom(room_id=chat_room_id, created=datetime.utcnow(), is_group=True, approved=True, participants=participants, creator_id=user.user_id)
         message = self._create_message(text=data.message, room_id=chat_room_id, owner_id=user.user_id)
 
         await self._PostgresService.insert_models_and_flush(chat_room, message)
