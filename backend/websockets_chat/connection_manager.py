@@ -13,6 +13,7 @@ class WebsocketConnectionManager:
         if not possible_conns: raise NoActiveConnectionsOrRoomDoesNotExist(
             f"WebSocketConnectionManager: User tried to get room: {room_id} but no active connections found"
             )
+        return possible_conns
     
     def __init__(self):
         """
@@ -39,6 +40,7 @@ class WebsocketConnectionManager:
             self.rooms[room_id] = [payload]
         else:
             self.rooms[room_id].append(payload)
+        print(self.rooms)
 
     def disconnect(self, room_id: str, websocket: WebSocket):
         connections = self._get_room_connections(room_id=room_id)
@@ -50,6 +52,7 @@ class WebsocketConnectionManager:
     async def _send_message(self, message: str, room_id: str, sender_id: str):
         """Sends message to room and all online room members"""
         connections = self._get_room_connections(room_id=room_id)
+        print(connections)
         for conn in connections:
             if conn["user_id"] == sender_id:
                 continue

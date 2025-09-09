@@ -41,11 +41,11 @@ class MainChatService(MainServiceBase):
     @web_exceptions_raiser
     async def execute_action(self, request_data: ExpectedWSData, connection_data: ChatJWTPayload) -> None:
         if request_data.action == "send":
-            await self.send_message(message_data=request_data, request_data=connection_data)
+            await self.send_message(message_data=request_data, user_data=connection_data)
         elif request_data.action == "change":
-            await self.change_message(message_data=request_data, request_data=connection_data)
+            await self.change_message(message_data=request_data, user_data=connection_data)
         elif request_data.action == "delete":
-            await self.delete_message(message_data=request_data, request_data=connection_data)
+            await self.delete_message(message_data=request_data, user_data=connection_data)
 
     # @web_exceptions_raiser
     async def get_chat_token(self, room_id: str, user: User) -> ChatTokenResponse:

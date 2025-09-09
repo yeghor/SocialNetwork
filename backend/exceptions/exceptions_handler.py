@@ -77,23 +77,26 @@ def web_exceptions_raiser(func):
     return wrapper
 
 
-def ws_endpoint_exception_handler(func):
-    async def wrapper(websocket: WebSocket, *args, **kwargs):
-        try:
-            return await func(websocket, *args, **kwargs)
-        except WSInvaliddata as e:
-            logging.log(level=logging.WARNING, msg=e)
-            await websocket.close(code=1008)
+# def ws_endpoint_exception_handler(func):
+#     async def wrapper(websocket: WebSocket, *args, **kwargs):
+#         try:
+#             return await func(websocket, *args, **kwargs)
+#         except Unauthorized as e:
+#             raise HTTPException(status_code=401, detail=e.client_safe_detail)
 
-        except WebSocketDisconnect:
-            await websocket.close(code=1000)
+#         except WSInvaliddata as e:
+#             logging.log(level=logging.WARNING, msg=e)
+#             await websocket.close(code=1008)
 
-        except NoActiveConnectionsOrRoomDoesNotExist as e:
-            logging.log(level=logging.CRITICAL, msg=e, exc_info=True)
-            await websocket.close(code=1011)
+#         except WebSocketDisconnect:
+#             await websocket.close(code=1000)
 
-        except Exception as e:
-            logging.log(level=logging.CRITICAL, msg=e, exc_info=True)
-            await websocket.close(code=1011)
+#         except NoActiveConnectionsOrRoomDoesNotExist as e:
+#             logging.log(level=logging.CRITICAL, msg=e, exc_info=True)
+#             await websocket.close(code=1011)
+
+#         except Exception as e:
+#             logging.log(level=logging.CRITICAL, msg=e, exc_info=True)
+#             await websocket.close(code=1011)
  
-    return wrapper
+#     return wrapper

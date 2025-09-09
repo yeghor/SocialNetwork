@@ -31,7 +31,7 @@ class MainServiceAuth(MainServiceBase):
         valid_token = self._JWT.prepare_token(jwt_token=token)
 
         if not await self._RedisService.check_jwt_existence(jwt_token=valid_token, token_type="acces"):
-            raise Unauthorized(detail=f"AuthService: User tried to authrorize request by token: {token}, but token does not exist in Redis database", client_safe_detail="Invalid or expired token")
+            raise Unauthorized(detail=f"AuthService: User tried to authrorize request by expired token: {token}", client_safe_detail="Invalid or expired token")
         
         if return_user:
             payload = self._JWT.extract_jwt_payload(jwt_token=valid_token)
@@ -41,6 +41,15 @@ class MainServiceAuth(MainServiceBase):
             return user
         
         return None
+
+    @web_exceptions_raiser
+    async def authorize_chat_token(self, token: str) -> str:
+        """Returns original token"""
+
+        if not await self._RedisService.check_chat_token_existense(chat_token=token):
+            raise Unauthorized(detail=f"AuthService: User tried to connected to th ws chat by expired chat token: {token}", client_safe_detail="Invalid or expired token")
+        
+        return token
 
     # TODO: Invalid password is passing.
     @web_exceptions_raiser
@@ -125,4 +134,3 @@ class MainServiceAuth(MainServiceBase):
         await self._PostgresService.delete_models_and_flush(user)
         await self._RedisService.deactivate_tokens_by_id(user_id=user.user_id)
         await self._ImageStorage.delete_avatar_user(user_id=user.user_id)
-       

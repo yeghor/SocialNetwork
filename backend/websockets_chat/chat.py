@@ -1,12 +1,12 @@
 from fastapi import WebSocket, WebSocketDisconnect, APIRouter, Depends, Body
-from authorization import authorize_request_depends, JWTService
+from authorization import authorize_request_depends, authorize_chat_token, JWTService
 from services.postgres_service import User, get_session_depends, merge_model
 from services.core_services.main_services import MainChatService
 from services.core_services.core_services import MainServiceContextManager
 from websockets_chat.connection_manager import WebsocketConnectionManager
 
 from exceptions.custom_exceptions import WSInvaliddata, NoActiveConnectionsOrRoomDoesNotExist
-from exceptions.exceptions_handler import endpoint_exception_handler, ws_endpoint_exception_handler
+from exceptions.exceptions_handler import endpoint_exception_handler
 
 from pydantic_schemas.pydantic_schemas_chat import *
 from typing import List
@@ -101,7 +101,7 @@ async def approve_chat(
 # @ws_endpoint_exception_handler
 async def connect_to_websocket_chat_room(
     websocket: WebSocket,
-    token: str,
+    token: str = Depends(authorize_chat_token),
     session: AsyncSession = Depends(get_session_depends)
 ):
     connection_data = JWTService.extract_chat_jwt_payload(jwt_token=token)
@@ -113,7 +113,7 @@ async def connect_to_websocket_chat_room(
         json_dict = await websocket.receive_json()
         request_data = ExpectedWSData(**json_dict)
 
-        # await connection.execute_real_time_action(request_data=request_data, connection_data=connection_data)
+        await connection.execute_real_time_action(request_data=request_data, connection_data=connection_data)
 
-        # async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
-        #     await chat.execute_action(request_data=request_data, connection_data=connection_data)
+        async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
+            await chat.execute_action(request_data=request_data, connection_data=connection_data)
