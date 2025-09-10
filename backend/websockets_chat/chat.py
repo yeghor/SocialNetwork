@@ -5,7 +5,7 @@ from services.core_services.main_services import MainChatService
 from services.core_services.core_services import MainServiceContextManager
 from websockets_chat.connection_manager import WebsocketConnectionManager
 
-from exceptions.custom_exceptions import WSInvaliddata, NoActiveConnectionsOrRoomDoesNotExist
+from exceptions.custom_exceptions import WSInvalidData, NoActiveConnectionsOrRoomDoesNotExist
 from exceptions.exceptions_handler import endpoint_exception_handler
 
 from pydantic_schemas.pydantic_schemas_chat import *
@@ -97,6 +97,11 @@ async def approve_chat(
     async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
         return await chat.approve_chat(room_id=chat_id, user=user)
 
+async def wsconnect(token: str, websocket: WebSocket) -> ChatJWTPayload:
+    connection_data = JWTService.extract_chat_jwt_payload(jwt_token=token)
+    connection.connect(room_id=connection_data.room_id, user_id=connection_data.user_id, websocket=websocket)
+    await websocket.accept()
+
 @chat.websocket("/ws/{token}")
 # @ws_endpoint_exception_handler
 async def connect_to_websocket_chat_room(
@@ -104,16 +109,17 @@ async def connect_to_websocket_chat_room(
     token: str = Depends(authorize_chat_token),
     session: AsyncSession = Depends(get_session_depends)
 ):
-    connection_data = JWTService.extract_chat_jwt_payload(jwt_token=token)
-    print(connection_data.room_id)
-    print(connection_data.user_id)
-    connection.connect(room_id=connection_data.room_id, user_id=connection_data.user_id, websocket=websocket)
-    await websocket.accept()
-    while True:
-        json_dict = await websocket.receive_json()
-        request_data = ExpectedWSData(**json_dict)
+    connection_data = await wsconnect(token=token, websocket=websocket)
 
-        await connection.execute_real_time_action(request_data=request_data, connection_data=connection_data)
+    try:
+        while True:
+            json_dict = await websocket.receive_json()
+            request_data = ExpectedWSData(**json_dict)
 
-        async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
-            await chat.execute_action(request_data=request_data, connection_data=connection_data)
+            async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
+                db_message_data = await chat.execute_action(request_data=request_data, connection_data=connection_data)
+
+            await connection.execute_real_time_action(action=request_data.action, connection_data=connection_data, db_message_data=db_message_data)
+
+    finally:
+        await connection.disconnect()

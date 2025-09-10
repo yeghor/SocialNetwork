@@ -1,5 +1,5 @@
 from fastapi.websockets import WebSocket
-from pydantic_schemas.pydantic_schemas_chat import ExpectedWSData, ChatJWTPayload
+from pydantic_schemas.pydantic_schemas_chat import ExpectedWSData, ChatJWTPayload, ActionType, MessageSchema, MessageSchemaShort
 from typing import List, Dict
 import json
 from exceptions.custom_exceptions import NoActiveConnectionsOrRoomDoesNotExist
@@ -19,40 +19,42 @@ class WebsocketConnectionManager:
         """
         This manager is only for **fast local** message update between connections.
 
-        It's **NOT** syncing with PostgreSQL
+        It's do **NOT** syncing with PostgreSQL
         """
         self.rooms = {}
 
-    async def execute_real_time_action(self, request_data: ExpectedWSData, connection_data: ChatJWTPayload):
-        if request_data.action == "send":
-            await self._send_message(message=request_data.message, room_id=connection_data.room_id, sender_id=connection_data.user_id)
-        elif request_data.action == "change":
-            await self._change_message(message_id=request_data.message_id, room_id=connection_data.room_id, new_message=request_data.message)
-        elif request_data.action == "delete":
-            await self._delete_message(message_id=request_data.message_id, room_id=connection_data.room_id)
+    async def execute_real_time_action(self, action: ActionType, connection_data: ChatJWTPayload, db_message_data: MessageSchemaShort | MessageSchema ) -> None:
+        if action == "send":
+            await self._send_message(db_message_data=db_message_data, room_id=connection_data.room_id, sender_id=connection_data.user_id)
+        elif action == "change":
+            await self._change_message(db_message_data=db_message_data, room_id=connection_data.room_id, sender_id=connection_data.user_id)
+        elif action == "delete":
+            await self._delete_message(db_message_data=db_message_data, room_id=connection_data.room_id, sender_id=connection_data.user_id)
 
-    def connect(self, room_id: str, user_id: str, websocket: WebSocket):
+    def connect(self, room_id: str, user_id: str, websocket: WebSocket) -> None:
         payload = {
             "user_id": user_id,
             "websocket": websocket
         }
+
         if not room_id in self.rooms.keys():
             self.rooms[room_id] = [payload]
         else:
             self.rooms[room_id].append(payload)
         print(self.rooms)
 
-    def disconnect(self, room_id: str, websocket: WebSocket):
+    def disconnect(self, room_id: str, websocket: WebSocket) -> None:
         connections = self._get_room_connections(room_id=room_id)
+
         for conn in connections   :
             if conn["websocket"] == websocket:
                 connections.remove(conn)
                 return
 
-    async def _send_message(self, message: str, room_id: str, sender_id: str):
+    async def _send_message(self, db_message_data: MessageSchema, room_id: str, sender_id: str) -> None:
         """Sends message to room and all online room members"""
         connections = self._get_room_connections(room_id=room_id)
-        print(connections)
+
         for conn in connections:
             if conn["user_id"] == sender_id:
                 continue
@@ -60,37 +62,32 @@ class WebsocketConnectionManager:
             websocket: WebSocket = conn["websocket"]
             
             await websocket.send_json(
-                {
-                    "action": "send",
-                    "user_id": sender_id,
-                    "message": message
-                }
+                db_message_data.model_json_schema()
             )
 
 
-    async def _delete_message(self, message_id: str, room_id: str):
+    async def _delete_message(self, db_message_data: MessageSchemaShort, room_id: str, sender_id: str) -> None:
         connections = self._get_room_connections(room_id=room_id)
 
         for conn in connections:
+            if conn["user_id"] == sender_id:
+                continue
+
             websocket: WebSocket = conn["websocket"]
 
             await websocket.send_json(
-                {
-                    "action": "delete",
-                    "message_id": message_id
-                }
+                db_message_data.model_json_schema()
             )
 
-    async def _change_message(self, message_id: str, room_id: str, new_message: str):
+    async def _change_message(self, db_message_data: MessageSchema, room_id: str, sender_id: str) -> None:
         connections = self._get_room_connections(room_id=room_id)
         
         for conn in connections:
+            if conn["user_id"] == sender_id:
+                continue
+
             websocket: WebSocket = conn["websocket"]
 
             await websocket.send_json(
-                {
-                    "action": "change",
-                    "message_id": message_id,
-                    "message": new_message
-                }
+                db_message_data.model_json_schema()
             )

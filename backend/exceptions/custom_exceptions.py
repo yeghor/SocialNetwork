@@ -8,7 +8,7 @@ class ServiceLayerBaseBound(Exception):
     """Use in TypeVar"""
 
 
-class WSInvaliddata(Exception):
+class WSInvalidData(Exception):
     """Gets raised when user sent through Websockets invalid `json` data"""
     
 class NoActiveConnectionsOrRoomDoesNotExist(Exception):
@@ -141,7 +141,7 @@ class ServiceLayerBaseBound(Exception):
     """Use in TypeVar"""
 
 
-class WSInvaliddata(Exception):
+class WSInvalidData(Exception):
     """Gets raised when user sent through Websockets invalid `json` data"""
     
 class NoActiveConnectionsOrRoomDoesNotExist(Exception):
