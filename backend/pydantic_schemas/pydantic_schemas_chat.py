@@ -14,6 +14,7 @@ class Chat(BaseModel):
 
 class MessageSchemaShort(BaseModel):
     message_id: str
+    text: str | None = Field(default=None)
 
 class MessageSchema(MessageSchemaShort):
     text: str

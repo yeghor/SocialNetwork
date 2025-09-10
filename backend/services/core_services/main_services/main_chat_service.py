@@ -49,7 +49,7 @@ class MainChatService(MainServiceBase):
         elif request_data.action == "delete":
             return await self.delete_message(message_data=request_data, user_data=connection_data)
 
-    @web_exceptions_raiser
+    # @web_exceptions_raiser
     async def get_chat_token(self, room_id: str, user: User) -> ChatTokenResponse:
         await self._get_and_authorize_chat_room(room_id=room_id, user_id=user.user_id, return_chat_room=False)
         chat_token = await self._JWT.generate_save_chat_token(room_id=room_id, user_id=user.user_id, redis=self._RedisService)
@@ -127,10 +127,13 @@ class MainChatService(MainServiceBase):
         await self._get_and_authorize_chat_room(room_id=user_data.room_id, user_id=user_data.user_id, return_chat_room=False)
 
         new_message = Message(message_id=str(uuid4()), room_id=user_data.room_id, owner_id=user_data.user_id, text=message_data.message)
-        
+
         await self._PostgresService.insert_models_and_flush(new_message)
 
-        await self._RedisService.add_exclude_chat_ids(exclude_ids=[new_message.message_id], user_id=user_data.user_id)
+        # To prevent Missing Greenlet error
+        await self._PostgresService.refresh_model(new_message)
+
+        await self._RedisService.add_exclude_chat_ids(exclude_ids=[new_message.message_id], user_id=user_data.user_id, exclude_type="message")
 
         return MessageSchema.model_validate(new_message, from_attributes=True)
 
@@ -160,7 +163,7 @@ class MainChatService(MainServiceBase):
 
         await self._PostgresService.change_field_and_flush(model=message, text=message_data.message)
 
-        return MessageSchemaShort(message_id=message.message_id)
+        return MessageSchemaShort.model_validate(message, from_attributes=True)
 
     @web_exceptions_raiser
     async def create_dialogue_chat(self, data: CreateDialoqueRoomBody, user: User) -> None:

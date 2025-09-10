@@ -20,7 +20,7 @@ chat = APIRouter()
 connection = WebsocketConnectionManager()
 
 @chat.get("/chat/connect/{chat_id}")
-@endpoint_exception_handler
+# @endpoint_exception_handler
 async def get_chat_token(
     chat_id: str,
     user_: User = Depends(authorize_request_depends),
@@ -100,7 +100,10 @@ async def approve_chat(
 async def wsconnect(token: str, websocket: WebSocket) -> ChatJWTPayload:
     connection_data = JWTService.extract_chat_jwt_payload(jwt_token=token)
     connection.connect(room_id=connection_data.room_id, user_id=connection_data.user_id, websocket=websocket)
+
     await websocket.accept()
+    
+    return connection_data
 
 @chat.websocket("/ws/{token}")
 # @ws_endpoint_exception_handler
@@ -122,4 +125,4 @@ async def connect_to_websocket_chat_room(
             await connection.execute_real_time_action(action=request_data.action, connection_data=connection_data, db_message_data=db_message_data)
 
     finally:
-        await connection.disconnect()
+        connection.disconnect(room_id=connection_data.room_id, websocket=websocket)

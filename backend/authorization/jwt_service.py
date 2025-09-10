@@ -18,6 +18,8 @@ from exceptions.custom_exceptions import *
 
 load_dotenv()
 
+DATETIME_BASE_FORMAT = getenv("DATETIME_BASE_FORMAT")
+
 # TODO: Fix exception raising
 def jwt_error_handler(func):
     @wraps(func)
@@ -113,7 +115,9 @@ class JWTService:
     def generate_chat_token(cls, room_id: str, user_id: str) -> str:
         payload = {
             "room_id": room_id,
-            "user_id": user_id
+            "user_id": user_id,
+            # to make tokens unique
+            "issued": datetime.utcnow().strftime(DATETIME_BASE_FORMAT)
         }
         return jwt.encode(
             payload=payload,

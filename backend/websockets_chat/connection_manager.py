@@ -73,7 +73,7 @@ class WebsocketConnectionManager:
             websocket: WebSocket = conn["websocket"]
             
             await websocket.send_json(
-                db_message_data.model_json_schema()
+                db_message_data.model_dump_json()
             )
 
 
@@ -87,7 +87,7 @@ class WebsocketConnectionManager:
             websocket: WebSocket = conn["websocket"]
 
             await websocket.send_json(
-                db_message_data.model_json_schema()
+                db_message_data.model_dump_json()
             )
 
     async def _change_message(self, db_message_data: MessageSchema, room_id: str, sender_id: str) -> None:
@@ -100,5 +100,5 @@ class WebsocketConnectionManager:
             websocket: WebSocket = conn["websocket"]
 
             await websocket.send_json(
-                db_message_data.model_json_schema()
+                db_message_data.model_dump_json()
             )
