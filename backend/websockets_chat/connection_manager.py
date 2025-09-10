@@ -5,7 +5,13 @@ import json
 from exceptions.custom_exceptions import NoActiveConnectionsOrRoomDoesNotExist
 
 class WebsocketConnectionManager:
-    # TODO: Add Singleton pattern
+    _instance=None
+    _isinitialized=False
+
+    def __new__(cls):
+        if not cls._instance:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
     def _get_room_connections(self, room_id: str) -> List[Dict]:
         """Returns room connections or raise NoActiveConnectionsOrRoomDoesNotExist exception."""
@@ -21,6 +27,11 @@ class WebsocketConnectionManager:
 
         It's do **NOT** syncing with PostgreSQL
         """
+        if self._isinitialized:
+            return
+        
+        self._isinitialized = True
+
         self.rooms = {}
 
     async def execute_real_time_action(self, action: ActionType, connection_data: ChatJWTPayload, db_message_data: MessageSchemaShort | MessageSchema ) -> None:
