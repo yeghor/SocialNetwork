@@ -94,6 +94,7 @@ class PostgresService:
             result = await self.__session.execute(
                 select(User)
                 .where(User.user_id.in_(ids))
+                .options(selectinload(User.followed), selectinload(User.followers))
             )
         elif ModelType == Post:
             result = await self.__session.execute(

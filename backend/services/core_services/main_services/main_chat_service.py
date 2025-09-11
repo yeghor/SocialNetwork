@@ -2,7 +2,7 @@ from services.core_services import MainServiceBase
 from services.postgres_service.models import *
 from exceptions.custom_exceptions import *
 from exceptions.exceptions_handler import web_exceptions_raiser
-from pydantic_schemas.pydantic_schemas_chat import Chat, MessageSchema, MessageSchemaShort, ExpectedWSData, ChatJWTPayload, CreateDialoqueRoomBody, ChatTokenResponse, CreateGroupRoomBody
+from pydantic_schemas.pydantic_schemas_chat import Chat, MessageSchema, MessageSchemaShort, ExpectedWSData, ChatJWTPayload, CreateDialoqueRoomBody, ChatTokenResponse, CreateGroupRoomBody, MessageSchemaActionIncluded, MessageSchemaShortActionIncluded
 from pydantic_schemas.pydantic_schemas_social import UserShortSchema
 from post_popularity_rate_task.popularity_rate import scheduler
 from uuid import uuid4
@@ -106,6 +106,9 @@ class MainChatService(MainServiceBase):
         if chat_room.approved:
             raise InvalidAction(detail=f"ChatService: User: {user.user_id} tried to approve dialogue chat: {room_id} that already approved.", client_safe_detail="You're already approved this chat")
 
+        if chat_room.creator_id == user.user_id:
+            raise InvalidAction(detail=f"ChatService: User: {user.user_id} trierd to approve dialoque chat: {room_id} while being the room creator.", client_safe_detail=f"You can't approve chat that you have created")
+
         chat_room.approved = True
     
     @web_exceptions_raiser
@@ -115,6 +118,9 @@ class MainChatService(MainServiceBase):
         if chat_room.approved:
             raise InvalidAction(detail=f"ChatService: User: {user.user_id} tried to disapprove dialogue chat: {room_id} that already approved.", client_safe_detail="You're already approved this chat")
 
+        if chat_room.creator_id == user.user_id:
+            raise InvalidAction(detail=f"ChatService: User: {user.user_id} trierd to disapprove dialoque chat: {room_id} while being the room creator.", client_safe_detail=f"You can't disapprove chat that you have created")
+
         await self._PostgresService.delete_models_and_flush(chat_room)
 
     @web_exceptions_raiser
@@ -123,7 +129,7 @@ class MainChatService(MainServiceBase):
         await self._RedisService.clear_exclude_chat_ids(user_id=user.user_id, exclude_type="message")
 
     @web_exceptions_raiser
-    async def send_message(self, message_data: ExpectedWSData, user_data: ChatJWTPayload) -> MessageSchema:
+    async def send_message(self, message_data: ExpectedWSData, user_data: ChatJWTPayload) -> MessageSchemaActionIncluded:
         await self._get_and_authorize_chat_room(room_id=user_data.room_id, user_id=user_data.user_id, return_chat_room=False)
 
         new_message = Message(message_id=str(uuid4()), room_id=user_data.room_id, owner_id=user_data.user_id, text=message_data.message)
@@ -135,10 +141,10 @@ class MainChatService(MainServiceBase):
 
         await self._RedisService.add_exclude_chat_ids(exclude_ids=[new_message.message_id], user_id=user_data.user_id, exclude_type="message")
 
-        return MessageSchema.model_validate(new_message, from_attributes=True)
+        return MessageSchemaActionIncluded.model_validate(new_message, from_attributes=True)
 
     @web_exceptions_raiser
-    async def delete_message(self, message_data: ExpectedWSData, user_data: ChatJWTPayload) -> MessageSchemaShort:
+    async def delete_message(self, message_data: ExpectedWSData, user_data: ChatJWTPayload) -> MessageSchemaShortActionIncluded:
         message = await self._PostgresService.get_message_by_id(message_id=message_data.message_id)
 
         if not message:
@@ -149,10 +155,10 @@ class MainChatService(MainServiceBase):
 
         await self._PostgresService.delete_models_and_flush(message)
 
-        return MessageSchemaShort(message_id=message.message_id)
+        return MessageSchemaShortActionIncluded(message_id=message.message_id, action="delete")
 
     @web_exceptions_raiser
-    async def change_message(self, message_data: ExpectedWSData, user_data: ChatJWTPayload) -> MessageSchemaShort:
+    async def change_message(self, message_data: ExpectedWSData, user_data: ChatJWTPayload) -> MessageSchemaShortActionIncluded:
         message = await self._PostgresService.get_message_by_id(message_id=message_data.message_id)
 
         if not message:
@@ -163,7 +169,7 @@ class MainChatService(MainServiceBase):
 
         await self._PostgresService.change_field_and_flush(model=message, text=message_data.message)
 
-        return MessageSchemaShort.model_validate(message, from_attributes=True)
+        return MessageSchemaShortActionIncluded(action="change", message_id=message.message_id, text=message_data.message)
 
     @web_exceptions_raiser
     async def create_dialogue_chat(self, data: CreateDialoqueRoomBody, user: User) -> None:
@@ -216,7 +222,7 @@ class MainChatService(MainServiceBase):
         
         for participant in participants:
             if not self._check_if_users_are_friends(user=user, other_user=participant):
-                raise InvalidResourceProvided(detail=f"ChatService: User: {user.user_id} tried to create group while not being friends with participant: {participant.user_id}", client_safe_detail=f"You can't create group while not being friend with members")
+                raise InvalidResourceProvided(detail=f"ChatService: User: {user.user_id} tried to create group while not being friends with participant: {participant.user_id}", client_safe_detail=f"You can't create group while not being friends with members")
         
         if user in participants:
             raise InvalidResourceProvided(detail=f"ChatService: User {user.user_id} tried to create group with himself.", client_safe_detail="You can't create group with yourself")

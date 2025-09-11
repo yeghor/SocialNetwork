@@ -53,7 +53,7 @@ async def create_dialoque_chat(
     async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
         return await chat.create_dialogue_chat(data=data, user=user)
 
-@chat.post("chat/group")
+@chat.post("/chat/group")
 @endpoint_exception_handler
 async def create_group_chat(
     data: CreateGroupRoomBody,

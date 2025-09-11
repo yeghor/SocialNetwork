@@ -12,14 +12,28 @@ class Chat(BaseModel):
     chat_id: str
     participants: int
 
+class ActionIncluded(BaseModel):
+    action: Literal["send", "change", "delete"] = "send"
+
 class MessageSchemaShort(BaseModel):
+    # Default value "send" for enabling model_validate with Message Postgre model
+    
     message_id: str
     text: str | None = Field(default=None)
 
 class MessageSchema(MessageSchemaShort):
+    "Use in main http endpoints"
     text: str
     sent: datetime = Field(default=datetime.utcnow)
     owner: UserShortSchema
+
+class MessageSchemaActionIncluded(MessageSchema, ActionIncluded):
+    """Use in websockets 'send' action"""
+
+class MessageSchemaShortActionIncluded(MessageSchemaShort, ActionIncluded):
+    """Use in webosockets 'change' 'delete' actions"""
+
+
 
 class ChatTokenResponse(BaseModel):
     token: str
