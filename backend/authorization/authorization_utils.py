@@ -25,6 +25,15 @@ async def authorize_request_depends(token: str = Header(..., title="Authorizatio
         return await auth.authorize_request(token=token, return_user=True)
 
 @endpoint_exception_handler
+async def authorize_chat_token(token: str) -> None:
+    from services.core_services import MainServiceContextManager
+    from services.core_services.main_services import MainServiceAuth
+
+    session = await get_session()
+    async with await MainServiceContextManager[MainServiceAuth].create(MainServiceType=MainServiceAuth, postgres_session=session) as auth:
+        return await auth.authorize_chat_token(token=token)
+
+@endpoint_exception_handler
 def validate_password(password: str) -> None:
     """Raises HTTPexception if password not secure enough"""
 

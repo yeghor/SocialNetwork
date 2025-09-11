@@ -30,7 +30,7 @@ This project has a `docker-compose.yml` file, so it allows you to start the appl
 
 Also the project has basic **CI** _(Implemented with GitHub actions)_ that runs tests on every **push**.
 
-**Next step**: Implement fronted, notifications
+**Next step**: Implement fronted, chat via websockets, notifications
 
 # Usage
 

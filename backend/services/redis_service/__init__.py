@@ -1,1 +1,1 @@
-from .service import RedisService
+from .service import *

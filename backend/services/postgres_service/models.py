@@ -58,6 +58,14 @@ class User(Base):
         lazy="selectin"
     )
 
+    chat_rooms: Mapped[List["ChatRoom"]] = relationship(
+        "ChatRoom",
+        secondary="userroom",
+        back_populates="participants",
+        lazy="selectin"
+    )
+
+
     @validates("username")
     def validate_username(self, key, username: str):
         if not int(getenv("USERNAME_MIN_L")) <= len(username) <= int(getenv("USERNAME_MAX_L")):
@@ -175,5 +183,64 @@ class PostActions(Base):
     owner: Mapped[User] = relationship(
         "User",
         back_populates="actions",
+        lazy="selectin"
+    )
+
+
+# CHAT MODELS
+
+# Room represents group or chat between users. Contain participants data and messages
+class ChatRoom(Base):
+    __tablename__ = "chatroom"
+
+    room_id: Mapped[str] = mapped_column(primary_key=True)
+    approval_sent: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+    # Change manualy on approval
+    created: Mapped[datetime | None] = mapped_column(default=None, nullable=True)
+
+    is_group: Mapped[bool]
+    
+    creator_id: Mapped[str | None] = mapped_column(ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
+
+    # Putting onupdate cause when user approving chat we need to notify user about that on chat orders
+    last_message_time: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Only for dialogues, for groups must always be setted on `True``
+    approved: Mapped[bool]
+
+    participants: Mapped[List[User]] = relationship(
+        "User",
+        secondary="userroom",
+        back_populates="chat_rooms",
+        lazy="selectin"
+    )
+
+
+class UserRoom(Base):
+    __tablename__ = "userroom"
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+    room_id: Mapped[str] = mapped_column(ForeignKey("chatroom.room_id", ondelete="CASCADE"), primary_key=True)
+
+
+class Message(Base):
+    __tablename__ = "message"
+
+    message_id: Mapped[str] = mapped_column(primary_key=True)
+
+    room_id: Mapped[str] = mapped_column(ForeignKey("chatroom.room_id", ondelete="CASCADE"))
+    owner_id: Mapped[str | None] = mapped_column(ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
+
+    text: Mapped[str]
+    sent: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+    owner: Mapped[User | None] = relationship(
+        "User",
+        lazy="selectin"
+    )
+
+    room = relationship(
+        "ChatRoom",
         lazy="selectin"
     )

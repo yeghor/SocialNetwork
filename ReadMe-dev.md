@@ -31,3 +31,16 @@ The `DEBUG` variable in the `.env` file controls how the application handles exc
 Exception handlers decorators rules:
 1. Use exception handler decorators only in functions that don't raise any exceptions that the decorator not handling. 
 2. Use exception handler decorators only if functions that being called outside the class. (It handles, but follow thi rule)
+
+
+## Chats
+
+Return to user only chat rooms that contain at least one message. 
+To create room user have to send at least one message.
+Dialoque, group equals to chat room.
+
+When action on message needs to be validated, like deleting or changing - firsty call database chat layer, then websocket layer chat manager. To prevent desynchronization.
+
+For groups, ChatRoom model `approved` field must always be setted on `True`. To create group - user and it's participants must be friends. (following each other)
+
+`created` ChatRoom model field change manualy on chat approval.

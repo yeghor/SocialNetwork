@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 from os import getenv
 from functools import wraps
 
+from fastapi import WebSocketDisconnect, WebSocketException, WebSocket
+
 load_dotenv()
 Debug = getenv("DEBUG").lower().capitalize().strip()
 
@@ -65,7 +67,6 @@ def web_exceptions_raiser(func):
             raise InternalServerErrorExc(
                 client_safe_detail=INTERNAL_SERVER_ERROR_CLIENT_MESSAGE,
                 dev_log_detail=str(e),
-                logging_type=logging_level,
                 exc_type=e
             ) from e
         # We must handle these exceptions becasue: in this project, decorated with `web_exception_raiser` functions call functions that also decorated with the decorator.
@@ -74,3 +75,28 @@ def web_exceptions_raiser(func):
             raise e
 
     return wrapper
+
+
+# def ws_endpoint_exception_handler(func):
+#     async def wrapper(websocket: WebSocket, *args, **kwargs):
+#         try:
+#             return await func(websocket, *args, **kwargs)
+#         except Unauthorized as e:
+#             raise HTTPException(status_code=401, detail=e.client_safe_detail)
+
+#         except WSInvaliddata as e:
+#             logging.log(level=logging.WARNING, msg=e)
+#             await websocket.close(code=1008)
+
+#         except WebSocketDisconnect:
+#             await websocket.close(code=1000)
+
+#         except NoActiveConnectionsOrRoomDoesNotExist as e:
+#             logging.log(level=logging.CRITICAL, msg=e, exc_info=True)
+#             await websocket.close(code=1011)
+
+#         except Exception as e:
+#             logging.log(level=logging.CRITICAL, msg=e, exc_info=True)
+#             await websocket.close(code=1011)
+ 
+#     return wrapper

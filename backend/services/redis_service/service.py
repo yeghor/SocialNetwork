@@ -16,11 +16,14 @@ EXCLUDE_TIMEOUT = int(getenv("EXCLUDE_TIMEOUT"))
 VIEW_TIMEOUT = int(getenv("VIEW_TIMEOUT"))
 IMAGE_VIEW_ACCES_SECONDS = int(getenv("IMAGE_VIEW_ACCES_SECONDS"))
 
+CHAT_TOKEN_EXPIRY_SECONDS = int(getenv("CHAT_TOKEN_EXPIRY_SECONDS"))
+
 REDIS_HOST = getenv("REDIS_HOST")
 REDIS_PORT = int(getenv("REDIS_PORT"))
 
-ExcludeType = Literal["search", "feed", "viewed", "reply-list"] # TODO: Change "viewed" to "view"
+ExcludePostType = Literal["search", "feed", "view", "reply-list"] # TODO: Change "viewed" to "view"
 ImageType = Literal["post", "user"]
+ChatType = Literal["message", "chat", "not-approved"]
 
 def redis_error_handler(func):
     @wraps(func)
@@ -30,12 +33,12 @@ def redis_error_handler(func):
         except redis_exceptions.RedisError as e:
             raise HTTPException(status_code=500, detail=f"Action with Redis failed: {e}")
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Uknown erro while working with Redis occured: {e}")
+            raise HTTPException(status_code=500, detail=f"Unkown erro while working with Redis occured: {e}")
     return wrapper
 
 
 class RedisService:
-    def get_right_first_exclude_post_prefix(self, exclude_type: ExcludeType) -> str:
+    def _get_right_first_exclude_post_prefix(self, exclude_type: ExcludePostType) -> str:
         if exclude_type == 'feed':
             return self.__exclude_posts_feed_prefix_1
         elif exclude_type == 'search':
@@ -47,8 +50,18 @@ class RedisService:
         else:
             raise ValueError("Invalid exclude_type provided")
 
-    def exclude_post_key_pattern(self, user_id: str, post_id: str, exclude_type: ExcludeType):
-        first_prefix = self.get_right_first_exclude_post_prefix(exclude_type=exclude_type)
+    def _get_right_first_exclude_chat_prefix(self, exclude_type: ChatType) -> str:
+        if exclude_type == "chat":
+            return self.__exclude_chat_prefix_1
+        elif exclude_type == "message":
+            return self.__exclude_message_prefix_1
+        elif exclude_type == "not-approved":
+            return self.__exclude_not_approved_chats_prefix_1
+        else:
+            raise ValueError("Invalid exclude-type provided")
+
+    def exclude_post_key_pattern(self, user_id: str, post_id: str, exclude_type: ExcludePostType):
+        first_prefix = self._get_right_first_exclude_post_prefix(exclude_type=exclude_type)
         return f"{first_prefix}{user_id}{self.__exclude_posts_prefix_2}{post_id}"
 
     @staticmethod
@@ -88,6 +101,11 @@ class RedisService:
             self.__post_view_timeout_prefix_1 = "post-view-timeout-user-"
             self.__post_view_timeout_prefix_2 = "post:"
 
+
+            # Chat
+
+            self.__chat_token_prefix = "chat-jwt-token:"
+
             # ========
 
             # Exclude posts
@@ -98,6 +116,13 @@ class RedisService:
             self.__exclude_posts_search_prefix_1 = "exclude-posts-search-user-"
             self.__exclude_posts_viewed_prefix_1 = "exclude-posts-viewed-user-"
             self.__exclude_replies_prefix_1 = "exclude-replies-viewed-user-"
+
+            # Exclude chats/messages
+            self.__exclude_chat_prefix_2 = "-excluding:"
+
+            self.__exclude_chat_prefix_1 = "exclude-chat-user-"
+            self.__exclude_message_prefix_1 = "exclude-message-user-"
+            self.__exclude_not_approved_chats_prefix_1 = "exclude-not-approved-chats-user-"
 
             # ========
             # Image acces tokens prefix
@@ -197,9 +222,9 @@ class RedisService:
     # ==============
 
     @redis_error_handler
-    async def clear_exclude(self, exclude_type: ExcludeType, user_id: str) -> None:
+    async def clear_exclude(self, exclude_type: ExcludePostType, user_id: str) -> None:
         # https://stackoverflow.com/questions/21975228/redis-python-how-to-delete-all-keys-according-to-a-specific-pattern-in-python
-        first_prefix = self.get_right_first_exclude_post_prefix(exclude_type=exclude_type)
+        first_prefix = self._get_right_first_exclude_post_prefix(exclude_type=exclude_type)
         keys = [key async for key in self.__client.scan_iter(match=f"{first_prefix}{user_id}*")]
         if keys:
             await self.__client.delete(*keys)
@@ -209,14 +234,14 @@ class RedisService:
         await self.__client.aclose()
 
     @redis_error_handler
-    async def add_exclude_post_ids(self, post_ids: List[str], user_id: str, exclude_type: ExcludeType) -> None:
+    async def add_exclude_post_ids(self, post_ids: List[str], user_id: str, exclude_type: ExcludePostType) -> None:
         for id_ in post_ids:
             pattern = self.exclude_post_key_pattern(user_id=user_id, post_id=id_, exclude_type=exclude_type)
             await self.__client.setex(pattern, EXCLUDE_TIMEOUT, id_)
 
     @redis_error_handler
-    async def get_exclude_post_ids(self, user_id: str, exclude_type: ExcludeType) -> List[str]:
-        first_prefix = self.get_right_first_exclude_post_prefix(exclude_type=exclude_type)
+    async def get_exclude_post_ids(self, user_id: str, exclude_type: ExcludePostType) -> List[str]:
+        first_prefix = self._get_right_first_exclude_post_prefix(exclude_type=exclude_type)
         return [await self.__client.get(key) async for key in self.__client.scan_iter(match=f"{first_prefix}{user_id}*")]            
 
 
@@ -252,7 +277,7 @@ class RedisService:
         Pass `n_image` if `image_type` set to "post"
         """
         if not url_image_token:
-            return False
+            return None
 
         if image_type == "post":
             pattern = f"{self.__post_image_acces_prefix}{url_image_token}"    
@@ -261,4 +286,41 @@ class RedisService:
 
         return await self.__client.get(pattern)
     
-    
+    # ==============
+    # Chat
+    # ==============
+
+    @redis_error_handler
+    async def add_exclude_chat_ids(self, exclude_ids: List[str], user_id: str, exclude_type: ChatType) -> None:
+        first_prefix = self._get_right_first_exclude_chat_prefix(exclude_type=exclude_type)
+        for id_ in exclude_ids:
+            pattern = f"{first_prefix}{user_id}{self.__exclude_chat_prefix_2}{id_}"
+            await self.__client.set(pattern, id_)
+
+    @redis_error_handler
+    async def get_exclude_chat_ids(self, user_id: str, exclude_type: ChatType) -> List[str]:
+        first_prefix = self._get_right_first_exclude_chat_prefix(exclude_type=exclude_type)
+        return [await self.__client.get(key) async for key in self.__client.scan_iter(match=f"{first_prefix}{user_id}{self.__exclude_chat_prefix_2}*")]
+
+
+    # @redis_error_handler
+    async def clear_exclude_chat_ids(self, user_id: str, exclude_type: ChatType) -> None:
+        # Caution! May not be optimized for large keys numbers
+        first_prefix = self._get_right_first_exclude_chat_prefix(exclude_type=exclude_type)
+        to_delete = [key async for key in self.__client.scan_iter(match=f"{first_prefix}{user_id}{self.__exclude_chat_prefix_2}*")]
+
+        if to_delete:
+            await self.__client.delete(*to_delete)    
+
+    @redis_error_handler
+    async def save_chat_token(self, chat_token, user_id: str) -> None:
+        await self.__client.setex(
+            f"{self.__chat_token_prefix}{chat_token}",
+            CHAT_TOKEN_EXPIRY_SECONDS,
+            user_id
+        )
+
+    @redis_error_handler
+    async def check_chat_token_existense(self, chat_token: str) -> bool:
+        potential_token = await self.__client.get(f"{self.__chat_token_prefix}{chat_token}")
+        return bool(potential_token)
