@@ -25,6 +25,7 @@ It is a prototype of a social network similar to Twitter _(now X)_.
     - **History related** _(Semantic Search)_
     - **Unrelated**, but popular and fresh posts
     - **Following posts** from users you follow to _(If no follows - returns **Unrelated**)_
+- **Real-time Chat** using fastAPI (starlete's) websockets.
 
 This project has a `docker-compose.yml` file, so it allows you to start the application by executing only one line.
 
