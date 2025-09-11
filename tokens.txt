@@ -1,38 +1,12 @@
-{
-  "acces_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiM2Y0NzJhZjEtZjVjMC00OWNjLTlkYjYtYWUxZjNlNjMyYWQwIiwiaXNzdWVkX2F0IjoxNzUzMDA5MzIyfQ.CgfVQh4LK1DUNTvhvO-rR367pfgIfwqPYcmd3YZEbco",
-  "expires_at_acces": "20/07/2025, 12:01:02",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiM2Y0NzJhZjEtZjVjMC00OWNjLTlkYjYtYWUxZjNlNjMyYWQwIiwiaXNzdWVkX2F0IjoxNzUzMDA5MjYyfQ.FgpWzLmCXjkRwMvkcEuD_ySFNh-WBWTuyOT9hUNG5XE",
-  "expires_at_refresh": "20/07/2025, 21:01:02"
-}
+user1 = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMGRjNGZjYjItNWQzMy00Yzk4LWFhN2EtMjQ2Y2MyZmQ5N2Y0IiwiaXNzdWVkX2F0IjoxNzU3NTk1NTI5fQ.fKRkeNcHw_ssDWIQvclH4wA6E6ZF1geLtmwTG2dv4Ec
+
+user2 = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMjcxNmM4M2MtYmIwYi00YjVmLWI0ZDctNmMzZWRjYWE0OTkyIiwiaXNzdWVkX2F0IjoxNzU3NTk1NTYyfQ._nW8axBbgDLXvTmwyYmaK4wBGL0QujEqdwvXm7jAFCk
+
+user3 = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiOTBjMzVkODktMDQ3ZC00MDc5LThmZmMtNTFmMGI4YzI3ODQxIiwiaXNzdWVkX2F0IjoxNzU3NTk1NTc1fQ.0qyVtjZ-Yy7H6qGxFCa7vMBlPH3b4m40NDDBo2RE7uY
 
 {
-  "post_id": "ba198fe5-066d-4eb9-8a37-6d5a19c6b4f6",
-  "title": "A Note from the Edge of the Universe",
-  "published": "2025-08-14T06:48:49.511146",
-  "owner": {
-    "user_id": "b297c7c4-c33d-4c68-9220-0ecddc088622",
-    "username": "test"
-  },
-  "text": "Today I caught myself thinking that stars are just little lights that have survived everything we’re going through now. They’re up there, we’re down here, and yet somehow we’re connected. Maybe that’s the point.",
-  "liked_by": [],
-  "likes": 0,
-  "views": 1,
-  "last_updated": "2025-08-14T13:31:40.501575",
-  "replies": [],
-  "parent_post": null,
-  "pictures_urls": [
-    "7mA8BXaLYFafyZHHWx6jyo86osHH5aezL3rfekCzjIA",
-    "aWDA1qFTXtcvhEHW2D9-nrtgjVH5Zn_vhUXj4y5ScDU",
-    "ftVSBUa7Eag0sjWQsz0NBI5cXup9dGubqzW__OXMtJ8"
-  ],
-  "viewed_by": [
-    {
-      "user_id": "b297c7c4-c33d-4c68-9220-0ecddc088622",
-      "username": "test"
-    }
+  "message": "Hello guys!",
+  "other_participants_ids": [
+    "2716c83c-bb0b-4b5f-b4d7-6c3edcaa4992"
   ]
 }
-
-ACCESS Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMjkwN2JkODktMWUzYS00ZDE5LWE2MDEtOWM1YTQ2ZjJlZDMyIiwiaXNzdWVkX2F0IjoxNzU3NTE3NTE0fQ.QbS8h23xBJc8qVqK-hj95xI7ZsEEA2mra1CfACasOb0
-
-ACCESS 2 Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYTllNTE4MzYtODkyYy00ZDZjLWI0MjEtMjg3ZGY2OTBlYmRiIiwiaXNzdWVkX2F0IjoxNzU3NTE3NDk2fQ.qbfTzSEKBbEJu25Xn6koTvhy4QMGP58DCYuEbKYIqX0
