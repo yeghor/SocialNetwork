@@ -1,5 +1,7 @@
 from typing import Literal, Type, TypeVar
 
+from sklearn.calibration import CalibratedClassifierCV
+
 # Service Layer Exceptions
 class EmptyPostsError(Exception):
     """Gets raised in ChromaDB service. Raise if provided post list empty"""
@@ -70,7 +72,6 @@ class UnauthorizedExc(EndpointExcConstructor):
 # CLIENT SAFE MESSAGE DOES NOT SPECIFY ANY SPECIFIC ERROR DATA
 
 class ClientSafeServiceError(ServiceLayerBaseBound):
-
     def __init__(self, detail: str, client_safe_detail: str):
         self.client_safe_detail = client_safe_detail
         super().__init__(detail)
@@ -83,7 +84,10 @@ class ResourceNotFound(ClientSafeServiceError):
 
 # 401 PROVIDE SPECIFIED INFO WHEN IT'S SAFE
 class Unauthorized(ClientSafeServiceError):
-    """Authorization failed? Raise this"""
+    """Authorization failed? Raise this."""
+    
+class UnauthorizedInWebocket(ClientSafeServiceError):
+    """Raise in websocket and don't re raise HttpException to this."""
 
 
 # 400 PROVIDE SPECIFIED USER ACTION IN DEV DETAIL (FIRST ARG) AND REGULAR CLIENT ERROR IN `client_safe_detail`

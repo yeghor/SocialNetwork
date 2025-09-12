@@ -1,9 +1,13 @@
+from sqlite3 import _AnyParamWindowAggregateClass
+from tkinter.tix import STATUS
 from fastapi import HTTPException
 from dotenv import load_dotenv
 from os import getenv
 from functools import wraps
 
-from fastapi import WebSocketDisconnect, WebSocketException, WebSocket
+from fastapi import WebSocketDisconnect, WebSocketException, WebSocket, HTTPException, UnauthorizedInWebocket
+from pydantic import ValidationError
+from sqlalchemy import UnaryExpression
 
 load_dotenv()
 Debug = getenv("DEBUG").lower().capitalize().strip()
@@ -76,6 +80,36 @@ def web_exceptions_raiser(func):
 
     return wrapper
 
+
+def ws_endpoint_exception_handler(func):
+    async def wrapper(websocket: WebSocket, *args, **kwargs):
+        try:
+           return await func(websocket, *args, **kwargs)
+        except ValidationError as e:
+            logging.log(level=logging.WARNING, msg="WSEndpointErrorHandler: Websocket handler received invalid ExpectedWSData schema data.", exc_info=e)
+            await websocket.close(code=4001, reason="Data does not match excpected schema.")
+
+        except UnauthorizedExc as e:
+            logging.log(level=logging.WARNING, msg=str(e), exc_info=e)
+            raise HTTPException(detail=e.client_safe_detail, status_code=e.status_code)
+        
+        except InvalidAction as e:
+            logging.log(level=logging.WARNING, msg=str(e), exc_info=e)
+            await websocket.close(code=1008, reason=e.client_safe_detail)
+
+        except UnauthorizedInWebocket as e:
+            logging.log(level=logging.WARNING, msg=str(e), exc_info=e)
+            await websocket.close(code=3000, reason=e.client_safe_detail)
+        
+        except ResourceNotFound as e:
+            logging.log(level=logging.ERROR, msg=str(e), exc_info=e)
+            await websocket.close(code=1011, reason=e.client_safe_detail)
+
+        except Exception as e:
+            logging.log(level=logging.CRITICAL, msg=str(e), exc_info=e)
+            await websocket.close(code=1011, reason=INTERNAL_SERVER_ERROR_CLIENT_MESSAGE)
+
+    return wrapper
 
 # def ws_endpoint_exception_handler(func):
 #     async def wrapper(websocket: WebSocket, *args, **kwargs):

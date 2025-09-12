@@ -47,7 +47,7 @@ class MainServiceAuth(MainServiceBase):
         """Returns original token"""
 
         if not await self._RedisService.check_chat_token_existense(chat_token=token):
-            raise Unauthorized(detail=f"AuthService: User tried to connected to th ws chat by expired chat token: {token}", client_safe_detail="Invalid or expired token")
+            raise UnauthorizedExc(dev_log_detail=f"AuthService: User tried to connected to th ws chat by expired chat token: {token}", client_safe_detail="Invalid or expired token")
         
         return token
 

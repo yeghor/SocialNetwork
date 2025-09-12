@@ -6,7 +6,7 @@ from services.core_services.core_services import MainServiceContextManager
 from websockets_chat.connection_manager import WebsocketConnectionManager
 
 from exceptions.custom_exceptions import WSInvalidData, NoActiveConnectionsOrRoomDoesNotExist
-from exceptions.exceptions_handler import endpoint_exception_handler
+from exceptions.exceptions_handler import endpoint_exception_handler, ws_endpoint_exception_handler
 
 from pydantic_schemas.pydantic_schemas_chat import *
 from typing import List
@@ -106,14 +106,14 @@ async def wsconnect(token: str, websocket: WebSocket) -> ChatJWTPayload:
     return connection_data
 
 @chat.websocket("/ws/{token}")
-# @ws_endpoint_exception_handler
+@ws_endpoint_exception_handler
 async def connect_to_websocket_chat_room(
     websocket: WebSocket,
     token: str = Depends(authorize_chat_token),
     session: AsyncSession = Depends(get_session_depends)
 ):
     connection_data = await wsconnect(token=token, websocket=websocket)
-
+    
     try:
         while True:
             json_dict = await websocket.receive_json()
