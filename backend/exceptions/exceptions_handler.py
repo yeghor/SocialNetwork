@@ -1,11 +1,11 @@
-from sqlite3 import _AnyParamWindowAggregateClass
 from tkinter.tix import STATUS
 from fastapi import HTTPException
 from dotenv import load_dotenv
 from os import getenv
 from functools import wraps
 
-from fastapi import WebSocketDisconnect, WebSocketException, WebSocket, HTTPException, UnauthorizedInWebocket
+from fastapi import WebSocketDisconnect, WebSocketException, WebSocket, HTTPException
+from exceptions.custom_exceptions import UnauthorizedInWebocket
 from pydantic import ValidationError
 from sqlalchemy import UnaryExpression
 
