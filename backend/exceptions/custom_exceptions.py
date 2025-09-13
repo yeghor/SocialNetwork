@@ -1,7 +1,6 @@
 from typing import Literal, Type, TypeVar
 
 from grpc import ClientCallDetails
-from sklearn.calibration import CalibratedClassifierCV
 
 # Service Layer Exceptions
 class EmptyPostsError(Exception):

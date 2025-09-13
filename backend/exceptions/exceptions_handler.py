@@ -1,4 +1,3 @@
-from tkinter.tix import STATUS
 from fastapi import HTTPException
 from dotenv import load_dotenv
 from os import getenv
