@@ -130,7 +130,7 @@ def ws_endpoint_exception_handler(func):
             except Exception as e:
                 logging.log(level=logging.CRITICAL, msg=f"WSEndpointErrorHandler: Uknown Exception occured {str(e)}", exc_info=True)
                 await websocket.close(code=1011, reason=INTERNAL_SERVER_ERROR_CLIENT_MESSAGE)
-                
+
         elif Debug == "True":
             return await func(websocket, *args, **kwargs)
 

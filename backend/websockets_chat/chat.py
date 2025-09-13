@@ -22,14 +22,14 @@ connection = WebsocketConnectionManager()
 
 @chat.get("/chat/connect/{chat_id}")
 # @endpoint_exception_handler
-async def get_chat_token(
+async def get_chat_token_participants_avatar_urls(
     chat_id: str,
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
 ) -> ChatTokenResponse:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
-        return await chat.get_chat_token(room_id=chat_id, user=user)
+        return await chat.get_chat_token_participants_avatar_urls(room_id=chat_id, user=user)
 
 @chat.get("/chat/{chat_id}/messages")
 @endpoint_exception_handler

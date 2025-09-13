@@ -1,4 +1,8 @@
+from tkinter import image_names
+from turtle import pos
+from django import views
 from fastapi import HTTPException
+from streamlit import image
 
 from services.core_services import MainServiceBase
 from services.postgres_service.models import *
@@ -81,6 +85,32 @@ class MainServiceSocial(MainServiceBase):
 
         if return_posts_too: return (ids, posts)
         else: return ids
+        
+    async def _construct_and_flush_action(self, action_type: ActionType, user: User, post: Post = None) -> None:
+        """Protected method. Do NOT call this method outside the class"""
+
+        if await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=action_type):
+            if action_type == ActionType.view:
+                if not await self._RedisService.check_view_timeout(id_=post.post_id, user_id=user.user_id):
+                    return
+            elif action_type == ActionType.reply:
+                # TODO: Reply populatiry rate evaluation
+                pass
+            else:
+                raise InvalidAction(detail=f"SocialService: User: {user.user_id} tried to reply to give already giver action: {action_type.value} to post: {post.post_id} that does not exists.", client_safe_detail="This action is already given to this post.")
+
+        if action_type == ActionType.view:
+            await self._RedisService.add_view(user_id=user.user_id, id_=post.post_id)
+
+        self.change_post_rate(post=post, action_type=action_type, add=True)
+
+        action = PostActions(
+            action_id=str(uuid4()),
+            owner_id=user.user_id,
+            post_id=post.post_id,
+            action=action_type,
+        )
+        await self._PostgresService.insert_models_and_flush(action)
 
     @web_exceptions_raiser
     async def sync_postgres_chroma_DEV_METHOD(self) -> None:
@@ -135,7 +165,19 @@ class MainServiceSocial(MainServiceBase):
         
         posts = await self._PostgresService.get_entries_by_ids(ids=all_ids, ModelType=Post)
         posts = self._shuffle_posts(posts=posts)
-        return [PostLiteSchema.model_validate(post, from_attributes=True) for post in posts]
+
+
+        return [
+            PostLiteSchema(
+                post_id=post.post_id,
+                title=post.title,
+                published=post.published,
+                is_reply=post.is_reply,
+                owner=post.owner,
+                pictures_urls= await self._ImageStorage.get_post_image_urls(images_names=[post_image.image_name for post_image in post.images]),
+                parent_post=post.parent_post
+            ) for post in posts
+            ]
 
     @web_exceptions_raiser
     async def get_followed_posts(self, user: User, exclude: bool) -> List[PostLiteSchema]:
@@ -150,8 +192,17 @@ class MainServiceSocial(MainServiceBase):
 
         posts = self._shuffle_posts(posts=posts)
 
-        return [PostLiteSchema.model_validate(post, from_attributes=True) for post in posts]
-
+        return [
+            PostLiteSchema(
+                post_id=post.post_id,
+                title=post.title,
+                published=post.published,
+                is_reply=post.is_reply,
+                owner=post.owner,
+                pictures_urls= await self._ImageStorage.get_post_image_urls(images_names=[post_image.image_name for post_image in post.images]),
+                parent_post=post.parent_post
+            ) for post in posts
+            ]
     @web_exceptions_raiser
     async def search_posts(self, prompt: str, user: User, exclude: bool) -> List[PostLiteSchema]:
         """
@@ -169,7 +220,17 @@ class MainServiceSocial(MainServiceBase):
 
         await self._RedisService.add_exclude_post_ids(post_ids=post_ids, user_id=user.user_id, exclude_type="search")
 
-        return [PostLiteSchema.model_validate(post, from_attributes=True) for post in posts]
+        return [
+            PostLiteSchema(
+                post_id=post.post_id,
+                title=post.title,
+                published=post.published,
+                is_reply=post.is_reply,
+                owner=post.owner,
+                pictures_urls= await self._ImageStorage.get_post_image_urls(images_names=[post_image.image_name for post_image in post.images]),
+                parent_post=post.parent_post
+            ) for post in posts
+            ]
 
     @web_exceptions_raiser
     async def search_users(self, prompt: str,  request_user: User) -> List[UserLiteSchema]:
@@ -202,6 +263,11 @@ class MainServiceSocial(MainServiceBase):
         else:
             parent_post_validated = None
 
+        post_images_urls = await self._ImageStorage.get_post_image_urls(image_names=[image.image_name for image in post.images])
+
+        post_likes = await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=ActionType.like)
+        post_views = await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=ActionType.view)
+
         return PostSchema(
             post_id=post.post_id,
             owner=UserShortSchema.model_validate(user, from_attributes=True),
@@ -212,34 +278,11 @@ class MainServiceSocial(MainServiceBase):
             parent_post=parent_post_validated,
             replies=[],
             pictures_urls=[],
-            is_reply=post.is_reply
+            is_reply=post.is_reply,
+            likes=len(post_likes),
+            views=len(post_views)
         )
 
-    async def _construct_and_flush_action(self, action_type: ActionType, user: User, post: Post = None) -> None:
-        """Protected method. Do NOT call this method outside the class"""
-
-        if await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=action_type):
-            if action_type == ActionType.view:
-                if not await self._RedisService.check_view_timeout(id_=post.post_id, user_id=user.user_id):
-                    return
-            elif action_type == ActionType.reply:
-                # TODO: Reply populatiry rate evaluation
-                pass
-            else:
-                raise InvalidAction(detail=f"SocialService: User: {user.user_id} tried to reply to give already giver action: {action_type.value} to post: {post.post_id} that does not exists.", client_safe_detail="This action is already given to this post.")
-
-        if action_type == ActionType.view:
-            await self._RedisService.add_view(user_id=user.user_id, id_=post.post_id)
-
-        self.change_post_rate(post=post, action_type=action_type, add=True)
-
-        action = PostActions(
-            action_id=str(uuid4()),
-            owner_id=user.user_id,
-            post_id=post.post_id,
-            action=action_type,
-        )
-        await self._PostgresService.insert_models_and_flush(action)
 
     @web_exceptions_raiser
     async def remove_action(self, user: User, post: Post, action_type: ActionType) -> None:
@@ -336,7 +379,17 @@ class MainServiceSocial(MainServiceBase):
 
         await self._RedisService.add_exclude_post_ids(post_ids=[post.post_id for post in posts], user_id=user_id, exclude_type="")
 
-        return [PostLiteSchema.model_validate(post, from_attributes=True) for post in posts]
+        return [
+            PostLiteSchema(
+                post_id=post.post_id,
+                title=post.title,
+                published=post.published,
+                is_reply=post.is_reply,
+                owner=post.owner,
+                pictures_urls= await self._ImageStorage.get_post_image_urls(images_names=[post_image.image_name for post_image in post.images]),
+                parent_post=post.parent_post
+            ) for post in posts
+            ]
     
     @web_exceptions_raiser
     async def get_my_profile(self, user: User) -> UserSchema:
@@ -370,30 +423,20 @@ class MainServiceSocial(MainServiceBase):
 
         await self._PostgresService.refresh_model(model_obj=post)
 
-        liked_by = await self._PostgresService.get_post_action_by_type(post_id=post.post_id, action_type=ActionType.like) 
-        viewed_by = await self._PostgresService.get_post_action_by_type(post_id=post.post_id, action_type=ActionType.view) 
-
-        viewed_by_validated = None
-
-        if post.owner_id == user.user_id:
-            viewed_by_validated = [UserShortSchema.model_validate(action.owner, from_attributes=True) for action in viewed_by if action]
-        liked_by_validated = [UserShortSchema.model_validate(action.owner, from_attributes=True) for action in liked_by if action]
+        post_likes = await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=ActionType.like)
+        post_views = await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=ActionType.view)
 
         filenames = [filename.image_name for filename in post.images]
         images_temp_urls = await self._ImageStorage.get_post_image_urls(image_names=filenames)
-
 
         return PostSchema(
             post_id=post.post_id,
             title=post.title,
             text=post.text,
-            image_path=None,
             published=post.published,
             owner=UserShortSchema.model_validate(post.owner, from_attributes=True),
-            liked_by=liked_by_validated,
-            likes=len(liked_by),
-            viewed_by=viewed_by_validated,
-            views=len(viewed_by),
+            likes=len(post_likes),
+            views=len(post_views),
             parent_post=parent_post,
             last_updated=post.last_updated,
             pictures_urls=images_temp_urls,
@@ -401,7 +444,7 @@ class MainServiceSocial(MainServiceBase):
         )
 
     @web_exceptions_raiser
-    async def load_comments(self, post_id: str, user_id: str, exclude: bool):
+    async def load_replies(self, post_id: str, user_id: str, exclude: bool):
         if exclude:
             exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user_id, exclude_type="reply-list")
         else:

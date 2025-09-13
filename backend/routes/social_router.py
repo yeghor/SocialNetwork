@@ -108,7 +108,7 @@ async def load_comments(
 ) -> List[PostBase]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        return await social.load_comments(post_id=post_id, user_id=user.user_id, exclude=exclude)
+        return await social.load_replies(post_id=post_id, user_id=user.user_id, exclude=exclude)
 
 @social.patch("/posts/{post_id}")
 @endpoint_exception_handler

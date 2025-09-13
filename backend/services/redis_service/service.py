@@ -82,61 +82,56 @@ class RedisService:
     @staticmethod
     def _get_expiry(SPECIFIC_TOKEN_EXPIRY_IN_SECONDS: int) -> str:
         return datetime.strftime(datetime.fromtimestamp(datetime.utcnow().timestamp() + SPECIFIC_TOKEN_EXPIRY_IN_SECONDS), DATETIME_BASE_FORMAT)
-        
+    
     def __init__(self, db_pool: str = "prod"):
         """
         To switch to the test pool - assign db_pool to "test" \n
         If host equal to None - "localhost"
         """
-        try:
-            self.__client = async_redis.Redis(
-                host=REDIS_HOST,
-                port=REDIS_PORT,
-                db=self._chose_pool(db_pool),
-                decode_responses=True,
-            )
 
-            # Jwt
-            self.__jwt_acces_prefix = "acces-jwt-token:"
-            self.__jwt_refresh_prefix = "refresh-jwt-token:"
+        self.__client = async_redis.Redis(
+            host=REDIS_HOST,
+            port=REDIS_PORT,
+            db=self._chose_pool(db_pool),
+            decode_responses=True,
+        )
 
-            self.__post_view_timeout_prefix_1 = "post-view-timeout-user-"
-            self.__post_view_timeout_prefix_2 = "post:"
+        # Jwt
+        self.__jwt_acces_prefix = "acces-jwt-token:"
+        self.__jwt_refresh_prefix = "refresh-jwt-token:"
+
+        self.__post_view_timeout_prefix_1 = "post-view-timeout-user-"
+        self.__post_view_timeout_prefix_2 = "post:"
 
 
-            # Chat
+        # Chat
 
-            self.__chat_token_prefix = "chat-jwt-token:"
+        self.__chat_token_prefix = "chat-jwt-token:"
 
-            # ========
+        # ========
 
-            # Exclude posts
-            # Universal exclude posts second prefix
-            self.__exclude_posts_prefix_2 = "-post:"
+        # Exclude posts
+        # Universal exclude posts second prefix
+        self.__exclude_posts_prefix_2 = "-post:"
 
-            self.__exclude_posts_feed_prefix_1 = "exclude-posts-feed-user-"
-            self.__exclude_posts_search_prefix_1 = "exclude-posts-search-user-"
-            self.__exclude_posts_viewed_prefix_1 = "exclude-posts-viewed-user-"
-            self.__exclude_replies_prefix_1 = "exclude-replies-viewed-user-"
+        self.__exclude_posts_feed_prefix_1 = "exclude-posts-feed-user-"
+        self.__exclude_posts_search_prefix_1 = "exclude-posts-search-user-"
+        self.__exclude_posts_viewed_prefix_1 = "exclude-posts-viewed-user-"
+        self.__exclude_replies_prefix_1 = "exclude-replies-viewed-user-"
 
-            # Exclude chats/messages
-            self.__exclude_chat_prefix_2 = "-excluding:"
+        # Exclude chats/messages
+        self.__exclude_chat_prefix_2 = "-excluding:"
 
-            self.__exclude_chat_prefix_1 = "exclude-chat-user-"
-            self.__exclude_message_prefix_1 = "exclude-message-user-"
-            self.__exclude_not_approved_chats_prefix_1 = "exclude-not-approved-chats-user-"
+        self.__exclude_chat_prefix_1 = "exclude-chat-user-"
+        self.__exclude_message_prefix_1 = "exclude-message-user-"
+        self.__exclude_not_approved_chats_prefix_1 = "exclude-not-approved-chats-user-"
 
-            # ========
-            # Image acces tokens prefix
-            self.__post_image_acces_prefix = "post-image-acces:"
-            self.__user_image_acces_prefix = "user-image-acces:"
- 
-            # ========
-            self.__split_value_string_by = "-"
+        # ========
+        # Image acces tokens prefix
+        self.__post_image_acces_prefix = "post-image-acces:"
+        self.__user_image_acces_prefix = "user-image-acces:"
 
-        except redis_exceptions.RedisError:
-            raise HTTPException(status_code=500, detail="Connection to redis failed")
-    
+
     # ===============
     # JWT tokens logic
     # ==============

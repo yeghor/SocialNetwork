@@ -46,6 +46,8 @@ class PostBaseShort(PostIDValidate):
 class PostBase(PostBaseShort):
     owner: UserShortSchema | None
 
+    pictures_urls: List[str]
+
 class PostLiteSchema(PostBase):
     parent_post: PostBase | None
 
@@ -53,18 +55,12 @@ class PostLiteSchema(PostBase):
 class PostSchema(PostBase):
     text: str
 
-    liked_by: List[UserShortSchema]
     likes: int = 0
     views: int = 0
 
     last_updated: datetime
 
     parent_post: PostBase | None
-
-    pictures_urls: List[str]
-
-    # Owner stats. Private field: post_id == user_id
-    viewed_by: List[UserShortSchema] | None = None
 
 
 # =====================

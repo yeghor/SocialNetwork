@@ -1,3 +1,5 @@
+from altair import Url
+from openai import chat
 from services.core_services import MainServiceBase
 from services.postgres_service.models import *
 from exceptions.custom_exceptions import *
@@ -50,11 +52,18 @@ class MainChatService(MainServiceBase):
             return await self.delete_message(message_data=request_data, user_data=connection_data)
 
     # @web_exceptions_raiser
-    async def get_chat_token(self, room_id: str, user: User) -> ChatTokenResponse:
-        await self._get_and_authorize_chat_room(room_id=room_id, user_id=user.user_id, return_chat_room=False)
+    async def get_chat_token_participants_avatar_urls(self, room_id: str, user: User) -> ChatTokenResponse:
+        chat_room = await self._get_and_authorize_chat_room(room_id=room_id, user_id=user.user_id, return_chat_room=True)
         chat_token = await self._JWT.generate_save_chat_token(room_id=room_id, user_id=user.user_id, redis=self._RedisService)
 
-        return ChatTokenResponse(token=chat_token)
+        avatar_urls = []
+
+        for participant in chat_room.participants:
+            url = await self._ImageStorage.get_user_avatar_url(participant.user_id)
+            if url:
+                avatar_urls.append(url)
+
+        return ChatTokenResponse(token=chat_token, participants_avatar_urls=avatar_urls)
 
     @web_exceptions_raiser
     async def get_messages_batch(self, room_id: str, user: User, exclude: bool) -> List[MessageSchema]:

@@ -79,8 +79,8 @@ class ImageStorageABC(ABC):
         """Deletes user avatar. If not image - pass"""
 
     @abstractmethod
-    async def get_post_image_urls(self, image_name: str) -> List[str]:
-        """Get temprorary n's post image URL with jwt token in URL including. Returns None, if not post image"""
+    async def get_post_image_urls(self, images_names: str) -> List[str]:
+        """Get temprorary n's post image URL with jwt token in URL including. Returns empty list, if not post image"""
 
     @abstractmethod
     async def get_user_avatar_url(self, user_id: str) -> str | None:
@@ -108,10 +108,6 @@ class S3Storage(ImageStorageABC):
             return False
         
         return True
-    
-    @staticmethod
-    def _guess_mime(file_bytes: bytes) -> str:
-        return magic.from_buffer(buffer=file_bytes, mime=True)
 
     def __init__(self, mode: Literal["prod", "test"]):
         self._session = get_session()
@@ -189,10 +185,10 @@ class S3Storage(ImageStorageABC):
             except Exception as e:
                 raise MediaError(f"S3 Storage: Failed to delete user avatar: {e}") from e
 
-    async def get_post_image_urls(self, image_names: List[str]) -> List[str]:
+    async def get_post_image_urls(self, images_names: List[str]) -> List[str]:
         async with self._client() as s3:
             urls = []
-            for image_name in image_names:
+            for image_name in images_names:
                 try:
                     url = await s3.generate_presigned_url(
                         "get_object",
@@ -202,7 +198,7 @@ class S3Storage(ImageStorageABC):
                     if url:
                         urls.append(url)
                 except Exception as e:
-                    raise MediaError(f"S3 Storage: Failed to get post images presigned URLs. Images names: {image_names}. Exception: {e}") from e
+                    raise MediaError(f"S3 Storage: Failed to get post images presigned URLs. Images names: {images_names}. Exception: {e}") from e
             
             return urls
 

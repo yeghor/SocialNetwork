@@ -47,6 +47,8 @@ class MessageSchemaShortActionIncluded(MessageSchemaShort, ActionIncluded):
 class ChatTokenResponse(BaseModel):
     token: str
 
+    participants_avatar_urls: List[str]
+
 class CreateChatBodyBase(BaseModel):
     message: str
 
