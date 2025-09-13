@@ -43,7 +43,7 @@ def validate_password(password: str) -> None:
     valid_flag = any(char.isupper() for char in password)
 
     if not valid_flag:
-        raise ValidationError(detail=f"Password validation failed", client_safe_detail=f"Password is too weak. At least one number and upper letter")
+        raise ValidationErrorExc(detail=f"Password validation failed", client_safe_detail=f"Password is too weak. At least one number and upper letter")
     
     if not PASSWORD_MIN_L <= len(password) <= PASSWORD_MAX_L:
-        raise ValidationError(detail=f"Password validation failed", client_safe_detail=f"Password length is out of range. Must be from {PASSWORD_MIN_L} to {PASSWORD_MAX_L} chars.")
+        raise ValidationErrorExc(detail=f"Password validation failed", client_safe_detail=f"Password length is out of range. Must be from {PASSWORD_MIN_L} to {PASSWORD_MAX_L} chars.")

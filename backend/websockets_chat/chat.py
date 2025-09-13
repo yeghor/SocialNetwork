@@ -1,3 +1,4 @@
+import json
 from fastapi import WebSocket, WebSocketDisconnect, APIRouter, Depends, Body
 from authorization import authorize_request_depends, authorize_chat_token, JWTService
 from services.postgres_service import User, get_session_depends, merge_model
@@ -113,11 +114,13 @@ async def connect_to_websocket_chat_room(
     session: AsyncSession = Depends(get_session_depends)
 ):
     connection_data = await wsconnect(token=token, websocket=websocket)
-    
+
     try:
         while True:
             json_dict = await websocket.receive_json()
-            request_data = ExpectedWSData(**json_dict)
+
+            # If in json_dict enough data - it passes not related fields
+            request_data = ExpectedWSData.model_validate(json_dict, strict=True)
 
             async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
                 db_message_data = await chat.execute_action(request_data=request_data, connection_data=connection_data)

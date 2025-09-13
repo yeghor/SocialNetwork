@@ -1,12 +1,21 @@
+from json import load
 from pydantic import BaseModel, Field, model_validator, field_validator
 from typing import List, Literal, Any
 from typing_extensions import Self
 from datetime import datetime
 from pydantic_schemas.pydantic_schemas_social import UserShortSchema
-from exceptions.custom_exceptions import WSInvalidData
+from exceptions.custom_exceptions import WSInvalidData, WSMessageIsTooBig
 from services.postgres_service import User
+from dotenv import load_dotenv
+from os import getenv
+
+
 
 ActionType = Literal["send", "change", "delete"]
+
+load_dotenv()
+
+MESSAGE_MAX_LEN = int(getenv("MESSAGE_MAX_LEN", "5000"))
 
 class Chat(BaseModel):
     chat_id: str
@@ -64,6 +73,13 @@ class ExpectedWSData(BaseModel):
         else:
             if not self.message:
                 raise WSInvalidData(f"Pydantic ExpectedWSData: The Schema received invalid data. Action - {self.action}. Message missing.")
+
+        if self.message:
+            if len(self.message) > MESSAGE_MAX_LEN:
+                raise WSMessageIsTooBig(
+                    detail=f"Pydantic ExpectedWSData: The schema received message that is too big. Length: {len(self.message)}.",
+                    client_safe_detail=f"Message length can't be greater than 5000 chars"
+                )
 
         return self
     

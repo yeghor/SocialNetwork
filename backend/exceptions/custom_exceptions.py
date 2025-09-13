@@ -1,5 +1,6 @@
 from typing import Literal, Type, TypeVar
 
+from grpc import ClientCallDetails
 from sklearn.calibration import CalibratedClassifierCV
 
 # Service Layer Exceptions
@@ -9,10 +10,10 @@ class EmptyPostsError(Exception):
 class ServiceLayerBaseBound(Exception):
     """Use in TypeVar"""
 
-
 class WSInvalidData(Exception):
     """Gets raised when user sent through Websockets invalid `json` data"""
-    
+
+
 class NoActiveConnectionsOrRoomDoesNotExist(Exception):
     """Gets raised when no active connections on room id or it's not exist"""
 
@@ -103,8 +104,12 @@ class LimitReached(ClientSafeServiceError):
 class InvalidResourceProvided(ClientSafeServiceError):
     """Raise whenever user's content corrupted or does not fits application rules"""
 
-class ValidationError(ClientSafeServiceError):
+class ValidationErrorExc(ClientSafeServiceError):
     """Raise in cases provided user data does not valid, for example email validation did not get through regular expressions"""
+
+# Only for Websocket case. Don't catch in service layer exception handler
+class WSMessageIsTooBig(ClientSafeServiceError):
+    pass
 
 # 409  
 class Collision(ClientSafeServiceError):

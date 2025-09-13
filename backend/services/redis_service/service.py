@@ -1,6 +1,8 @@
 import redis.asyncio as async_redis
 import redis.exceptions as redis_exceptions
-from fastapi.exceptions import HTTPException
+
+from exceptions.custom_exceptions import RedisError
+
 from dotenv import load_dotenv
 from os import getenv
 from typing import Optional, Literal, List
@@ -21,7 +23,7 @@ CHAT_TOKEN_EXPIRY_SECONDS = int(getenv("CHAT_TOKEN_EXPIRY_SECONDS"))
 REDIS_HOST = getenv("REDIS_HOST")
 REDIS_PORT = int(getenv("REDIS_PORT"))
 
-ExcludePostType = Literal["search", "feed", "view", "reply-list"] # TODO: Change "viewed" to "view"
+ExcludePostType = Literal["search", "feed", "view", "reply-list"]
 ImageType = Literal["post", "user"]
 ChatType = Literal["message", "chat", "not-approved"]
 
@@ -31,9 +33,9 @@ def redis_error_handler(func):
         try:
             return await func(*args, **kwargs)
         except redis_exceptions.RedisError as e:
-            raise HTTPException(status_code=500, detail=f"Action with Redis failed: {e}")
+            raise RedisError(f"RedisService: RedisError exception occured: {e}")
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Unkown erro while working with Redis occured: {e}")
+            raise RedisError(f"RedisService: Uknown exception occured: {e}")
     return wrapper
 
 

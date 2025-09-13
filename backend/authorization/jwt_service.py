@@ -42,7 +42,7 @@ class JWTService:
         This method validates and removes "Bearer " prefix from token
         """
         if not jwt_token.startswith("Bearer ") or not jwt_token:
-            raise ValidationError(detail=f"JWTService: provided jwt: {jwt_token} did not pass startswith('Bearer') check.", client_safe_detail="Invalid token")
+            raise ValidationErrorExc(detail=f"JWTService: provided jwt: {jwt_token} did not pass startswith('Bearer') check.", client_safe_detail="Invalid token")
         return jwt_token.removeprefix("Bearer ")
 
     @classmethod
