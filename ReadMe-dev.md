@@ -9,7 +9,18 @@ Filenames **must** be unique
 
 ## Dependencies
 Required pips on Windows:
+```bash
 pip install python-magic-bin==0.4.14
+```
+
+
+On Windows: In case error: Module magic has no attribute magic.from_buffer(...) ...
+```bash
+pip uninstall python-magic
+pip install python-magic
+pip install python-magic-bin==0.4.14
+```
+
 
 ### AWS CLI
 If this error: The AWS Access Key Id you provided does not exist in our records.
@@ -32,6 +43,11 @@ Exception handlers decorators rules:
 1. Use exception handler decorators only in functions that don't raise any exceptions that the decorator not handling. 
 2. Use exception handler decorators only if functions that being called outside the class. (It handles, but follow thi rule)
 
+Caution! The Pydantic **ValidationError** can be occured in two cases:
+- ISE, code 500. When code interactions with pydantic schema is invalid
+- BR, code 400. When user sends invalid data
+
+So, if there is error in code - check "BadRequest Invalid request data received" logs
 
 ## Chats
 

@@ -82,7 +82,7 @@ class MainChatService(MainServiceBase):
             user_id=user.user_id,
             exclude_type="message"
         )
-        
+
         return [
             MessageSchema.model_validate(message, from_attributes=True)
             for message in message_batch
