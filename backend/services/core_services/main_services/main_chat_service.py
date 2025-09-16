@@ -1,5 +1,3 @@
-from altair import Url
-from openai import chat
 from services.core_services import MainServiceBase
 from services.postgres_service.models import *
 from exceptions.custom_exceptions import *

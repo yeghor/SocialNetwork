@@ -5,7 +5,6 @@ from functools import wraps
 
 from fastapi import WebSocketDisconnect, WebSocketException, WebSocket, HTTPException
 from json.decoder import JSONDecodeError
-from narwhals import exclude
 from pydantic import ValidationError
 from sqlalchemy import UnaryExpression
 

@@ -1,9 +1,4 @@
-from tkinter import image_names
-from turtle import pos
-from django import views
-from fastapi import HTTPException
-from streamlit import image
-
+from tkinter import PAGES
 from services.core_services import MainServiceBase
 from services.postgres_service.models import *
 from post_popularity_rate_task.popularity_rate import POST_ACTIONS
@@ -41,6 +36,11 @@ MINIMUM_USER_HISTORY_LENGTH = int(getenv("MINIMUM_USER_HISTORY_LENGTH"))
 SHUFFLE_BY_RATE = float(getenv("SHUFFLE_BY_RATE", "0.7"))
 SHUFFLE_BY_TIMESTAMP = float(getenv("SHUFFLE_BY_TIMESTAMP", "0.3"))
 
+
+BASE_PAGINATION = int(getenv("BASE_PAGINATION"))
+DIVIDE_BASE_PAG_BY = int(getenv("DIVIDE_BASE_PAG_BY"))
+SMALL_PAGINATION = int(getenv("SMALL_PAGINATION"))
+
 T = TypeVar("T", bound=Base)
 
 class IdsPostTuple(NamedTuple):
@@ -59,7 +59,7 @@ class MainServiceSocial(MainServiceBase):
             post.popularity_rate -= cost
 
     @staticmethod
-    def extend_list(*lists: Iterable) -> List:
+    def combine_lists(*lists: Iterable) -> List:
         to_return = []
         for lst in lists:
             to_return.extend(lst)
@@ -124,17 +124,15 @@ class MainServiceSocial(MainServiceBase):
         return await self._PostgresService.get_all_from_model(ModelType=ModelType)
 
     @web_exceptions_raiser
-    async def get_feed(self, user: User, exclude: bool) -> List[PostLiteSchema]:
+    async def get_feed(self, user: User, page: int) -> List[PostLiteSchema]:
         """`
         Returns related posts to provided User table object view history \n
         It mixes history rated with most popular posts, and newest ones.
         Caution! If `exclude` set to True. It means that user clicked on `Load more` button and we need to update Redis exclude ids with fresh loaded. And ensure that we load non repeating posts \n
         """
-        exclude_ids = []
-        if exclude:
-            exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user.user_id, exclude_type="feed")
-        else:
-            await self._RedisService.clear_exclude(exclude_type="feed", user_id=user.user_id)
+
+        EACH_SOURCE_PAGINATION = int(BASE_PAGINATION / DIVIDE_BASE_PAG_BY) * page
+
 
         views_history = await self._PostgresService.get_user_actions(user_id=user.user_id, action_type=ActionType.view, n_most_fresh=HISTORY_POSTS_TO_TAKE_INTO_RELATED, return_posts=True)
         liked_history = await self._PostgresService.get_user_actions(user_id=user.user_id, action_type=ActionType.like, n_most_fresh=LIKED_POSTS_TO_TAKE_INTO_RELATED, return_posts=True)
@@ -142,26 +140,26 @@ class MainServiceSocial(MainServiceBase):
 
         # History related mix
         related_ids = []
+
         if len(views_history) > MINIMUM_USER_HISTORY_LENGTH:
-            related_ids = await self._ChromaService.get_n_related_posts_ids(user=user, exclude_ids=exclude_ids, post_relation=history_posts_relation)
+            related_ids = await self._ChromaService.get_n_related_posts_ids(user=user, page=page, post_relation=history_posts_relation, pagination=EACH_SOURCE_PAGINATION)
         
         if not related_ids:
-            related_ids = await self._get_ids_by_query_type(exclude_ids=exclude_ids, user=user, n=MIX_HISTORY_POSTS_RELATED, id_type="fresh")
+            related_ids = await self._get_ids_by_query_type(page=page, user=user, n=MIX_HISTORY_POSTS_RELATED, id_type="fresh")
 
-        exclude_ids.extend(related_ids)
 
         # Following mix
-        following_ids =  await self._get_ids_by_query_type(user=user, exclude_ids=exclude_ids, n=MIX_FOLLOWING, id_type="followed")
+        following_ids =  await self._get_ids_by_query_type(user=user, page=page, n=MIX_FOLLOWING, id_type="followed")
         if not following_ids:
-            following_ids = await self._get_ids_by_query_type(user=user, exclude_ids=exclude_ids, n=MIX_FOLLOWING, id_type="fresh")
-        exclude_ids.extend(following_ids)
+            following_ids = await self._get_ids_by_query_type(user=user, page=page, n=MIX_FOLLOWING, id_type="fresh")
+
 
         # Mix unrelevant
-        unrelevant_ids = await self._get_ids_by_query_type(user=user, exclude_ids=exclude_ids, n=MIX_UNRELEVANT, id_type="fresh")
+        unrelevant_ids = await self._get_ids_by_query_type(user=user, page=page, n=MIX_UNRELEVANT, id_type="fresh")
 
-        all_ids = self.extend_list(related_ids, following_ids, unrelevant_ids)
 
-        await self._RedisService.add_exclude_post_ids(post_ids=all_ids, user_id=user.user_id, exclude_type="feed")
+        all_ids = self.combine_lists(related_ids, following_ids, unrelevant_ids)
+
         
         posts = await self._PostgresService.get_entries_by_ids(ids=all_ids, ModelType=Post)
         posts = self._shuffle_posts(posts=posts)
@@ -180,7 +178,7 @@ class MainServiceSocial(MainServiceBase):
             ]
 
     @web_exceptions_raiser
-    async def get_followed_posts(self, user: User, exclude: bool) -> List[PostLiteSchema]:
+    async def get_followed_posts(self, user: User, page: int) -> List[PostLiteSchema]:
         exclude_ids = []
         if exclude:
             exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user.user_id, exclude_type="feed")
@@ -204,7 +202,7 @@ class MainServiceSocial(MainServiceBase):
             ) for post in posts
             ]
     @web_exceptions_raiser
-    async def search_posts(self, prompt: str, user: User, exclude: bool) -> List[PostLiteSchema]:
+    async def search_posts(self, prompt: str, user: User, page: int) -> List[PostLiteSchema]:
         """
         Search posts that similar with meaning with prompt
         """
@@ -444,7 +442,7 @@ class MainServiceSocial(MainServiceBase):
         )
 
     @web_exceptions_raiser
-    async def load_replies(self, post_id: str, user_id: str, exclude: bool):
+    async def load_replies(self, post_id: str, user_id: str, page: int):
         if exclude:
             exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user_id, exclude_type="reply-list")
         else:

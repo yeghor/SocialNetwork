@@ -14,7 +14,7 @@ from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
-from routes.query_utils import query_exclude_required
+from routes.query_utils import page_validator
 
 chat = APIRouter()
 
@@ -35,7 +35,7 @@ async def get_chat_token_participants_avatar_urls(
 @endpoint_exception_handler
 async def get_batch_of_chat_messages(
     chat_id: str,
-    exclude: bool = Depends(query_exclude_required),
+    exclude: bool = Depends(page_validator),
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
 ) -> List[MessageSchema]:
@@ -68,7 +68,7 @@ async def create_group_chat(
 @chat.get("/chat")
 @endpoint_exception_handler
 async def get_my_chats(
-    exclude: bool = Depends(query_exclude_required),
+    exclude: bool = Depends(page_validator),
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)  
 ) -> List[Chat]:
@@ -79,7 +79,7 @@ async def get_my_chats(
 @chat.get("/chat/not-approved")
 @endpoint_exception_handler
 async def get_not_approved_chats(
-    exclude: bool = Depends(query_exclude_required),
+    exclude: bool = Depends(page_validator),
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)  
 ) -> List[Chat]:

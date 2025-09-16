@@ -1,7 +1,5 @@
 from typing import Literal, Type, TypeVar
 
-from grpc import ClientCallDetails
-
 # Service Layer Exceptions
 class EmptyPostsError(Exception):
     """Gets raised in ChromaDB service. Raise if provided post list empty"""
@@ -27,7 +25,7 @@ class EndpointExcConstructor(Exception):
     """Dev log usage: try - except EndpointExcConstructor as e: msg=str(e)"""
     status_code: int
 
-    def __init__(self, client_safe_detail: str, exc_type: Type[E], dev_log_detail: str | None = None):
+    def __init__(self, client_safe_detail: str, exc_type: Type[E] = Exception, dev_log_detail: str | None = None):
         self.client_safe_detail = client_safe_detail
         self.exc_type = exc_type
 
