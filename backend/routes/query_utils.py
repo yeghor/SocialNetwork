@@ -3,8 +3,6 @@ from dotenv import load_dotenv
 from os import getenv
 from typing import Annotated
 
-from narwhals import exclude
-
 from exceptions.custom_exceptions import BadRequestExc
 
 load_dotenv()

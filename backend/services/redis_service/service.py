@@ -42,32 +42,6 @@ def redis_error_handler(func):
 
 
 class RedisService:
-    # def _get_right_first_exclude_post_prefix(self, exclude_type: ExcludePostType) -> str:
-    #     if exclude_type == 'feed':
-    #         return self.__exclude_posts_feed_prefix_1
-    #     elif exclude_type == 'search':
-    #         return self.__exclude_posts_search_prefix_1
-    #     elif exclude_type == 'view':
-    #         return self.__exclude_posts_viewed_prefix_1
-    #     elif exclude_type == "reply-list":
-    #         return self.__exclude_replies_prefix_1
-    #     else:
-    #         raise ValueError("Invalid exclude_type provided")
-
-    # def _get_right_first_exclude_chat_prefix(self, exclude_type: ChatType) -> str:
-    #     if exclude_type == "chat":
-    #         return self.__exclude_chat_prefix_1
-    #     elif exclude_type == "message":
-    #         return self.__exclude_message_prefix_1
-    #     elif exclude_type == "not-approved":
-    #         return self.__exclude_not_approved_chats_prefix_1
-    #     else:
-    #         raise ValueError("Invalid exclude-type provided")
-
-    # def exclude_post_key_pattern(self, user_id: str, post_id: str, exclude_type: ExcludePostType):
-    #     first_prefix = self._get_right_first_exclude_post_prefix(exclude_type=exclude_type)
-    #     return f"{first_prefix}{user_id}{self.__exclude_posts_prefix_2}{post_id}"
-
     @staticmethod
     def _chose_pool(pool: str) -> Literal[0, 1]:
         """0 - Prod pool. 1 - Test pool"""
@@ -112,6 +86,8 @@ class RedisService:
 
         # Chat
         self.__chat_token_prefix = "chat-jwt-token:"
+        self.__user_chat_pagination_prefix_1 = "chat-pagination-user-"
+        self.__user_chat_pagination_prefix_2= "-room:"
 
 
         # Image acces tokens prefix
@@ -205,26 +181,6 @@ class RedisService:
     # # Post excluding logic
     # # ==============
 
-    # @redis_error_handler
-    # async def clear_exclude(self, exclude_type: ExcludePostType, user_id: str) -> None:
-    #     # https://stackoverflow.com/questions/21975228/redis-python-how-to-delete-all-keys-according-to-a-specific-pattern-in-python
-    #     first_prefix = self._get_right_first_exclude_post_prefix(exclude_type=exclude_type)
-    #     keys = [key async for key in self.__client.scan_iter(match=f"{first_prefix}{user_id}*")]
-    #     if keys:
-    #         await self.__client.delete(*keys)
-
-    # @redis_error_handler
-    # async def add_exclude_post_ids(self, post_ids: List[str], user_id: str, exclude_type: ExcludePostType) -> None:
-    #     for id_ in post_ids:
-    #         pattern = self.exclude_post_key_pattern(user_id=user_id, post_id=id_, exclude_type=exclude_type)
-    #         await self.__client.setex(pattern, EXCLUDE_TIMEOUT, id_)
-
-    # @redis_error_handler
-    # async def get_exclude_post_ids(self, user_id: str, exclude_type: ExcludePostType) -> List[str]:
-    #     first_prefix = self._get_right_first_exclude_post_prefix(exclude_type=exclude_type)
-    #     return [await self.__client.get(key) async for key in self.__client.scan_iter(match=f"{first_prefix}{user_id}*")]            
-
-
     @redis_error_handler
     async def add_viewed_post(self, ids_: List[str], user_id: str) -> None:
         pattern = f"{self._viewed_post_prefix}{user_id}"
@@ -284,28 +240,6 @@ class RedisService:
     # Chat
     # ==============
 
-    # @redis_error_handler
-    # async def add_exclude_chat_ids(self, exclude_ids: List[str], user_id: str, exclude_type: ChatType) -> None:
-    #     first_prefix = self._get_right_first_exclude_chat_prefix(exclude_type=exclude_type)
-    #     for id_ in exclude_ids:
-    #         pattern = f"{first_prefix}{user_id}{self.__exclude_chat_prefix_2}{id_}"
-    #         await self.__client.set(pattern, id_)
-
-    # @redis_error_handler
-    # async def get_exclude_chat_ids(self, user_id: str, exclude_type: ChatType) -> List[str]:
-    #     first_prefix = self._get_right_first_exclude_chat_prefix(exclude_type=exclude_type)
-    #     return [await self.__client.get(key) async for key in self.__client.scan_iter(match=f"{first_prefix}{user_id}{self.__exclude_chat_prefix_2}*")]
-
-
-    # # @redis_error_handler
-    # async def clear_exclude_chat_ids(self, user_id: str, exclude_type: ChatType) -> None:
-    #     # Caution! May not be optimized for large keys numbers
-    #     first_prefix = self._get_right_first_exclude_chat_prefix(exclude_type=exclude_type)
-    #     to_delete = [key async for key in self.__client.scan_iter(match=f"{first_prefix}{user_id}{self.__exclude_chat_prefix_2}*")]
-
-    #     if to_delete:
-    #         await self.__client.delete(*to_delete)    
-
     @redis_error_handler
     async def save_chat_token(self, chat_token, user_id: str) -> None:
         await self.__client.setex(
@@ -318,3 +252,33 @@ class RedisService:
     async def check_chat_token_existense(self, chat_token: str) -> bool:
         potential_token = await self.__client.get(f"{self.__chat_token_prefix}{chat_token}")
         return bool(potential_token)
+    
+    @redis_error_handler
+    async def get_user_chat_pagination(self, user_id: str, room_id: str) -> int:
+        pattern = f"{self.__user_chat_pagination_prefix_1}{user_id}{self.__user_chat_pagination_prefix_2}{room_id}"
+
+        value_str = await self.__client.get(pattern)
+        if not value_str:
+            await self.__client.set(pattern, 0)
+            return 0
+
+        return int(value_str)
+
+    @redis_error_handler
+    async def reset_user_chat_pagination(self, user_id: str, room_id: str) -> int:
+        pattern = f"{self.__user_chat_pagination_prefix_1}{user_id}{self.__user_chat_pagination_prefix_2}{room_id}"
+
+        await self.__client.set(pattern, 0)
+
+    @redis_error_handler
+    async def user_chat_pagination_action(self, user_id: str, room_id: str, increment: bool):
+        """Set `increment` to True to increment value. False - to decrement"""
+        pattern = f"{self.__user_chat_pagination_prefix_1}{user_id}{self.__user_chat_pagination_prefix_2}{room_id}"
+
+        if increment:
+            await self.__client.incr(pattern)
+        else:
+            await self.__client.decr(pattern)
+            new_value = await self.__client.get(pattern)
+            if int(new_value) < 0:
+                await self.__client.set(pattern, 0)

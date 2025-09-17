@@ -12,7 +12,6 @@ from exceptions.exceptions_handler import endpoint_exception_handler, ws_endpoin
 from pydantic_schemas.pydantic_schemas_chat import *
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
-import logging
 
 from routes.query_utils import page_validator
 
@@ -129,3 +128,5 @@ async def connect_to_websocket_chat_room(
 
     finally:
         connection.disconnect(room_id=connection_data.room_id, websocket=websocket)
+        async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
+            db_message_data = await chat.execute_action(request_data=request_data, connection_data=connection_data)

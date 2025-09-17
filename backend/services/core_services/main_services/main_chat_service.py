@@ -15,6 +15,10 @@ load_dotenv()
 MIN_CHAT_GROUP_PARTICIPANTS = int(getenv("MIN_CHAT_GROUP_PARTICIPANTS", 3))
 MAX_CHAT_GROUP_PARTICIPANTS = int(getenv("MAX_CHAT_GROUP_PARTICIPANTS", 3))
 
+BASE_PAGINATION = int(getenv("BASE_PAGINATION"))
+DIVIDE_BASE_PAG_BY = int(getenv("DIVIDE_BASE_PAG_BY"))
+SMALL_PAGINATION = int(getenv("SMALL_PAGINATION"))
+
 class MainChatService(MainServiceBase):
     @staticmethod
     def _create_message(text: str, room_id: str, owner_id: str) -> Message:

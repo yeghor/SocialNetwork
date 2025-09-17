@@ -128,16 +128,15 @@ class PostgresService:
             raise TypeError("Unsupported model type!")
         return result.scalar()
 
-    #https://stackoverflow.com/questions/3325467/sqlalchemy-equivalent-to-sql-like-statement
+    # https://stackoverflow.com/questions/3325467/sqlalchemy-equivalent-to-sql-like-statement
     @postgres_exception_handler(action="Get users by LIKE statement")
-    async def get_users_by_username(self, prompt: str) -> List[User]:
-        if not prompt:
-            raise ValueError("Prompt is None")
-
+    async def get_users_by_username(self, prompt: str, page: int, n: int) -> List[User]:
         result = await self.__session.execute(
             select(User)
             .where(User.username.ilike(f"%{prompt.strip()}%"))
             .options(selectinload(User.followers))
+            .offset(page*n)
+            .limit(n)
         )
         return result.scalars().all()
 
@@ -236,7 +235,7 @@ class PostgresService:
         else: return actions
 
     @postgres_exception_handler(action="Get post replies")
-    async def get_post_replies(self, post_id: str, n: int = RETURN_REPLIES, exclude_ids: List[str] = []) -> List[Post]:
+    async def get_post_replies(self, post_id: str, page: int, n: int) -> List[Post]:
         likes_subq = (
             select(func.count(PostActions.action_id))
             .where(and_(PostActions.post_id == post_id, PostActions.action == "like"))
@@ -244,24 +243,25 @@ class PostgresService:
         )
         result = await self.__session.execute(
             select(Post, likes_subq)
-            .where(and_(Post.parent_post_id == post_id, Post.post_id.not_in(exclude_ids)))
+            .where(Post.parent_post_id == post_id)
             .order_by(Post.published.desc(), Post.popularity_rate.desc(), likes_subq.desc())
+            .offset(page*n)
             .limit(n)
         )
         return result.scalars().all()
     
     @postgres_exception_handler(action="Get user's posts")
-    async def get_user_posts(self, user_id: str, n: int = LOAD_MAX_USERS_POST, exclude_ids: List[str] = []):
+    async def get_user_posts(self, user_id: str, page: int, n: int):
         result = await self.__session.execute(
             select(Post)
-            .where(and_(Post.owner_id == user_id, Post.post_id.not_in(exclude_ids)))
+            .where(and_(Post.owner_id == user_id))
             .limit(LOAD_MAX_USERS_POST)
             .order_by(Post.published.desc())
             .options(selectinload(Post.parent_post))
+            .offset(page*n)
+            .limit(n)
         )
-
         return result.scalars().all()
-    
 
     @postgres_exception_handler(action="Get chat room by it's id")
     async def get_chat_room(self, room_id: str) -> ChatRoom:

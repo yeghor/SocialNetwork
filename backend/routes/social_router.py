@@ -82,10 +82,10 @@ async def make_post(
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends),
     post_data: MakePostDataSchema = Body(...)
-    ) -> PostSchema:
+    ) -> None:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        return await social.make_post(data=post_data, user=user)
+        await social.make_post(data=post_data, user=user)
 
 @social.get("/posts/{post_id}")
 @endpoint_exception_handler

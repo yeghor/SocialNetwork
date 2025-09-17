@@ -3,7 +3,6 @@ from chromadb.api.async_api import AsyncClientAPI
 from chromadb.errors import ChromaError
 from dotenv import load_dotenv
 from os import getenv
-from regex import R
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Literal
 from functools import wraps

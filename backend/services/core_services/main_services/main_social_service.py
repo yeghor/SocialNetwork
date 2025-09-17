@@ -199,7 +199,7 @@ class MainServiceSocial(MainServiceBase):
     @web_exceptions_raiser
     async def search_posts(self, prompt: str, user: User, page: int) -> List[PostLiteSchema]:
         """
-        Search posts that similar with meaning with prompt
+        Search posts that similar with meaning via prompt
         """
 
         post_ids = await self._ChromaService.search_posts_by_prompt(prompt=prompt, page=page, n=BASE_PAGINATION)
@@ -223,7 +223,7 @@ class MainServiceSocial(MainServiceBase):
         return [UserLiteSchema.model_validate(user, from_attributes=True) for user in users if user.user_id != request_user.user_id]
 
     @web_exceptions_raiser  
-    async def make_post(self, data: MakePostDataSchema, user: User) -> PostSchema:
+    async def make_post(self, data: MakePostDataSchema, user: User) -> None:
         if data.parent_post_id:
             if not await self._PostgresService.get_entry_by_id(id_=data.parent_post_id, ModelType=Post):
                 raise InvalidAction(detail=f"SocialService: User: {user.user_id} tried to reply to post: {data.parent_post_id} that does not exists.", client_safe_detail="Post that you are replying does not exist.")
@@ -238,36 +238,8 @@ class MainServiceSocial(MainServiceBase):
         )
 
         await self._PostgresService.insert_models_and_flush(post)
-
         await self._PostgresService.refresh_model(post)
-
         await self._ChromaService.add_posts_data(posts=[post])
-
-        if post.parent_post:
-            parent_post_validated = PostBase.model_validate(post.parent_post, from_attributes=True)
-        else:
-            parent_post_validated = None
-
-        post_images_urls = await self._ImageStorage.get_post_image_urls(image_names=[image.image_name for image in post.images])
-
-        post_likes = await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=ActionType.like)
-        post_views = await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=ActionType.view)
-
-        return PostSchema(
-            post_id=post.post_id,
-            owner=UserShortSchema.model_validate(user, from_attributes=True),
-            title=post.title,
-            text=post.text,
-            last_updated=post.last_updated,
-            published=post.published,
-            parent_post=parent_post_validated,
-            replies=[],
-            pictures_urls=[],
-            is_reply=post.is_reply,
-            likes=len(post_likes),
-            views=len(post_views)
-        )
-
 
     @web_exceptions_raiser
     async def remove_action(self, user: User, post: Post, action_type: ActionType) -> None:
@@ -421,7 +393,7 @@ class MainServiceSocial(MainServiceBase):
         )
 
     @web_exceptions_raiser
-    async def load_replies(self, post_id: str, user_id: str, page: int):
+    async def load_replies(self, post_id: str, page: int):
         replies = await self._PostgresService.get_post_replies(post_id=post_id, page=page, n=SMALL_PAGINATION)
 
         return [PostBase.model_validate(reply, from_attributes=True) for reply in replies]        
