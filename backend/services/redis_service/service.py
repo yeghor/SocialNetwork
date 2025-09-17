@@ -1,6 +1,3 @@
-from ast import pattern
-from sqlite3 import _AnyParamWindowAggregateClass
-from click import INT
 import redis.asyncio as async_redis
 import redis.exceptions as redis_exceptions
 
@@ -88,6 +85,10 @@ class RedisService:
     def _get_expiry(SPECIFIC_TOKEN_EXPIRY_IN_SECONDS: int) -> str:
         return datetime.strftime(datetime.fromtimestamp(datetime.utcnow().timestamp() + SPECIFIC_TOKEN_EXPIRY_IN_SECONDS), DATETIME_BASE_FORMAT)
     
+    @redis_error_handler
+    async def finish(self) -> None:
+        await self.__client.aclose()
+
     def __init__(self, db_pool: str = "prod"):
         """
         To switch to the test pool - assign db_pool to "test" \n
@@ -211,10 +212,6 @@ class RedisService:
     #     keys = [key async for key in self.__client.scan_iter(match=f"{first_prefix}{user_id}*")]
     #     if keys:
     #         await self.__client.delete(*keys)
-
-    # @redis_error_handler
-    # async def finish(self) -> None:
-    #     await self.__client.aclose()
 
     # @redis_error_handler
     # async def add_exclude_post_ids(self, post_ids: List[str], user_id: str, exclude_type: ExcludePostType) -> None:

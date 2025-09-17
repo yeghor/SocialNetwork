@@ -1,4 +1,3 @@
-from tkinter import PAGES
 from services.core_services import MainServiceBase
 from services.postgres_service.models import *
 from post_popularity_rate_task.popularity_rate import POST_ACTIONS
@@ -76,10 +75,9 @@ class MainServiceSocial(MainServiceBase):
         if post.owner_id != user.user_id:
             raise Unauthorized(detail=f"SocialService: User: {user.user_id} tried to access post: {post.post_id}", client_safe_detail="You are not owner of this post!")
 
-    async def _get_ids_by_query_type(self, exclude_ids: List[str], user: User, n: int, id_type: Literal["followed", "fresh"], return_posts_too: bool = False) -> Union[List[str], NamedTuple]:
-        posts = []
-        if id_type == "fresh": posts = await self._PostgresService.get_fresh_posts(user=user, exclude_ids=exclude_ids, n=n)
-        elif id_type == "followed": posts = await self._PostgresService.get_followed_posts(user=user, exclude_ids=exclude_ids, n=n)
+    async def _get_ids_by_query_type(self, page: int, user: User, n: int, id_type: Literal["followed", "fresh"], return_posts_too: bool = False, exclude_ids: List[str] = []) -> Union[List[str], NamedTuple]:
+        if id_type == "fresh": posts = await self._PostgresService.get_fresh_posts(user=user, exclude_ids=exclude_ids, n=n, page=page)
+        elif id_type == "followed": posts = await self._PostgresService.get_followed_posts(user=user, exclude_ids=exclude_ids, n=n, page=page)
 
         ids = [post.post_id for post in posts]
 
@@ -131,39 +129,43 @@ class MainServiceSocial(MainServiceBase):
         Caution! If `exclude` set to True. It means that user clicked on `Load more` button and we need to update Redis exclude ids with fresh loaded. And ensure that we load non repeating posts \n
         """
 
-        EACH_SOURCE_PAGINATION = int(BASE_PAGINATION / DIVIDE_BASE_PAG_BY) * page
+        EACH_SOURCE_PAGINATION = int(BASE_PAGINATION / DIVIDE_BASE_PAG_BY)
 
 
         views_history = await self._PostgresService.get_user_actions(user_id=user.user_id, action_type=ActionType.view, n_most_fresh=HISTORY_POSTS_TO_TAKE_INTO_RELATED, return_posts=True)
         liked_history = await self._PostgresService.get_user_actions(user_id=user.user_id, action_type=ActionType.like, n_most_fresh=LIKED_POSTS_TO_TAKE_INTO_RELATED, return_posts=True)
         history_posts_relation = views_history + liked_history
 
-        # History related mix
-        related_ids = []
 
+
+        # History related mix
         if len(views_history) > MINIMUM_USER_HISTORY_LENGTH:
             related_ids = await self._ChromaService.get_n_related_posts_ids(user=user, page=page, post_relation=history_posts_relation, pagination=EACH_SOURCE_PAGINATION)
-        
-        if not related_ids:
-            related_ids = await self._get_ids_by_query_type(page=page, user=user, n=MIX_HISTORY_POSTS_RELATED, id_type="fresh")
+
+            # Following mix
+            followed_ids =  await self._get_ids_by_query_type(exclude_ids=related_ids, user=user, page=page, n=EACH_SOURCE_PAGINATION, id_type="followed")
+            if not followed_ids:
+                followed_ids = await self._get_ids_by_query_type(exclude_ids=related_ids, user=user, page=page, n=EACH_SOURCE_PAGINATION, id_type="fresh")
+
+            unrelevant_ids = await self._get_ids_by_query_type(exclude_ids=followed_ids + related_ids, user=user, page=page, n=EACH_SOURCE_PAGINATION, id_type="fresh")
+            
+        else:
+            related_ids = await self._get_ids_by_query_type(page=page, user=user, n=EACH_SOURCE_PAGINATION, id_type="fresh")
+
+            # Following mix
+            followed_ids =  await self._get_ids_by_query_type(exclude_ids=related_ids, user=user, page=page, n=EACH_SOURCE_PAGINATION, id_type="followed")
+            if not followed_ids:
+                followed_ids = await self._get_ids_by_query_type(exclude_ids=related_ids, user=user, page=page+1, n=EACH_SOURCE_PAGINATION, id_type="fresh")
+                unrelevant_ids = await self._get_ids_by_query_type(exclude_ids=followed_ids + related_ids, user=user, page=page+2, n=EACH_SOURCE_PAGINATION, id_type="fresh")
+            else:
+                unrelevant_ids = await self._get_ids_by_query_type(exclude_ids=followed_ids + related_ids, user=user, page=page+1, n=EACH_SOURCE_PAGINATION, id_type="fresh")
 
 
-        # Following mix
-        following_ids =  await self._get_ids_by_query_type(user=user, page=page, n=MIX_FOLLOWING, id_type="followed")
-        if not following_ids:
-            following_ids = await self._get_ids_by_query_type(user=user, page=page, n=MIX_FOLLOWING, id_type="fresh")
+        all_ids = self.combine_lists(related_ids, followed_ids, unrelevant_ids)
 
 
-        # Mix unrelevant
-        unrelevant_ids = await self._get_ids_by_query_type(user=user, page=page, n=MIX_UNRELEVANT, id_type="fresh")
-
-
-        all_ids = self.combine_lists(related_ids, following_ids, unrelevant_ids)
-
-        
         posts = await self._PostgresService.get_entries_by_ids(ids=all_ids, ModelType=Post)
         posts = self._shuffle_posts(posts=posts)
-
 
         return [
             PostLiteSchema(
@@ -171,22 +173,15 @@ class MainServiceSocial(MainServiceBase):
                 title=post.title,
                 published=post.published,
                 is_reply=post.is_reply,
-                owner=post.owner,
+                owner=UserShortSchema.model_validate(post.owner, from_attributes=True),
                 pictures_urls= await self._ImageStorage.get_post_image_urls(images_names=[post_image.image_name for post_image in post.images]),
                 parent_post=post.parent_post
             ) for post in posts
             ]
 
     @web_exceptions_raiser
-    async def get_followed_posts(self, user: User, page: int) -> List[PostLiteSchema]:
-        exclude_ids = []
-        if exclude:
-            exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user.user_id, exclude_type="feed")
-        else:
-            await self._RedisService.clear_exclude(user_id=user.user_id, exclude_type="feed")
-        
-        post_ids, posts = await self._get_ids_by_query_type(exclude_ids=exclude_ids, user=user, n=FEED_MAX_POSTS_LOAD, id_type="followed", return_posts_too=True)
-        await self._RedisService.add_exclude_post_ids(post_ids=post_ids, user_id=user.user_id, exclude_type="feed")
+    async def get_followed_posts(self, user: User, page: int) -> List[PostLiteSchema]:        
+        post_ids, posts = await self._get_ids_by_query_type(page=page, n=BASE_PAGINATION, user=user, id_type="followed", return_posts_too=True)
 
         posts = self._shuffle_posts(posts=posts)
 
@@ -207,16 +202,8 @@ class MainServiceSocial(MainServiceBase):
         Search posts that similar with meaning with prompt
         """
 
-        if exclude:
-            exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user.user_id, exclude_type="search")
-        else:
-            exclude_ids = []
-            await self._RedisService.clear_exclude(exclude_type="search", user_id=user.user_id)
-        
-        post_ids = await self._ChromaService.search_posts_by_prompt(prompt=prompt, exclude_ids=exclude_ids)
+        post_ids = await self._ChromaService.search_posts_by_prompt(prompt=prompt, page=page, n=BASE_PAGINATION)
         posts = await self._PostgresService.get_entries_by_ids(ids=post_ids, ModelType=Post)
-
-        await self._RedisService.add_exclude_post_ids(post_ids=post_ids, user_id=user.user_id, exclude_type="search")
 
         return [
             PostLiteSchema(
@@ -231,8 +218,8 @@ class MainServiceSocial(MainServiceBase):
             ]
 
     @web_exceptions_raiser
-    async def search_users(self, prompt: str,  request_user: User) -> List[UserLiteSchema]:
-        users = await self._PostgresService.get_users_by_username(prompt=prompt)
+    async def search_users(self, prompt: str,  request_user: User, page: int) -> List[UserLiteSchema]:
+        users = await self._PostgresService.get_users_by_username(prompt=prompt, page=page, n=BASE_PAGINATION)
         return [UserLiteSchema.model_validate(user, from_attributes=True) for user in users if user.user_id != request_user.user_id]
 
     @web_exceptions_raiser  
@@ -366,16 +353,8 @@ class MainServiceSocial(MainServiceBase):
         )
     
     @web_exceptions_raiser
-    async def get_users_posts(self, user_id: str, exclude: bool) -> PostLiteSchema:
-        if exclude:
-            exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user_id, exclude_type="")
-        else:
-            await self._RedisService.clear_exclude(user_id=user_id, exclude_type="")
-            exclude_ids = []
-
-        posts = await self._PostgresService.get_user_posts(user_id=user_id, exclude_ids=exclude_ids)
-
-        await self._RedisService.add_exclude_post_ids(post_ids=[post.post_id for post in posts], user_id=user_id, exclude_type="")
+    async def get_users_posts(self, user_id: str, page: int) -> PostLiteSchema:
+        posts = await self._PostgresService.get_user_posts(user_id=user_id, page=page, n=SMALL_PAGINATION)
 
         return [
             PostLiteSchema(
@@ -443,14 +422,6 @@ class MainServiceSocial(MainServiceBase):
 
     @web_exceptions_raiser
     async def load_replies(self, post_id: str, user_id: str, page: int):
-        if exclude:
-            exclude_ids = await self._RedisService.get_exclude_post_ids(user_id=user_id, exclude_type="reply-list")
-        else:
-            await self._RedisService.clear_exclude(user_id=user_id, exclude_type="reply-list")
-            exclude_ids = []
-
-        replies = await self._PostgresService.get_post_replies(post_id=post_id, exclude_ids=exclude_ids)
-
-        await self._RedisService.add_exclude_post_ids(post_ids=[reply.post_id for reply in replies], user_id=user_id, exclude_type="reply-list")
+        replies = await self._PostgresService.get_post_replies(post_id=post_id, page=page, n=SMALL_PAGINATION)
 
         return [PostBase.model_validate(reply, from_attributes=True) for reply in replies]        

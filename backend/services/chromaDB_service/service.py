@@ -3,6 +3,7 @@ from chromadb.api.async_api import AsyncClientAPI
 from chromadb.errors import ChromaError
 from dotenv import load_dotenv
 from os import getenv
+from regex import R
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Literal
 from functools import wraps
@@ -12,6 +13,7 @@ from fastapi import HTTPException
 from datetime import datetime
 from mix_posts_consts import FEED_MAX_POSTS_LOAD, MIX_HISTORY_POSTS_RELATED
 from exceptions.custom_exceptions import EmptyPostsError, ChromaDBError
+import logging
 
 load_dotenv()
 
@@ -42,12 +44,10 @@ def chromaDB_error_handler(func):
 
 class ChromaService:
     @staticmethod
-    def extract_ids_from_metadata(result, page: int, pagination: int) -> List[str]:
-        metadatas = sorted(result["metadatas"][0], key=lambda meta: meta["published"], reverse=True)
+    def extract_ids_from_metadata(metadatas, page: int, pagination: int) -> List[str]:
         ids = [str(meta["post_id"]) for meta in metadatas]
-
         return ids[pagination*page:(pagination*page)+pagination]
- 
+        
     def __init__(self, client: AsyncClientAPI, collection: Collection, mode: str):
         """To create class object. Use **async** method connect!"""
         self.__collection: Collection = collection
@@ -97,14 +97,14 @@ class ChromaService:
 
         if not post_relation:
             return []
-
+        
         related_posts_metadatas = await self.__collection.query(
             query_texts=[f"{post.title} {post.text} {post.published.strftime(self._datetime_format)}" for post in post_relation],
             n_results=((pagination * page) + pagination + GET_EXTRA_CHROMADB_RELATED_RESULTS),
         )
 
-        return self.extract_ids_from_metadata(result=related_posts_metadatas, page=page, pagination=pagination)
-
+        return self.extract_ids_from_metadata(metadatas=related_posts_metadatas, page=page, pagination=pagination)
+       
 
     @chromaDB_error_handler
     async def add_posts_data(self, posts: List[Post]) -> None:
@@ -131,7 +131,7 @@ class ChromaService:
             n_results=((pagination * page) + pagination + GET_EXTRA_CHROMADB_RELATED_RESULTS)
         )
 
-        return self.extract_ids_from_metadata(result=search_result, page=page, pagination=pagination)
+        return self.extract_ids_from_metadata(metadatas=search_result, page=page, pagination=pagination)
     
     @chromaDB_error_handler
     async def delete_by_ids(self, ids: List[str]):
