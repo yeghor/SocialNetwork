@@ -22,6 +22,10 @@ MAX_FOLLOWED_POSTS_TO_SHOW = int(getenv("MAX_FOLLOWED_POSTS_TO_SHOW"))
 RETURN_REPLIES = int(getenv("RETURN_REPLIES"))
 LOAD_MAX_USERS_POST = int(getenv("LOAD_MAX_USERS_POST"))
 
+BASE_PAGINATION = int(getenv("BASE_PAGINATION"))
+DIVIDE_BASE_PAG_BY = int(getenv("DIVIDE_BASE_PAG_BY"))
+SMALL_PAGINATION = int(getenv("SMALL_PAGINATION"))
+
 class PostgresService:
     def __init__(self, postgres_session: AsyncSession):
         # We don't need to close session. Because Depends func will handle it in endpoints.
@@ -68,11 +72,12 @@ class PostgresService:
         return result.scalar()
 
     @postgres_exception_handler(action="Get fresh feed")
-    async def get_fresh_posts(self, user: User, exclude_ids: List[str] = [], n: int = FEED_MAX_POSTS_LOAD) -> List[Post]:
+    async def get_fresh_posts(self, user: User, page: int, n: int, exclude_ids: List[str]) -> List[Post]:
         result = await self.__session.execute(
             select(Post)
             .where(and_(Post.owner_id != user.user_id, Post.post_id.not_in(exclude_ids)))
             .order_by(Post.popularity_rate.desc(), Post.published.desc())
+            .offset(page*n)
             .limit(n)
         )
         return result.scalars().all()
@@ -152,7 +157,7 @@ class PostgresService:
     @postgres_exception_handler(action="Get user by username and email")
     async def get_user_by_username_or_email(self, username: str | None = None, email: str | None = None) -> User:
         if not username and not email:
-            raise ValueError("Username and email are None!")
+            raise ValueError("Username AND email are None!")
 
         result = await self.__session.execute(
             select(User)
@@ -161,13 +166,10 @@ class PostgresService:
         return result.scalar()
     
     @postgres_exception_handler(action="Get followed users posts")
-    async def get_followed_posts(self, user: User, n: int, exclude_ids: List[str] = []) -> List[Post]:
+    async def get_followed_posts(self, user: User, n: int, page: int, exclude_ids: List[str] = []) -> List[Post]:
         """If user not following anyone - returns empty list"""
 
         # Getting new user, because merged instances may not include loaded relationships
-        if n <= 0:
-            raise ValueError("Invalid number of posts requested")
-        
         user = await self.get_user_by_id(user_id=user.user_id)
 
         followed_ids = [followed.user_id for followed in user.followed]
@@ -176,7 +178,8 @@ class PostgresService:
             select(Post)
             .where(and_(Post.owner_id.in_(followed_ids), Post.post_id.not_in(exclude_ids)))
             .order_by(Post.popularity_rate.desc(), Post.published.desc())
-            .limit(n)
+            .offset(page*n)
+            .limit((page*n) + n)
         )
         return result.scalars().all()
 

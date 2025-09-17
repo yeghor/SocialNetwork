@@ -1,5 +1,3 @@
-from altair import Url
-from openai import chat
 from services.core_services import MainServiceBase
 from services.postgres_service.models import *
 from exceptions.custom_exceptions import *
@@ -8,8 +6,6 @@ from pydantic_schemas.pydantic_schemas_chat import Chat, MessageSchema, MessageS
 from pydantic_schemas.pydantic_schemas_social import UserShortSchema
 from post_popularity_rate_task.popularity_rate import scheduler
 from uuid import uuid4
-
-from services.redis_service import ChatType
 
 from dotenv import load_dotenv
 from os import getenv
