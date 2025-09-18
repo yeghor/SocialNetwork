@@ -1,4 +1,6 @@
+import re
 from fastapi import APIRouter, Depends, Body, Query, HTTPException
+from posthog import page
 from services.postgres_service.database_utils import *
 from services.postgres_service.models import User
 from services.core_services import MainServiceContextManager
@@ -54,7 +56,7 @@ async def get_followed_posts(
 
 @social.get("/search/posts")
 @endpoint_exception_handler
-async def search_posts( # TODO: Exclude self posts
+async def search_posts(
     page: int = Depends(page_validator),
     prompt: str = Depends(query_prompt_required),
     user_: User = Depends(authorize_request_depends),
@@ -64,17 +66,17 @@ async def search_posts( # TODO: Exclude self posts
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.search_posts(prompt=prompt, user=user, page=page)
 
-@social.get("/search/users")
-@endpoint_exception_handler
+@social.get("/search/users/{page}")
+# @endpoint_exception_handler
 async def search_users(
     prompt: str = Depends(query_prompt_required),
+    page: str = Depends(page_validator),
     user_: User = Depends(authorize_request_depends),
     session = Depends(get_session_depends)
     ) -> List[UserLiteSchema]:
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
-        users = await social.search_users(prompt=prompt, request_user=user)
-        return users
+        return await social.search_users(prompt=prompt, request_user=user, page=page)
 
 @social.post("/posts")
 @endpoint_exception_handler

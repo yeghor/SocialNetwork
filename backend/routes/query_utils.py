@@ -16,6 +16,6 @@ def query_prompt_required(prompt: str = Query(..., max_length=QUERY_PARAM_MAX_L)
     return prompt
 
 def page_validator(page: int):
-    if not page > 0:
+    if not page >= 0:
         raise BadRequestExc(dev_log_detail=f"PageValidator (query_utils): Received page value that is less or equal than 0.", client_safe_detail=f"Invalid page value")
-    return page
+    return int(page)

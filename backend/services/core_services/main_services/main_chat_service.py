@@ -1,3 +1,6 @@
+from posthog import page
+from regex import P
+from zmq import PRIORITY
 from services.core_services import MainServiceBase
 from services.postgres_service.models import *
 from exceptions.custom_exceptions import *
@@ -66,22 +69,12 @@ class MainChatService(MainServiceBase):
         return ChatTokenResponse(token=chat_token, participants_avatar_urls=avatar_urls)
 
     @web_exceptions_raiser
-    async def get_messages_batch(self, room_id: str, user: User, exclude: bool) -> List[MessageSchema]:
+    async def get_messages_batch(self, room_id: str, user: User, page: int) -> List[MessageSchema]:
         await self._get_and_authorize_chat_room(room_id=room_id, user_id=user.user_id, return_chat_room=False)
 
-        if exclude:
-            exclude_ids = await self._RedisService.get_exclude_chat_ids(user_id=user.user_id, exclude_type="message")
-        else:
-            await self._RedisService.clear_exclude_chat_ids(user_id=user.user_id, exclude_type="message")
-            exclude_ids = []
-
-        message_batch = await self._PostgresService.get_chat_n_fresh_chat_messages(room_id=room_id, exclude_ids=exclude_ids)
-
-        await self._RedisService.add_exclude_chat_ids(
-            exclude_ids=[message.message_id for message in message_batch],
-            user_id=user.user_id,
-            exclude_type="message"
-        )
+        pagination_normalization = await self._RedisService.get_user_chat_pagination(user_id=user.user_id)
+        print(pagination_normalization)
+        message_batch = await self._PostgresService.get_chat_n_fresh_chat_messages(room_id=room_id, page=page, n=BASE_PAGINATION, pagination_normalization=pagination_normalization)
 
         return [
             MessageSchema.model_validate(message, from_attributes=True)
@@ -89,21 +82,10 @@ class MainChatService(MainServiceBase):
         ]
         
     @web_exceptions_raiser
-    async def get_chat_batch(self, user: User, exclude: bool, chat_type: Literal["chat", "noе-approved"]) -> List[Chat]:
+    async def get_chat_batch(self, user: User, page: int, chat_type: Literal["chat", "noе-approved"]) -> List[Chat]:
         
-        if exclude:
-            exclude_ids = await self._RedisService.get_exclude_chat_ids(user_id=user.user_id, exclude_type=chat_type)
-        else:
-            exclude_ids = []
-            await self._RedisService.clear_exclude_chat_ids(user_id=user.user_id, exclude_type=chat_type)
-        
-        chat_batch = await self._PostgresService.get_n_user_chats(user=user, exclude_ids=exclude_ids, chat_type=chat_type)
-
-        await self._RedisService.add_exclude_chat_ids(
-            exclude_ids=[chat.room_id for chat in chat_batch],
-            user_id=user.user_id,
-            exclude_type=chat_type
-        )
+        pagination_normalization = await self._RedisService.get_user_chat_pagination(user_id=user.user_id)
+        chat_batch = await self._PostgresService.get_n_user_chats(user=user, page=page, n=BASE_PAGINATION, pagination_normalization=pagination_normalization, chat_type=chat_type)
 
         return [Chat(chat_id=chat.room_id, participants=len(chat.participants)) for chat in chat_batch]
 
@@ -149,7 +131,9 @@ class MainChatService(MainServiceBase):
         await self._PostgresService.refresh_model(new_message)
 
         connections = await self._RedisService.get_chat_connections(room_id=user_data.room_id)
+        print(connections)
         for conn in connections:
+            print(conn)
             await self._RedisService.user_chat_pagination_action(user_id=conn, room_id=user_data.room_id, increment=True)
 
         return MessageSchemaActionIncluded.model_validate(new_message, from_attributes=True)

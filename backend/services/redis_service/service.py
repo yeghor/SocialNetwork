@@ -264,15 +264,13 @@ class RedisService:
     @redis_error_handler
     async def disconect_from_chat(self, user_id: str, room_id: str) -> None:
         pattern = f"{self.__chat_connection_prefix}{room_id}"
-        await self.__client.delete(pattern)
-  
+        await self.__client.lrem(pattern, value=user_id)
 
     @redis_error_handler
     async def get_chat_connections(self, room_id: str) -> List[str]:
         """Returns current connected user_ids"""
-
         pattern = f"{self.__chat_connection_prefix}{room_id}"
-        return await self.__client.get(pattern)
+        return await self.__client.lrange(pattern, 0, -1)
 
     @redis_error_handler
     async def get_user_chat_pagination(self, user_id: str) -> int:
@@ -294,9 +292,9 @@ class RedisService:
     async def user_chat_pagination_action(self, user_id: str, room_id: str, increment: bool):
         """Set `increment` to True to increment value. False - to decrement"""
         pattern = f"{self.__user_chat_pagination_prefix}{user_id}"
-
+        print("INCREMENTING")
         if increment:
-            await self.__client.incr(pattern)
+            await self.__client.incr(pattern, amount=1)
         else:
             await self.__client.decr(pattern)
             new_value = await self.__client.get(pattern)

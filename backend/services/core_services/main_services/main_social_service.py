@@ -217,7 +217,7 @@ class MainServiceSocial(MainServiceBase):
             ) for post in posts
             ]
 
-    @web_exceptions_raiser
+    # @web_exceptions_raiser
     async def search_users(self, prompt: str,  request_user: User, page: int) -> List[UserLiteSchema]:
         users = await self._PostgresService.get_users_by_username(prompt=prompt, page=page, n=BASE_PAGINATION)
         return [UserLiteSchema.model_validate(user, from_attributes=True) for user in users if user.user_id != request_user.user_id]

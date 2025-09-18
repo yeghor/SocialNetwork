@@ -131,6 +131,7 @@ class PostgresService:
     # https://stackoverflow.com/questions/3325467/sqlalchemy-equivalent-to-sql-like-statement
     @postgres_exception_handler(action="Get users by LIKE statement")
     async def get_users_by_username(self, prompt: str, page: int, n: int) -> List[User]:
+        print(prompt)
         result = await self.__session.execute(
             select(User)
             .where(User.username.ilike(f"%{prompt.strip()}%"))
@@ -280,17 +281,18 @@ class PostgresService:
         return result.scalar()
 
     @postgres_exception_handler(action="Get n chat room messages excluding exclude_ids list")
-    async def get_chat_n_fresh_chat_messages(self, room_id: str, n: int = int(getenv("MESSAGES_BATCH_SIZE", "50")), exclude_ids: List[str] = []) -> List[Message]:
+    async def get_chat_n_fresh_chat_messages(self, room_id: str, page: int,  n: int = int(getenv("MESSAGES_BATCH_SIZE", "50")), pagination_normalization: int = 0) -> List[Message]:
         result = await self.__session.execute(
             select(Message)
-            .where(and_(Message.room_id == room_id, Message.message_id.not_in(exclude_ids)))
+            .where(Message.room_id == room_id)
             .order_by(Message.sent.desc())
+            .offset((page*n) + pagination_normalization)
             .limit(n)
         )
         return result.scalars().all()
     
     @postgres_exception_handler(action="Get n user chat rooms excluding exclude_ids list")
-    async def get_n_user_chats(self, user: User, exclude_ids: List[str], chat_type: Literal["chat", "not-approved"], n: int = int(getenv("CHAT_BATCH_SIZE", "50"))) -> List[ChatRoom]:
+    async def get_n_user_chats(self, user: User, n, page: int, pagination_normalization: int, chat_type: Literal["chat", "not-approved"]) -> List[ChatRoom]:
         if chat_type == "chat":
             where_stmt = ChatRoom.approved.is_(True)
         elif chat_type == "not-approved":
@@ -298,8 +300,9 @@ class PostgresService:
 
         result = await self.__session.execute(
             select(ChatRoom)
-            .where(and_(ChatRoom.participants.contains(user), ChatRoom.room_id.not_in(exclude_ids), where_stmt))
+            .where(and_(ChatRoom.participants.contains(user), where_stmt))
             .order_by(ChatRoom.last_message_time.desc())
+            .offset((page*n) + pagination_normalization)
             .limit(n)
         )
 

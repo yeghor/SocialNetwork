@@ -64,6 +64,8 @@ class WebsocketConnectionManager:
         else:
             self._rooms[room_id].append(payload)
 
+        print(self._rooms)
+
         await self._redis.connect_user_to_chat(user_id=user_id, room_id=room_id)
 
 
