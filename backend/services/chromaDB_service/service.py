@@ -1,19 +1,13 @@
-from chromadb import AsyncHttpClient, Collection, QueryResult
+from chromadb import AsyncHttpClient, Collection
 from chromadb.api.async_api import AsyncClientAPI
 from chromadb.errors import ChromaError
 from dotenv import load_dotenv
 from os import getenv
-from regex import R
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Literal
+from typing import List
 from functools import wraps
 from services.postgres_service import Post, User
-from uuid import UUID
 from fastapi import HTTPException
-from datetime import datetime
-from mix_posts_consts import FEED_MAX_POSTS_LOAD, MIX_HISTORY_POSTS_RELATED
 from exceptions.custom_exceptions import EmptyPostsError, ChromaDBError
-import logging
 
 load_dotenv()
 
