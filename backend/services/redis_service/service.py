@@ -66,7 +66,6 @@ class RedisService:
     def __init__(self, db_pool: str = "prod"):
         """
         To switch to the test pool - assign db_pool to "test" \n
-        If host equal to None - "localhost"
         """
 
         self.__client = async_redis.Redis(
@@ -86,9 +85,10 @@ class RedisService:
 
         # Chat
         self.__chat_token_prefix = "chat-jwt-token:"
-        self.__user_chat_pagination_prefix_1 = "chat-pagination-user-"
-        self.__user_chat_pagination_prefix_2= "-room:"
+        self.__user_chat_pagination_prefix = "chat-pagination-user-"
 
+        self.__chat_connection_prefix = "chat-connections-room:"
+ 
 
         # Image acces tokens prefix
         self.__post_image_acces_prefix = "post-image-acces:"
@@ -248,14 +248,35 @@ class RedisService:
             user_id
         )
 
+
     @redis_error_handler
     async def check_chat_token_existense(self, chat_token: str) -> bool:
         potential_token = await self.__client.get(f"{self.__chat_token_prefix}{chat_token}")
         return bool(potential_token)
     
+
     @redis_error_handler
-    async def get_user_chat_pagination(self, user_id: str, room_id: str) -> int:
-        pattern = f"{self.__user_chat_pagination_prefix_1}{user_id}{self.__user_chat_pagination_prefix_2}{room_id}"
+    async def connect_user_to_chat(self, user_id: str, room_id: str) -> None:
+        pattern = f"{self.__chat_connection_prefix}{room_id}"
+        await self.__client.rpush(pattern, user_id)
+
+
+    @redis_error_handler
+    async def disconect_from_chat(self, user_id: str, room_id: str) -> None:
+        pattern = f"{self.__chat_connection_prefix}{room_id}"
+        await self.__client.delete(pattern)
+  
+
+    @redis_error_handler
+    async def get_chat_connections(self, room_id: str) -> List[str]:
+        """Returns current connected user_ids"""
+
+        pattern = f"{self.__chat_connection_prefix}{room_id}"
+        return await self.__client.get(pattern)
+
+    @redis_error_handler
+    async def get_user_chat_pagination(self, user_id: str) -> int:
+        pattern = f"{self.__user_chat_pagination_prefix}{user_id}"
 
         value_str = await self.__client.get(pattern)
         if not value_str:
@@ -265,15 +286,14 @@ class RedisService:
         return int(value_str)
 
     @redis_error_handler
-    async def reset_user_chat_pagination(self, user_id: str, room_id: str) -> int:
-        pattern = f"{self.__user_chat_pagination_prefix_1}{user_id}{self.__user_chat_pagination_prefix_2}{room_id}"
-
+    async def reset_user_chat_pagination(self, user_id: str) -> int:
+        pattern = f"{self.__user_chat_pagination_prefix}{user_id}"
         await self.__client.set(pattern, 0)
 
     @redis_error_handler
     async def user_chat_pagination_action(self, user_id: str, room_id: str, increment: bool):
         """Set `increment` to True to increment value. False - to decrement"""
-        pattern = f"{self.__user_chat_pagination_prefix_1}{user_id}{self.__user_chat_pagination_prefix_2}{room_id}"
+        pattern = f"{self.__user_chat_pagination_prefix}{user_id}"
 
         if increment:
             await self.__client.incr(pattern)
@@ -282,3 +302,4 @@ class RedisService:
             new_value = await self.__client.get(pattern)
             if int(new_value) < 0:
                 await self.__client.set(pattern, 0)
+

@@ -148,7 +148,9 @@ class MainChatService(MainServiceBase):
         # To prevent Missing Greenlet error
         await self._PostgresService.refresh_model(new_message)
 
-        await self._RedisService.add_exclude_chat_ids(exclude_ids=[new_message.message_id], user_id=user_data.user_id, exclude_type="message")
+        connections = await self._RedisService.get_chat_connections(room_id=user_data.room_id)
+        for conn in connections:
+            await self._RedisService.user_chat_pagination_action(user_id=conn, room_id=user_data.room_id, increment=True)
 
         return MessageSchemaActionIncluded.model_validate(new_message, from_attributes=True)
 
@@ -163,6 +165,11 @@ class MainChatService(MainServiceBase):
             raise Unauthorized(detail=f"ChatService: User: {user_data.user_id} tried to delete message: {message.message_id} while not being it's owner.", client_safe_detail="Unauthorized")
 
         await self._PostgresService.delete_models_and_flush(message)
+
+        connections = await self._RedisService.get_chat_connections(room_id=user_data.room_id)
+        for conn in connections:
+            await self._RedisService.user_chat_pagination_action(user_id=conn, room_id=user_data.room_id, increment=False)
+
 
         return MessageSchemaShortActionIncluded(message_id=message.message_id, action="delete")
 

@@ -1,4 +1,5 @@
 from fastapi import WebSocket, WebSocketDisconnect, APIRouter, Depends, Body
+from narwhals import exclude
 from authorization import authorize_request_depends, authorize_chat_token, JWTService
 from services.postgres_service import User, get_session_depends, merge_model
 from services.core_services.main_services import MainChatService
@@ -32,7 +33,7 @@ async def get_chat_token_participants_avatar_urls(
 @endpoint_exception_handler
 async def get_batch_of_chat_messages(
     chat_id: str,
-    exclude: bool = Depends(page_validator),
+    page: int = Depends(page_validator),
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)
 ) -> List[MessageSchema]:
@@ -65,7 +66,7 @@ async def create_group_chat(
 @chat.get("/chat")
 @endpoint_exception_handler
 async def get_my_chats(
-    exclude: bool = Depends(page_validator),
+    page: int = Depends(page_validator),
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)  
 ) -> List[Chat]:
@@ -76,7 +77,7 @@ async def get_my_chats(
 @chat.get("/chat/not-approved")
 @endpoint_exception_handler
 async def get_not_approved_chats(
-    exclude: bool = Depends(page_validator),
+    page: int = Depends(page_validator),
     user_: User = Depends(authorize_request_depends),
     session: AsyncSession = Depends(get_session_depends)  
 ) -> List[Chat]:
@@ -126,5 +127,3 @@ async def connect_to_websocket_chat_room(
 
     finally:
         connection.disconnect(room_id=connection_data.room_id, websocket=websocket)
-        async with await MainServiceContextManager[MainChatService].create(MainServiceType=MainChatService, postgres_session=session) as chat:
-            db_message_data = await chat.execute_action(request_data=request_data, connection_data=connection_data)
