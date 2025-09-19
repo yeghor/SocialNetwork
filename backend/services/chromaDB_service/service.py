@@ -39,8 +39,9 @@ def chromaDB_error_handler(func):
 class ChromaService:
     @staticmethod
     def extract_ids_from_metadata(metadatas, page: int, pagination: int) -> List[str]:
-        ids = [str(meta["post_id"]) for meta in metadatas]
-        return ids[pagination*page:(pagination*page)+pagination]
+        # TODO: !!!!!!!
+        all_ids = [str(meta["post_id"]) for batch in metadatas["metadatas"] for meta in batch]
+        return all_ids[pagination*page:(pagination*page)+pagination]
         
     def __init__(self, client: AsyncClientAPI, collection: Collection, mode: str):
         """To create class object. Use **async** method connect!"""
@@ -118,14 +119,13 @@ class ChromaService:
             metadatas=[{"post_id": str(post.post_id), "published": int(post.published.timestamp()), "user_id": str(post.owner_id)} for post in filtered_posts]
         )
 
-    @chromaDB_error_handler
-    async def search_posts_by_prompt(self, prompt: str, page: int, pagination: int) -> List[str]:
+    # @chromaDB_error_handler
+    async def search_posts_by_prompt(self, prompt: str, page: int, n: int) -> List[str]:
         search_result = await self.__collection.query(
             query_texts=[prompt.strip()],
-            n_results=((pagination * page) + pagination + GET_EXTRA_CHROMADB_RELATED_RESULTS)
+            n_results=((n * page) + n + GET_EXTRA_CHROMADB_RELATED_RESULTS)
         )
-
-        return self.extract_ids_from_metadata(metadatas=search_result, page=page, pagination=pagination)
+        return self.extract_ids_from_metadata(metadatas=search_result, page=page, pagination=n)
     
     @chromaDB_error_handler
     async def delete_by_ids(self, ids: List[str]):

@@ -77,11 +77,10 @@ class PostgresService:
             select(Post)
             .where(and_(Post.owner_id != user.user_id, Post.post_id.not_in(exclude_ids)))
             .order_by(Post.popularity_rate.desc(), Post.published.desc())
-            .offset(page*n)
+            .offset((page*n))
             .limit(n)
         )
         return result.scalars().all()
-
 
     @postgres_exception_handler(action="Get all posts")
     async def get_all_from_model(self, ModelType: Type[Models]) -> List[Models]:
@@ -136,7 +135,7 @@ class PostgresService:
             select(User)
             .where(User.username.ilike(f"%{prompt.strip()}%"))
             .options(selectinload(User.followers))
-            .offset(page*n)
+            .offset((page*n))
             .limit(n)
         )
         return result.scalars().all()

@@ -1,3 +1,7 @@
+from tkinter import image_names
+
+from aiohttp import parse_content_disposition
+from openai import images
 from services.core_services import MainServiceBase
 from services.postgres_service.models import *
 from post_popularity_rate_task.popularity_rate import POST_ACTIONS
@@ -7,6 +11,7 @@ from dotenv import load_dotenv
 from os import getenv
 from typing import List, TypeVar, Type, Literal, Iterable, NamedTuple, Union
 from pydantic_schemas.pydantic_schemas_social import (
+    PostBaseShort,
     PostSchema,
     PostDataSchemaID,
     MakePostDataSchema,
@@ -196,7 +201,7 @@ class MainServiceSocial(MainServiceBase):
                 parent_post=post.parent_post
             ) for post in posts
             ]
-    @web_exceptions_raiser
+    # @web_exceptions_raiser
     async def search_posts(self, prompt: str, user: User, page: int) -> List[PostLiteSchema]:
         """
         Search posts that similar with meaning via prompt
@@ -211,7 +216,7 @@ class MainServiceSocial(MainServiceBase):
                 title=post.title,
                 published=post.published,
                 is_reply=post.is_reply,
-                owner=post.owner,
+                owner=UserShortSchema.model_validate(post.owner, from_attributes=True),
                 pictures_urls= await self._ImageStorage.get_post_image_urls(images_names=[post_image.image_name for post_image in post.images]),
                 parent_post=post.parent_post
             ) for post in posts
@@ -393,7 +398,20 @@ class MainServiceSocial(MainServiceBase):
         )
 
     @web_exceptions_raiser
-    async def load_replies(self, post_id: str, page: int):
+    async def load_replies(self, post_id: str, page: int) -> List[PostBase]:
         replies = await self._PostgresService.get_post_replies(post_id=post_id, page=page, n=SMALL_PAGINATION)
-
         return [PostBase.model_validate(reply, from_attributes=True) for reply in replies]        
+    
+    @web_exceptions_raiser
+    async def get_user_posts(self, user_id: str, page: int) -> List[PostLiteSchema]:
+        user_posts = await self._PostgresService.get_user_posts(user_id=user_id, page=page, n=SMALL_PAGINATION)
+
+        return [PostLiteSchema(
+            post_id=post.post_id,
+            title=post.title,
+            published=post.published,
+            is_reply=post.is_reply,
+            pictures_urls=[await self._ImageStorage.get_post_image_urls(images_names=image.image_name) for image in post.images],
+            owner=UserShortSchema.model_validate(post.owner, from_attributes=True),
+            parent_post=PostBase.model_validate(post.parent_post, from_attributes=True) if post.parent_post else None
+        ) for post in user_posts]

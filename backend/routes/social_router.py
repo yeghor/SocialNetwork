@@ -55,7 +55,7 @@ async def get_followed_posts(
         return await social.get_followed_posts(user=user, page=page)
 
 @social.get("/search/posts")
-@endpoint_exception_handler
+# @endpoint_exception_handler
 async def search_posts(
     page: int = Depends(page_validator),
     prompt: str = Depends(query_prompt_required),
@@ -200,3 +200,14 @@ async def get_user_profile(
     user = await merge_model(postgres_session=session, model_obj=user_)
     async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
         return await social.get_user_profile(user_id=user.user_id, other_user_id=user_id)
+    
+@social.get("/users/{user_id}/posts/{page}")
+@endpoint_exception_handler
+async def get_users_posts(
+    user_id: str,
+    page: int = Depends(page_validator),
+    user_: User = Depends(authorize_request_depends),
+    session: AsyncSession = Depends(get_session_depends)
+) -> List[PostLiteSchema]:
+    async with await MainServiceContextManager[MainServiceSocial].create(postgres_session=session, MainServiceType=MainServiceSocial) as social:
+        return await social.get_user_posts(user_id, page)
