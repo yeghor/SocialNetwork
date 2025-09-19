@@ -18,8 +18,6 @@ from os import getenv, mkdir
 from dotenv import load_dotenv
 from post_popularity_rate_task.popularity_rate import update_post_rates
 
-import asyncio
-
 from post_popularity_rate_task.popularity_rate import scheduler
 
 import logging

@@ -324,9 +324,9 @@ class LocalStorage(ImageStorageABC):
         else:
             return
 
-    async def get_post_image_urls(self, image_names: List[str]) -> List[str]:
+    async def get_post_image_urls(self, images_names: List[str]) -> List[str]:
         urls = []
-        for provided_filename in image_names:
+        for provided_filename in images_names:
             urfsafe_token = self._generate_url_token()
 
             filenames = glob.glob(pathname=f"{provided_filename}*", root_dir=self.__media_post_path)

@@ -1,5 +1,3 @@
-from altair import Url
-from openai import chat
 from services.core_services import MainServiceBase
 from services.postgres_service.models import *
 from exceptions.custom_exceptions import *
@@ -9,8 +7,6 @@ from pydantic_schemas.pydantic_schemas_social import UserShortSchema
 from post_popularity_rate_task.popularity_rate import scheduler
 from uuid import uuid4
 
-from services.redis_service import ChatType
-
 from dotenv import load_dotenv
 from os import getenv
 
@@ -18,6 +14,10 @@ load_dotenv()
 
 MIN_CHAT_GROUP_PARTICIPANTS = int(getenv("MIN_CHAT_GROUP_PARTICIPANTS", 3))
 MAX_CHAT_GROUP_PARTICIPANTS = int(getenv("MAX_CHAT_GROUP_PARTICIPANTS", 3))
+
+BASE_PAGINATION = int(getenv("BASE_PAGINATION"))
+DIVIDE_BASE_PAG_BY = int(getenv("DIVIDE_BASE_PAG_BY"))
+SMALL_PAGINATION = int(getenv("SMALL_PAGINATION"))
 
 class MainChatService(MainServiceBase):
     @staticmethod
@@ -66,22 +66,12 @@ class MainChatService(MainServiceBase):
         return ChatTokenResponse(token=chat_token, participants_avatar_urls=avatar_urls)
 
     @web_exceptions_raiser
-    async def get_messages_batch(self, room_id: str, user: User, exclude: bool) -> List[MessageSchema]:
+    async def get_messages_batch(self, room_id: str, user: User, page: int) -> List[MessageSchema]:
         await self._get_and_authorize_chat_room(room_id=room_id, user_id=user.user_id, return_chat_room=False)
 
-        if exclude:
-            exclude_ids = await self._RedisService.get_exclude_chat_ids(user_id=user.user_id, exclude_type="message")
-        else:
-            await self._RedisService.clear_exclude_chat_ids(user_id=user.user_id, exclude_type="message")
-            exclude_ids = []
-
-        message_batch = await self._PostgresService.get_chat_n_fresh_chat_messages(room_id=room_id, exclude_ids=exclude_ids)
-
-        await self._RedisService.add_exclude_chat_ids(
-            exclude_ids=[message.message_id for message in message_batch],
-            user_id=user.user_id,
-            exclude_type="message"
-        )
+        pagination_normalization = await self._RedisService.get_user_chat_pagination(user_id=user.user_id)
+        print(pagination_normalization)
+        message_batch = await self._PostgresService.get_chat_n_fresh_chat_messages(room_id=room_id, page=page, n=BASE_PAGINATION, pagination_normalization=pagination_normalization)
 
         return [
             MessageSchema.model_validate(message, from_attributes=True)
@@ -89,21 +79,10 @@ class MainChatService(MainServiceBase):
         ]
         
     @web_exceptions_raiser
-    async def get_chat_batch(self, user: User, exclude: bool, chat_type: Literal["chat", "noе-approved"]) -> List[Chat]:
+    async def get_chat_batch(self, user: User, page: int, chat_type: Literal["chat", "noе-approved"]) -> List[Chat]:
         
-        if exclude:
-            exclude_ids = await self._RedisService.get_exclude_chat_ids(user_id=user.user_id, exclude_type=chat_type)
-        else:
-            exclude_ids = []
-            await self._RedisService.clear_exclude_chat_ids(user_id=user.user_id, exclude_type=chat_type)
-        
-        chat_batch = await self._PostgresService.get_n_user_chats(user=user, exclude_ids=exclude_ids, chat_type=chat_type)
-
-        await self._RedisService.add_exclude_chat_ids(
-            exclude_ids=[chat.room_id for chat in chat_batch],
-            user_id=user.user_id,
-            exclude_type=chat_type
-        )
+        pagination_normalization = await self._RedisService.get_user_chat_pagination(user_id=user.user_id)
+        chat_batch = await self._PostgresService.get_n_user_chats(user=user, page=page, n=BASE_PAGINATION, pagination_normalization=pagination_normalization, chat_type=chat_type)
 
         return [Chat(chat_id=chat.room_id, participants=len(chat.participants)) for chat in chat_batch]
 
@@ -148,7 +127,11 @@ class MainChatService(MainServiceBase):
         # To prevent Missing Greenlet error
         await self._PostgresService.refresh_model(new_message)
 
-        await self._RedisService.add_exclude_chat_ids(exclude_ids=[new_message.message_id], user_id=user_data.user_id, exclude_type="message")
+        connections = await self._RedisService.get_chat_connections(room_id=user_data.room_id)
+        print(connections)
+        for conn in connections:
+            print(conn)
+            await self._RedisService.user_chat_pagination_action(user_id=conn, room_id=user_data.room_id, increment=True)
 
         return MessageSchemaActionIncluded.model_validate(new_message, from_attributes=True)
 
@@ -163,6 +146,11 @@ class MainChatService(MainServiceBase):
             raise Unauthorized(detail=f"ChatService: User: {user_data.user_id} tried to delete message: {message.message_id} while not being it's owner.", client_safe_detail="Unauthorized")
 
         await self._PostgresService.delete_models_and_flush(message)
+
+        connections = await self._RedisService.get_chat_connections(room_id=user_data.room_id)
+        for conn in connections:
+            await self._RedisService.user_chat_pagination_action(user_id=conn, room_id=user_data.room_id, increment=False)
+
 
         return MessageSchemaShortActionIncluded(message_id=message.message_id, action="delete")
 

@@ -1,16 +1,12 @@
-from chromadb import AsyncHttpClient, Collection, QueryResult
+from chromadb import AsyncHttpClient, Collection
 from chromadb.api.async_api import AsyncClientAPI
 from chromadb.errors import ChromaError
 from dotenv import load_dotenv
 from os import getenv
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Literal
+from typing import List
 from functools import wraps
 from services.postgres_service import Post, User
-from uuid import UUID
 from fastapi import HTTPException
-from datetime import datetime
-from mix_posts_consts import FEED_MAX_POSTS_LOAD, MIX_HISTORY_POSTS_RELATED
 from exceptions.custom_exceptions import EmptyPostsError, ChromaDBError
 
 load_dotenv()
@@ -42,16 +38,11 @@ def chromaDB_error_handler(func):
 
 class ChromaService:
     @staticmethod
-    def extract_ids_from_metadata(result, posts_type: Literal["search", "feed"], exclude_ids: List[str] = []) -> List[str]:
-        metadatas = sorted(result["metadatas"][0], key=lambda meta: meta["published"], reverse=True)
-        print(len(metadatas))
-        post_ids = [str(meta["post_id"]) for meta in metadatas]
-        prepared_ids = [id_ for id_ in post_ids if id_ not in exclude_ids]
-        print(prepared_ids)
-        if posts_type == "feed": return prepared_ids[:MIX_HISTORY_POSTS_RELATED]
-        elif posts_type == "search": return prepared_ids[:FEED_MAX_POSTS_LOAD]
- 
-
+    def extract_ids_from_metadata(metadatas, page: int, pagination: int) -> List[str]:
+        # TODO: !!!!!!!
+        all_ids = [str(meta["post_id"]) for batch in metadatas["metadatas"] for meta in batch]
+        return all_ids[pagination*page:(pagination*page)+pagination]
+        
     def __init__(self, client: AsyncClientAPI, collection: Collection, mode: str):
         """To create class object. Use **async** method connect!"""
         self.__collection: Collection = collection
@@ -96,23 +87,19 @@ class ChromaService:
         
 
     @chromaDB_error_handler
-    async def get_n_related_posts_ids(self, user: User, exclude_ids: List[str], post_relation: List[Post], n: int = FEED_MAX_POSTS_LOAD)-> List[str]:
+    async def get_n_related_posts_ids(self, user: User, page: int, post_relation: List[Post], pagination: int)-> List[str]:
         """Get n posts related to user's history \n If user history empty - return [] \n `views_history` Must be list of Posts in descending view date."""
 
         if not post_relation:
             return []
-
-        related_posts = await self.__collection.query(
+        
+        related_posts_metadatas = await self.__collection.query(
             query_texts=[f"{post.title} {post.text} {post.published.strftime(self._datetime_format)}" for post in post_relation],
-            n_results=(n + len(exclude_ids) + GET_EXTRA_CHROMADB_RELATED_RESULTS),
-            where={
-                "user_id": {
-                    "$ne": user.user_id
-                }
-            }
+            n_results=((pagination * page) + pagination + GET_EXTRA_CHROMADB_RELATED_RESULTS),
         )
 
-        return self.extract_ids_from_metadata(result=related_posts, exclude_ids=exclude_ids, posts_type="feed")
+        return self.extract_ids_from_metadata(metadatas=related_posts_metadatas, page=page, pagination=pagination)
+       
 
     @chromaDB_error_handler
     async def add_posts_data(self, posts: List[Post]) -> None:
@@ -132,17 +119,13 @@ class ChromaService:
             metadatas=[{"post_id": str(post.post_id), "published": int(post.published.timestamp()), "user_id": str(post.owner_id)} for post in filtered_posts]
         )
 
-    @chromaDB_error_handler
-    async def search_posts_by_prompt(self, prompt: str, exclude_ids: List[str], n: int = FEED_MAX_POSTS_LOAD) -> List[str]:
-        if not prompt:
-            raise ValueError("Empty search prompt!")
-        
+    # @chromaDB_error_handler
+    async def search_posts_by_prompt(self, prompt: str, page: int, n: int) -> List[str]:
         search_result = await self.__collection.query(
             query_texts=[prompt.strip()],
-            n_results=(n + len(exclude_ids))
+            n_results=((n * page) + n + GET_EXTRA_CHROMADB_RELATED_RESULTS)
         )
-        print(n+len(exclude_ids))
-        return self.extract_ids_from_metadata(result=search_result, exclude_ids=exclude_ids, posts_type="search")
+        return self.extract_ids_from_metadata(metadatas=search_result, page=page, pagination=n)
     
     @chromaDB_error_handler
     async def delete_by_ids(self, ids: List[str]):
