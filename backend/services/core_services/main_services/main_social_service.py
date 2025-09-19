@@ -1,7 +1,3 @@
-from tkinter import image_names
-
-from aiohttp import parse_content_disposition
-from openai import images
 from services.core_services import MainServiceBase
 from services.postgres_service.models import *
 from post_popularity_rate_task.popularity_rate import POST_ACTIONS
