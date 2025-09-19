@@ -1,5 +1,4 @@
 from fastapi import WebSocket, WebSocketDisconnect, APIRouter, Depends, Body
-from narwhals import exclude
 from authorization import authorize_request_depends, authorize_chat_token, JWTService
 from services.postgres_service import User, get_session_depends, merge_model
 from services.core_services.main_services import MainChatService
