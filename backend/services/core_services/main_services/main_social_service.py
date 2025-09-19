@@ -36,6 +36,8 @@ MINIMUM_USER_HISTORY_LENGTH = int(getenv("MINIMUM_USER_HISTORY_LENGTH"))
 SHUFFLE_BY_RATE = float(getenv("SHUFFLE_BY_RATE", "0.7"))
 SHUFFLE_BY_TIMESTAMP = float(getenv("SHUFFLE_BY_TIMESTAMP", "0.3"))
 
+REPLY_COST_DEVALUATION = float(getenv("REPLY_COST_DEVALUATION", "0.5"))
+MAX_REPLIES_THAT_GIVE_POPULARITY_RATE = int(getenv("MAX_REPLIES_THAT_GIVE_POPULARITY_RATE", "3"))
 
 BASE_PAGINATION = int(getenv("BASE_PAGINATION"))
 DIVIDE_BASE_PAG_BY = int(getenv("DIVIDE_BASE_PAG_BY"))
@@ -50,13 +52,13 @@ class IdsPostTuple(NamedTuple):
 
 class MainServiceSocial(MainServiceBase):
     @staticmethod
-    def change_post_rate(post: Post, action_type: ActionType, add: bool) -> None:
-        """Set add to True to add tate, False to subtrack"""
-        cost = POST_ACTIONS[action_type.value]
-        if add: 
-            post.popularity_rate += cost
-        else:
-            post.popularity_rate -= cost
+    def change_post_rate(post: Post, action_type: ActionType | None, add: bool,  cost: int | None = None) -> None:
+        """Set add to True to add rate, False to subtrack \n If you want to increase rate by specific rate - provide cost"""
+        if not cost:
+            cost = POST_ACTIONS[action_type.value]
+
+        if add: post.popularity_rate += cost
+        else: post.popularity_rate -= cost
 
     @staticmethod
     def combine_lists(*lists: Iterable) -> List:
@@ -87,21 +89,25 @@ class MainServiceSocial(MainServiceBase):
         
     async def _construct_and_flush_action(self, action_type: ActionType, user: User, post: Post = None) -> None:
         """Protected method. Do NOT call this method outside the class"""
+        actions = await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=action_type)
+        cost = POST_ACTIONS[action_type.value]
 
-        if await self._PostgresService.get_actions(user_id=user.user_id, post_id=post.post_id, action_type=action_type):
+        if actions:
             if action_type == ActionType.view:
                 if not await self._RedisService.check_view_timeout(id_=post.post_id, user_id=user.user_id):
                     return
             elif action_type == ActionType.reply:
-                # TODO: Reply populatiry rate evaluation
-                pass
+                if len(actions) < MAX_REPLIES_THAT_GIVE_POPULARITY_RATE:
+                    cost = POST_ACTIONS[action_type.value]
+                    for _ in range(len(actions)): cost *= REPLY_COST_DEVALUATION
+                else: cost = 0
             else:
-                raise InvalidAction(detail=f"SocialService: User: {user.user_id} tried to reply to give already giver action: {action_type.value} to post: {post.post_id} that does not exists.", client_safe_detail="This action is already given to this post.")
+                raise InvalidAction(detail=f"SocialService: User: {user.user_id} tried to give already giveт action: {action_type.value} to post: {post.post_id} that does not exists.", client_safe_detail="This action is already given to this post.")
 
         if action_type == ActionType.view:
             await self._RedisService.add_view(user_id=user.user_id, id_=post.post_id)
 
-        self.change_post_rate(post=post, action_type=action_type, add=True)
+        self.change_post_rate(post=post, action_type=action_type, cost=cost, add=True)
 
         action = PostActions(
             action_id=str(uuid4()),
@@ -127,8 +133,9 @@ class MainServiceSocial(MainServiceBase):
         """`
         Returns related posts to provided User table object view history \n
         It mixes history rated with most popular posts, and newest ones.
-        Caution! If `exclude` set to True. It means that user clicked on `Load more` button and we need to update Redis exclude ids with fresh loaded. And ensure that we load non repeating posts \n
         """
+
+        # TODO: KISS THIS MOTHERFUCKER
 
         EACH_SOURCE_PAGINATION = int(BASE_PAGINATION / DIVIDE_BASE_PAG_BY)
 
@@ -197,10 +204,11 @@ class MainServiceSocial(MainServiceBase):
                 parent_post=post.parent_post
             ) for post in posts
             ]
-    # @web_exceptions_raiser
+    
+    @web_exceptions_raiser
     async def search_posts(self, prompt: str, user: User, page: int) -> List[PostLiteSchema]:
         """
-        Search posts that similar with meaning via prompt
+        Search posts that similar with meaning to prompt
         """
 
         post_ids = await self._ChromaService.search_posts_by_prompt(prompt=prompt, page=page, n=BASE_PAGINATION)
